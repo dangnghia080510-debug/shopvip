@@ -469,14 +469,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       <h2 class="section-title">Tất Cả Danh Mục</h2>
     </div>
   </div>
-  <div class="categories-grid">
-    <div class="category-card" onclick="filterCat('mouse',null);scrollTo('products')"><div class="cat-icon">🖱️</div><div class="cat-name">Chuột</div><div class="cat-count" data-cat="mouse">0 sản phẩm</div></div>
-    <div class="category-card" onclick="filterCat('keyboard',null);scrollTo('products')"><div class="cat-icon">⌨️</div><div class="cat-name">Bàn Phím</div><div class="cat-count" data-cat="keyboard">0 sản phẩm</div></div>
-    <div class="category-card" onclick="filterCat('headset',null);scrollTo('products')"><div class="cat-icon">🎧</div><div class="cat-name">Tai Nghe</div><div class="cat-count" data-cat="headset">0 sản phẩm</div></div>
-    <div class="category-card" onclick="filterCat('monitor',null);scrollTo('products')"><div class="cat-icon">🖥️</div><div class="cat-name">Màn Hình</div><div class="cat-count" data-cat="monitor">0 sản phẩm</div></div>
-    <div class="category-card" onclick="filterCat('chair',null);scrollTo('products')"><div class="cat-icon">🪑</div><div class="cat-name">Ghế</div><div class="cat-count" data-cat="chair">0 sản phẩm</div></div>
-    <div class="category-card" onclick="filterCat('controller',null);scrollTo('products')"><div class="cat-icon">🎮</div><div class="cat-name">Tay Cầm</div><div class="cat-count" data-cat="controller">0 sản phẩm</div></div>
-  </div>
+  <div class="categories-grid" id="categoriesGrid"></div>
 </section>
 
 <!-- DEALS BANNER -->
@@ -504,15 +497,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
     </div>
     <button class="view-all" onclick="resetFilter()">Xem tất cả</button>
   </div>
-  <div class="filters">
-    <button class="filter-btn active" onclick="filterCat('all',this)">Tất Cả</button>
-    <button class="filter-btn" onclick="filterCat('mouse',this)">Chuột</button>
-    <button class="filter-btn" onclick="filterCat('keyboard',this)">Bàn Phím</button>
-    <button class="filter-btn" onclick="filterCat('headset',this)">Tai Nghe</button>
-    <button class="filter-btn" onclick="filterCat('monitor',this)">Màn Hình</button>
-    <button class="filter-btn" onclick="filterCat('chair',this)">Ghế</button>
-    <button class="filter-btn" onclick="filterCat('controller',this)">Tay Cầm</button>
-  </div>
+  <div class="filters" id="filterButtons"></div>
   <div class="product-grid" id="productGrid"></div>
 </section>
 
@@ -862,14 +847,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       </div>
       <div class="form-group">
         <label class="form-label">Danh Mục</label>
-        <select class="form-input" id="pfCategory">
-          <option value="mouse">Chuột</option>
-          <option value="keyboard">Bàn Phím</option>
-          <option value="headset">Tai Nghe</option>
-          <option value="monitor">Màn Hình</option>
-          <option value="chair">Ghế</option>
-          <option value="controller">Tay Cầm</option>
-        </select>
+        <select class="form-input" id="pfCategory"></select>
       </div>
       <div class="form-group">
         <label class="form-label">Emoji Đại Diện</label>
@@ -973,9 +951,20 @@ function getSettings() {
     bankName: 'Vietcombank',
     bankAccount: '0123456789',
     bankHolder: 'CONG TY TNHH SHOPVIP',
-    bankBranch: 'Chi nhánh TP.HCM'
+    bankBranch: 'Chi nhánh TP.HCM',
+    categories: [
+      { key:'mouse', icon:'🖱️', label:'Chuột' },
+      { key:'keyboard', icon:'⌨️', label:'Bàn Phím' },
+      { key:'headset', icon:'🎧', label:'Tai Nghe' },
+      { key:'monitor', icon:'🖥️', label:'Màn Hình' },
+      { key:'chair', icon:'🪑', label:'Ghế' },
+      { key:'controller', icon:'🎮', label:'Tay Cầm' }
+    ]
   };
-  try { return { ...defaults, ...JSON.parse(localStorage.getItem('svip_settings') || '{}') }; }
+  try {
+    const stored = JSON.parse(localStorage.getItem('svip_settings') || '{}');
+    return { ...defaults, ...stored, categories: (stored.categories && stored.categories.length) ? stored.categories : defaults.categories };
+  }
   catch { return defaults; }
 }
 function saveSettings(settings) {
@@ -1434,19 +1423,37 @@ function renderAdminSettings() {
     <div class="form-group"><label class="form-label">Số Tài Khoản</label><input class="form-input" id="stBankAccount" value="${s.bankAccount}"></div>
     <div class="form-group"><label class="form-label">Chủ Tài Khoản</label><input class="form-input" id="stBankHolder" value="${s.bankHolder}"></div>
     <div class="form-group"><label class="form-label">Chi Nhánh</label><input class="form-input" id="stBankBranch" value="${s.bankBranch}"></div>
+    <div style="border-top:1px solid var(--border);margin-top:0.5rem;padding-top:1.25rem">
+      <label class="form-label" style="display:block;margin-bottom:0.75rem">Tên Danh Mục Sản Phẩm</label>
+      ${s.categories.map((c,i) => `
+        <div class="form-group" style="flex-direction:row;align-items:center;gap:0.6rem;margin-bottom:0.6rem">
+          <span style="font-size:1.3rem;width:28px;flex-shrink:0">${c.icon}</span>
+          <input class="form-input" data-cat-key="${c.key}" value="${c.label}" style="flex:1">
+        </div>`).join('')}
+    </div>
     <button class="settings-save-btn" onclick="saveAdminSettingsForm()">💾 Lưu Cài Đặt</button>`;
 }
 function saveAdminSettingsForm() {
   if (!currentUser || currentUser.role !== 'admin') return;
+  const oldCategories = getSettings().categories;
+  const categories = oldCategories.map(c => {
+    const input = document.querySelector(`[data-cat-key="${c.key}"]`);
+    const label = input.value.trim();
+    return { ...c, label: label || c.label };
+  });
   const settings = {
     siteName: document.getElementById('stSiteName').value.trim() || 'ShopVIP.com',
     hotline: document.getElementById('stHotline').value.trim(),
     bankName: document.getElementById('stBankName').value.trim(),
     bankAccount: document.getElementById('stBankAccount').value.trim(),
     bankHolder: document.getElementById('stBankHolder').value.trim(),
-    bankBranch: document.getElementById('stBankBranch').value.trim()
+    bankBranch: document.getElementById('stBankBranch').value.trim(),
+    categories
   };
   saveSettings(settings);
+  renderCategoryCards();
+  renderFilterButtons();
+  renderProducts();
   showToast('✅ Đã lưu cài đặt cửa hàng');
 }
 
@@ -1470,6 +1477,7 @@ function renderAdminProducts() {
 }
 function openProductModal(id) {
   const editing = id !== null;
+  document.getElementById('pfCategory').innerHTML = getSettings().categories.map(c => `<option value="${c.key}">${c.label}</option>`).join('');
   document.getElementById('productFormTitle').textContent = editing ? 'Sửa Sản Phẩm' : 'Thêm Sản Phẩm';
   document.getElementById('productFormOverlay').dataset.editId = editing ? id : '';
   if (editing) {
@@ -1594,7 +1602,27 @@ function renderProducts() {
 }
 
 function getCatLabel(cat) {
-  return {mouse:'Chuột Gaming',keyboard:'Bàn Phím Cơ',headset:'Tai Nghe',monitor:'Màn Hình',chair:'Ghế Gaming',controller:'Tay Cầm'}[cat] || cat;
+  const found = getSettings().categories.find(c => c.key === cat);
+  return found ? found.label : cat;
+}
+function getCatIcon(cat) {
+  const found = getSettings().categories.find(c => c.key === cat);
+  return found ? found.icon : '📦';
+}
+function renderCategoryCards() {
+  const cats = getSettings().categories;
+  document.getElementById('categoriesGrid').innerHTML = cats.map(c => `
+    <div class="category-card" onclick="filterCat('${c.key}',null);scrollTo('products')">
+      <div class="cat-icon">${c.icon}</div>
+      <div class="cat-name">${c.label}</div>
+      <div class="cat-count" data-cat="${c.key}">0 sản phẩm</div>
+    </div>`).join('');
+}
+function renderFilterButtons() {
+  const cats = getSettings().categories;
+  document.getElementById('filterButtons').innerHTML =
+    `<button class="filter-btn active" onclick="filterCat('all',this)">Tất Cả</button>` +
+    cats.map(c => `<button class="filter-btn" onclick="filterCat('${c.key}',this)">${c.label}</button>`).join('');
 }
 function fmt(n) { return new Intl.NumberFormat('vi-VN').format(n) + '₫'; }
 function filterCat(cat, btn) {
@@ -1788,6 +1816,8 @@ document.addEventListener('keydown', e => {
 
 // ─── INIT ───
 products = getProducts();
+renderCategoryCards();
+renderFilterButtons();
 renderProducts();
 startCountdown();
 updateNavAuth();
