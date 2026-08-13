@@ -721,6 +721,10 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <h4>📦 Lịch Sử Đơn Hàng</h4>
         <div id="profileOrderList"><div style="color:var(--muted);font-size:0.82rem">Chưa có đơn hàng nào.</div></div>
       </div>
+      <div class="profile-orders" style="margin-top:1.5rem">
+        <h4>💳 Lịch Sử Giao Dịch Ví</h4>
+        <div id="profileLedgerList"><div style="color:var(--muted);font-size:0.82rem">Chưa có giao dịch nào.</div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -740,6 +744,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       <button class="admin-nav-item" onclick="adminTab('products')">🛒 Sản Phẩm</button>
       <button class="admin-nav-item" onclick="adminTab('orders')">📦 Đơn Hàng</button>
       <button class="admin-nav-item" onclick="adminTab('spin')">🎡 Vòng Quay</button>
+      <button class="admin-nav-item" id="navAdmins" style="display:none" onclick="adminTab('admins')">🔑 Quản Trị Viên</button>
       <button class="admin-nav-item" onclick="adminTab('settings')">⚙️ Cài Đặt</button>
     </div>
   </div>
@@ -819,6 +824,30 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
           <tbody id="adminSpinLogList"></tbody>
         </table>
       </div>
+      <!-- SUB-ADMINS (chỉ super admin thấy) -->
+      <div class="admin-section" id="sec-admins">
+        <div class="section-subtitle">Quản Trị Viên</div>
+        <div style="font-size:0.82rem;color:var(--muted);margin-bottom:1.25rem">Chỉ tài khoản Admin gốc mới có thể thêm hoặc xoá Admin phụ. Admin phụ có toàn quyền truy cập bảng điều khiển như Admin gốc.</div>
+        <div class="admin-card" style="margin-bottom:1.5rem;max-width:480px">
+          <div class="form-group">
+            <label class="form-label">Tên Admin Phụ</label>
+            <input class="form-input" type="text" id="subAdminName" placeholder="VD: Nguyễn Văn A">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Đăng Nhập</label>
+            <input class="form-input" type="email" id="subAdminEmail" placeholder="VD: staff1@shopvip.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mật Khẩu</label>
+            <input class="form-input" type="text" id="subAdminPassword" placeholder="Mật khẩu đăng nhập">
+          </div>
+          <button class="btn-admin-primary" onclick="addSubAdmin()">+ Thêm Admin Phụ</button>
+        </div>
+        <table class="admin-table">
+          <thead><tr><th>Tên</th><th>Email</th><th>Loại</th><th>Ngày Thêm</th><th>Thao Tác</th></tr></thead>
+          <tbody id="adminAdminList"></tbody>
+        </table>
+      </div>
       <!-- SETTINGS -->
       <div class="admin-section" id="sec-settings">
         <div class="section-subtitle">Cài Đặt Cửa Hàng &amp; Tài Khoản Nhận Nạp Ví</div>
@@ -875,6 +904,11 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         </div>
       </div>
       <div class="form-group">
+        <label class="form-label">🎁 Sản Phẩm Có Sẵn (tự động giao từ kho, tùy chọn)</label>
+        <select class="form-input" id="coProduct" onchange="onCoProductChange()"></select>
+        <p style="font-size:0.72rem;color:var(--muted);margin:0.3rem 0 0">Chọn sản phẩm có kho → hệ thống tự điền mô tả/giá và tự rút 1 mã trong kho khi tạo đơn. Để trống nếu muốn nhập tay bên dưới.</p>
+      </div>
+      <div class="form-group">
         <label class="form-label">Mô Tả Sản Phẩm / Dịch Vụ</label>
         <input class="form-input" type="text" id="coDesc" placeholder="VD: Chuột Logitech G Pro X (đơn đặt riêng)">
         <span class="form-error" id="coDescErr">Vui lòng nhập mô tả sản phẩm</span>
@@ -892,8 +926,8 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
           <option value="unpaid">Chưa Thanh Toán (COD / Ghi Nợ)</option>
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">🎁 Nội Dung Giao Hàng (tùy chọn)</label>
+      <div class="form-group" id="coDeliveryGroup">
+        <label class="form-label">🎁 Nội Dung Giao Hàng (tùy chọn nếu không chọn sản phẩm ở trên)</label>
         <textarea class="form-input" id="coDelivery" rows="3" placeholder="VD: tài khoản/mật khẩu, key, link tải..." style="resize:vertical;font-family:'Share Tech Mono',monospace"></textarea>
       </div>
       <button class="auth-submit" onclick="submitCustomOrder()">Tạo Đơn Hàng →</button>
@@ -1027,6 +1061,10 @@ let products = [];
 function getUsers() {
   try { return JSON.parse(localStorage.getItem('svip_users') || '[]'); } catch { return []; }
 }
+function addLedgerEntry(users, idx, amount, note) {
+  if (!users[idx].ledger) users[idx].ledger = [];
+  users[idx].ledger.push({ amount, note, date: new Date().toISOString() });
+}
 function saveUsers(users) {
   localStorage.setItem('svip_users', JSON.stringify(users));
 }
@@ -1112,11 +1150,16 @@ function saveSpins(spins) {
       role: 'admin',
       wallet: 0,
       joined: new Date().toISOString(),
-      orders: []
+      orders: [],
+      ledger: []
     });
     saveUsers(users);
   }
 })();
+const SUPER_ADMIN_EMAIL = 'admin@shopvip.com';
+function isSuperAdmin() {
+  return !!currentUser && currentUser.email === SUPER_ADMIN_EMAIL;
+}
 
 // ─── AUTH FUNCTIONS ───
 function openAuth(tab='login') {
@@ -1198,7 +1241,8 @@ function doRegister() {
     role: 'customer',
     wallet: 0,
     joined: new Date().toISOString(),
-    orders: []
+    orders: [],
+    ledger: []
   };
   users.push(newUser);
   saveUsers(users);
@@ -1287,6 +1331,18 @@ function openProfile() {
       </div>`;
     }).join('');
   }
+  const ledgerList = document.getElementById('profileLedgerList');
+  const ledger = currentUser.ledger || [];
+  if (ledger.length === 0) {
+    ledgerList.innerHTML = '<div style="color:var(--muted);font-size:0.82rem">Chưa có giao dịch nào.</div>';
+  } else {
+    ledgerList.innerHTML = ledger.slice(-10).reverse().map(l => `
+      <div class="order-row">
+        <span style="font-size:0.82rem">${l.note}</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:${l.amount>=0?'var(--teal)':'var(--crimson)'}">${l.amount>=0?'+':''}${fmt(l.amount)}</span>
+        <span style="font-size:0.72rem;color:var(--muted)">${new Date(l.date).toLocaleString('vi-VN')}</span>
+      </div>`).join('');
+  }
   document.getElementById('profileOverlay').classList.add('open');
 }
 function toggleOrderDelivery(boxId) {
@@ -1314,7 +1370,60 @@ function openAdmin() {
   renderAdminProducts();
   renderAdminOrders();
   renderAdminSettings();
+  document.getElementById('navAdmins').style.display = isSuperAdmin() ? '' : 'none';
+  if (isSuperAdmin()) renderAdminAdmins();
   document.getElementById('adminOverlay').classList.add('open');
+}
+function renderAdminAdmins() {
+  const users = getUsers().filter(u => u.role === 'admin');
+  document.getElementById('adminAdminList').innerHTML = users.map(u => {
+    const isSuper = u.email === SUPER_ADMIN_EMAIL;
+    return `
+    <tr>
+      <td>${u.name}</td>
+      <td class="mono" style="font-size:0.78rem">${u.email}</td>
+      <td>${isSuper ? '<span class="badge-admin">ADMIN GỐC</span>' : '<span class="badge-active">Admin Phụ</span>'}</td>
+      <td style="font-size:0.78rem;color:var(--muted)">${new Date(u.joined).toLocaleDateString('vi-VN')}</td>
+      <td>${isSuper ? '—' : `<button class="wallet-sub-btn" onclick="removeSubAdmin('${u.id}')">✕ Xoá Quyền</button>`}</td>
+    </tr>`;
+  }).join('');
+}
+function addSubAdmin() {
+  if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền thêm Admin phụ', 'error'); return; }
+  const name = document.getElementById('subAdminName').value.trim();
+  const email = document.getElementById('subAdminEmail').value.trim();
+  const password = document.getElementById('subAdminPassword').value;
+  if (name.length < 2) { showToast('❌ Vui lòng nhập tên hợp lệ', 'error'); return; }
+  if (!email || !email.includes('@')) { showToast('❌ Vui lòng nhập email hợp lệ', 'error'); return; }
+  if (password.length < 6) { showToast('❌ Mật khẩu cần ít nhất 6 ký tự', 'error'); return; }
+  const users = getUsers();
+  if (users.find(u => u.email === email)) { showToast('❌ Email này đã tồn tại', 'error'); return; }
+  users.push({
+    id: 'admin_' + Date.now(),
+    name, email, phone: '', password,
+    role: 'admin',
+    wallet: 0,
+    joined: new Date().toISOString(),
+    orders: [],
+    ledger: []
+  });
+  saveUsers(users);
+  document.getElementById('subAdminName').value = '';
+  document.getElementById('subAdminEmail').value = '';
+  document.getElementById('subAdminPassword').value = '';
+  showToast(`✅ Đã thêm Admin phụ "${name}"`);
+  renderAdminAdmins();
+}
+function removeSubAdmin(userId) {
+  if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền xoá Admin phụ', 'error'); return; }
+  const users = getUsers();
+  const target = users.find(u => u.id === userId);
+  if (!target || target.email === SUPER_ADMIN_EMAIL) return;
+  if (!window.confirm(`Xoá quyền Admin của "${target.name}"? Tài khoản sẽ chuyển về khách hàng thường.`)) return;
+  target.role = 'customer';
+  saveUsers(users);
+  showToast(`✅ Đã xoá quyền Admin của "${target.name}"`);
+  renderAdminAdmins();
 }
 function closeAdmin() {
   document.getElementById('adminOverlay').classList.remove('open');
@@ -1324,8 +1433,9 @@ function adminTab(tab) {
   document.querySelectorAll('.admin-nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   event.target.classList.add('active');
-  const titles = {dashboard:'📊 Dashboard',users:'👥 Khách Hàng',wallets:'💰 Quản Lý Ví',deposits:'🏦 Yêu Cầu Nạp Tiền',products:'🛒 Sản Phẩm',orders:'📦 Đơn Hàng',spin:'🎡 Vòng Quay',settings:'⚙️ Cài Đặt'};
+  const titles = {dashboard:'📊 Dashboard',users:'👥 Khách Hàng',wallets:'💰 Quản Lý Ví',deposits:'🏦 Yêu Cầu Nạp Tiền',products:'🛒 Sản Phẩm',orders:'📦 Đơn Hàng',spin:'🎡 Vòng Quay',admins:'🔑 Quản Trị Viên',settings:'⚙️ Cài Đặt'};
   if (tab === 'spin') renderAdminSpins();
+  if (tab === 'admins') { if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền truy cập', 'error'); return; } renderAdminAdmins(); }
   document.getElementById('adminPageTitle').textContent = titles[tab] || tab;
 }
 
@@ -1391,6 +1501,7 @@ function adminWalletOp(userId, sign) {
   const newBalance = users[idx].wallet + (sign * amount);
   if (newBalance < 0) { showToast('❌ Số dư không đủ để trừ', 'error'); return; }
   users[idx].wallet = newBalance;
+  addLedgerEntry(users, idx, sign*amount, sign > 0 ? `Admin nạp tiền` : `Admin trừ tiền`);
   saveUsers(users);
   input.value = '';
   showToast(sign > 0 ? `✅ Nạp ${fmt(amount)} cho ${users[idx].name}` : `✅ Trừ ${fmt(amount)} từ ${users[idx].name}`);
@@ -1515,6 +1626,7 @@ function adminApproveDeposit(id) {
   const idx = users.findIndex(u => u.id === dep.userId);
   if (idx < 0) { showToast('❌ Không tìm thấy khách hàng', 'error'); return; }
   users[idx].wallet += dep.amount;
+  addLedgerEntry(users, idx, dep.amount, 'Nạp tiền vào ví (đã duyệt)');
   saveUsers(users);
   dep.status = 'approved';
   saveDeposits(deposits);
@@ -1547,12 +1659,45 @@ function refreshCoCustomerSelect(selectId) {
   hint.style.display = users.length === 0 ? 'block' : 'none';
   return users;
 }
+function refreshCoProductSelect() {
+  const sel = document.getElementById('coProduct');
+  const opts = ['<option value="">— Không dùng (nhập tay bên dưới) —</option>']
+    .concat(products.map(p => {
+      const stock = (p.deliveryCodes || []).length;
+      return `<option value="${p.id}">${p.name} — ${fmt(p.price)} (kho: ${stock})</option>`;
+    }));
+  sel.innerHTML = opts.join('');
+}
+function onCoProductChange() {
+  const pid = parseInt(document.getElementById('coProduct').value);
+  const deliveryGroup = document.getElementById('coDeliveryGroup');
+  const deliveryTextarea = document.getElementById('coDelivery');
+  if (!pid) {
+    deliveryGroup.style.display = '';
+    deliveryTextarea.readOnly = false;
+    deliveryTextarea.placeholder = 'VD: tài khoản/mật khẩu, key, link tải...';
+    return;
+  }
+  const p = products.find(x => x.id === pid);
+  if (!p) return;
+  document.getElementById('coDesc').value = p.name;
+  document.getElementById('coPrice').value = p.price;
+  const stock = (p.deliveryCodes || []).length;
+  deliveryTextarea.value = '';
+  deliveryTextarea.readOnly = true;
+  deliveryTextarea.placeholder = stock > 0
+    ? `✅ Sẽ tự động rút 1 mã trong kho (còn ${stock} mã) khi tạo đơn.`
+    : `⚠️ Kho sản phẩm này đang trống — đơn sẽ tạo với trạng thái "chờ giao thủ công".`;
+}
 function openCustomOrderModal() {
   refreshCoCustomerSelect();
+  refreshCoProductSelect();
+  document.getElementById('coProduct').value = '';
   document.getElementById('coDesc').value = '';
   document.getElementById('coPrice').value = '';
   document.getElementById('coPayment').value = 'wallet';
   document.getElementById('coDelivery').value = '';
+  document.getElementById('coDelivery').readOnly = false;
   document.getElementById('coDescErr').classList.remove('show');
   document.getElementById('coPriceErr').classList.remove('show');
   document.getElementById('coNewCustomerBox').style.display = 'none';
@@ -1581,7 +1726,8 @@ function quickCreateCustomer() {
     role: 'customer',
     wallet: 0,
     joined: new Date().toISOString(),
-    orders: []
+    orders: [],
+    ledger: []
   };
   users.push(newUser);
   saveUsers(users);
@@ -1598,6 +1744,7 @@ function submitCustomOrder() {
   const desc = document.getElementById('coDesc').value.trim();
   const price = parseInt(document.getElementById('coPrice').value);
   const payment = document.getElementById('coPayment').value;
+  const pid = parseInt(document.getElementById('coProduct').value);
   let valid = true;
   if (!desc) { document.getElementById('coDescErr').classList.add('show'); valid = false; }
   if (isNaN(price) || price < 0) { document.getElementById('coPriceErr').classList.add('show'); valid = false; }
@@ -1609,24 +1756,36 @@ function submitCustomOrder() {
   if (payment === 'wallet') {
     if (users[idx].wallet < price) { showToast(`❌ Ví khách hàng không đủ. Cần ${fmt(price)}, có ${fmt(users[idx].wallet)}`, 'error'); return; }
     users[idx].wallet -= price;
+    addLedgerEntry(users, idx, -price, `Thanh toán đơn hàng tùy chỉnh (admin tạo)`);
     saveUsers(users);
     if (currentUser.id === userId) { currentUser.wallet = users[idx].wallet; updateNavAuth(); }
+  }
+  // Auto-delivery từ kho sản phẩm nếu admin chọn sản phẩm có sẵn
+  let delivery = document.getElementById('coDelivery').value.trim();
+  if (pid) {
+    const p = products.find(x => x.id === pid);
+    if (p && p.deliveryCodes && p.deliveryCodes.length) {
+      delivery = p.deliveryCodes.shift();
+      saveProducts(products);
+    } else {
+      delivery = '[Đang chờ Admin giao thủ công]';
+    }
   }
   const orders = getOrders();
   orders.push({
     id: 'SVP' + Date.now(),
     userId: users[idx].id,
     userName: users[idx].name,
-    items: [{ id: 'custom', name: desc, qty: 1, price }],
+    items: [{ id: pid || 'custom', name: desc, qty: 1, price }],
     total: price,
     status: payment === 'wallet' ? 'completed' : payment,
-    delivery: document.getElementById('coDelivery').value.trim(),
+    delivery,
     date: new Date().toISOString()
   });
   saveOrders(orders);
   closeCustomOrderModal();
-  showToast(`✅ Đã tạo đơn hàng tùy chỉnh cho ${users[idx].name}`);
-  renderAdminOrders(); renderAdminDashboard(); renderAdminWallets(); renderAdminUsers();
+  showToast(`✅ Đã tạo đơn hàng cho ${users[idx].name}${pid ? ' — nội dung giao hàng đã tự động gán' : ''}`);
+  renderAdminOrders(); renderAdminDashboard(); renderAdminWallets(); renderAdminUsers(); renderAdminProducts();
 }
 
 // ─── ADMIN SETTINGS ───
@@ -1841,12 +2000,14 @@ function renderProducts() {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:1.1rem">Không tìm thấy sản phẩm.</div>`;
     return;
   }
-  grid.innerHTML = filtered.map(p => `
+  grid.innerHTML = filtered.map(p => {
+    const outOfStock = Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
+    return `
     <div class="product-card" onclick="openModal(${p.id})">
       <div class="product-img" style="background:${p.bg}">
         <div class="product-img-bg" style="background:${p.bg}"></div>
-        ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge==='sale'?'SALE':p.badge==='new'?'NEW':p.badge==='hot'?'HOT':'LIMITED'}</span>` : ''}
-        <span style="position:relative;z-index:2;font-size:4rem">${p.emoji}</span>
+        ${outOfStock ? `<span class="product-badge" style="background:var(--crimson);color:#fff">HẾT HÀNG</span>` : (p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge==='sale'?'SALE':p.badge==='new'?'NEW':p.badge==='hot'?'HOT':'LIMITED'}</span>` : '')}
+        <span style="position:relative;z-index:2;font-size:4rem;${outOfStock?'opacity:0.4':''}">${p.emoji}</span>
         <button class="wishlist-btn ${wishlist.includes(p.id)?'active':''}" onclick="event.stopPropagation();toggleWishlist(${p.id},this)">${wishlist.includes(p.id)?'❤️':'🤍'}</button>
       </div>
       <div class="product-body">
@@ -1857,9 +2018,12 @@ function renderProducts() {
           <span class="price-current">${fmt(p.price)}</span>
           ${p.oldPrice?`<span class="price-old">${fmt(p.oldPrice)}</span><span class="price-save">-${Math.round((1-p.price/p.oldPrice)*100)}%</span>`:''}
         </div>
-        <button class="add-to-cart" onclick="event.stopPropagation();addToCart(${p.id})">+ Thêm Vào Giỏ</button>
+        ${outOfStock
+          ? `<button class="add-to-cart" disabled style="opacity:0.4;cursor:not-allowed">Hết Hàng</button>`
+          : `<button class="add-to-cart" onclick="event.stopPropagation();addToCart(${p.id})">+ Thêm Vào Giỏ</button>`}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function getCatLabel(cat) {
@@ -1922,6 +2086,10 @@ function toggleWishlist(id, btn) {
 // ─── CART ───
 function addToCart(id) {
   const product = products.find(p => p.id===id);
+  if (!product) return;
+  if (Array.isArray(product.deliveryCodes) && product.deliveryCodes.length === 0) {
+    showToast('❌ Sản phẩm này đã hết hàng', 'error'); return;
+  }
   const existing = cart.find(c => c.id===id);
   if (existing) existing.qty++;
   else cart.push({...product, qty:1});
@@ -1952,8 +2120,10 @@ function renderCartItems() {
     footer.style.display = 'none'; return;
   }
   footer.style.display = 'block';
-  const subtotal = cart.reduce((s,c)=>s+c.price*c.qty, 0);
-  document.getElementById('cartTotal').textContent = fmt(subtotal);
+  const { subtotal, discount, total } = getCartTotal();
+  document.getElementById('cartTotal').innerHTML = discount > 0
+    ? `<span style="text-decoration:line-through;color:var(--muted);font-size:0.85rem;margin-right:0.5rem">${fmt(subtotal)}</span>${fmt(total)} <span style="color:var(--teal);font-size:0.75rem">(-${fmt(discount)})</span>`
+    : fmt(subtotal);
   container.innerHTML = cart.map(item => `
     <div class="cart-item">
       <div class="cart-item-img">${item.emoji}</div>
@@ -1982,23 +2152,38 @@ function closeCart() {
   document.getElementById('cartOverlay').classList.remove('open');
   document.getElementById('cartSidebar').classList.remove('open');
 }
+let appliedCoupon = null;
+const COUPONS = { 'SHOPVIP20': 20, 'VIP10': 10 };
 function applyCoupon() {
   const code = document.getElementById('couponInput').value.toUpperCase().trim();
-  if (code==='SHOPVIP20') showToast('🎉 Giảm 20% đã áp dụng!');
-  else if (code==='VIP10') showToast('🎉 Giảm 10% đã áp dụng!');
-  else showToast('❌ Mã không hợp lệ hoặc hết hạn', 'error');
+  if (COUPONS[code]) {
+    appliedCoupon = { code, percent: COUPONS[code] };
+    showToast(`🎉 Giảm ${COUPONS[code]}% đã áp dụng!`);
+  } else {
+    appliedCoupon = null;
+    showToast('❌ Mã không hợp lệ hoặc hết hạn', 'error');
+  }
+  renderCartItems();
+}
+function getCartTotal() {
+  const subtotal = cart.reduce((s,c)=>s+c.price*c.qty, 0);
+  const discount = appliedCoupon ? Math.round(subtotal * appliedCoupon.percent / 100) : 0;
+  return { subtotal, discount, total: subtotal - discount };
 }
 function checkout() {
   if (cart.length===0) return;
   if (!currentUser) { showToast('⚠️ Vui lòng đăng nhập để thanh toán', 'error'); openAuth('login'); return; }
-  const total = cart.reduce((s,c)=>s+c.price*c.qty, 0);
+  const { subtotal, discount, total } = getCartTotal();
   if (currentUser.wallet < total) {
     showToast(`❌ Số dư ví không đủ. Cần ${fmt(total)}, có ${fmt(currentUser.wallet)}`, 'error'); return;
   }
+  const confirmMsg = `Xác nhận thanh toán ${fmt(total)}${discount>0?` (đã giảm ${fmt(discount)})`:''}?\nSố dư ví sẽ giảm còn ${fmt(currentUser.wallet - total)}.`;
+  if (!window.confirm(confirmMsg)) return;
   // Deduct wallet
   const users = getUsers();
   const idx = users.findIndex(u => u.id===currentUser.id);
   users[idx].wallet -= total;
+  addLedgerEntry(users, idx, -total, `Thanh toán đơn hàng${appliedCoupon ? ' (mã '+appliedCoupon.code+')' : ''}`);
   currentUser.wallet = users[idx].wallet;
   saveUsers(users);
   // Auto-delivery: pull codes from each product's stock
@@ -2024,6 +2209,7 @@ function checkout() {
     userId: currentUser.id,
     userName: currentUser.name,
     items: cart.map(c => ({id:c.id, name:c.name, qty:c.qty, price:c.price})),
+    subtotal, discount, couponCode: appliedCoupon ? appliedCoupon.code : null,
     total,
     status: 'completed',
     delivery: deliveryBlocks.join('\n'),
@@ -2033,6 +2219,7 @@ function checkout() {
   saveOrders(orders);
   // Clear cart
   cart = [];
+  appliedCoupon = null;
   updateCartUI();
   closeCart();
   updateNavAuth();
@@ -2055,7 +2242,13 @@ function openModal(id) {
   document.getElementById('modalOld').textContent = p.oldPrice ? fmt(p.oldPrice) : '';
   document.getElementById('modalDesc').textContent = p.desc;
   document.getElementById('modalSpecs').innerHTML = p.specs.map(([k,v])=>`<div class="spec-row"><span class="spec-key">${k}</span><span class="spec-val">${v}</span></div>`).join('');
-  document.getElementById('modalAddBtn').onclick = () => { addToCart(p.id); closeModal(null); };
+  const outOfStock = Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
+  const addBtn = document.getElementById('modalAddBtn');
+  addBtn.disabled = outOfStock;
+  addBtn.style.opacity = outOfStock ? '0.4' : '';
+  addBtn.style.cursor = outOfStock ? 'not-allowed' : '';
+  addBtn.textContent = outOfStock ? 'Hết Hàng' : '+ Thêm Vào Giỏ';
+  addBtn.onclick = outOfStock ? null : () => { addToCart(p.id); closeModal(null); };
   document.getElementById('modalOverlay').classList.add('open');
 }
 function closeModal(e) {
@@ -2140,6 +2333,7 @@ function applySpinResult(prize) {
   if (idx < 0) return;
   users[idx].wallet = (users[idx].wallet || 0) + (prize.value || 0);
   users[idx].lastSpinDate = new Date().toISOString();
+  if (prize.value > 0) addLedgerEntry(users, idx, prize.value, `Trúng thưởng vòng quay: ${prize.label}`);
   saveUsers(users);
   currentUser = users[idx];
   updateNavAuth();
