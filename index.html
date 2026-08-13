@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SHOPVIP.COM — Gaming Gear Store</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
 :root {
   --void: #0A0A0F;
@@ -107,6 +109,7 @@ nav {
 .hero-ring { position:absolute;width:400px;height:400px;border:1px solid rgba(123,0,255,0.2);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);animation:spin 20s linear infinite; }
 .hero-ring::before { content:'';position:absolute;width:8px;height:8px;background:var(--teal);border-radius:50%;top:-4px;left:50%;box-shadow:0 0 10px var(--teal); }
 @keyframes spin { to{transform:translate(-50%,-50%) rotate(360deg)} }
+@keyframes spin360 { to{transform:rotate(360deg)} }
 
 /* ─── SECTIONS ─── */
 section { padding:5rem 2rem; max-width:1200px; margin:0 auto; }
@@ -415,6 +418,13 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 </style>
 </head>
 <body>
+
+<!-- LOADING OVERLAY (chờ tải dữ liệu từ máy chủ) -->
+<div id="loadingOverlay" style="position:fixed;inset:0;z-index:99999;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem">
+  <div style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;letter-spacing:0.15em;color:var(--teal)">SHOP<span style="color:var(--crimson)">VIP</span></div>
+  <div style="width:32px;height:32px;border:3px solid rgba(0,255,204,0.2);border-top-color:var(--teal);border-radius:50%;animation:spin360 0.8s linear infinite"></div>
+  <div style="font-family:'Rajdhani',sans-serif;font-size:0.85rem;color:var(--muted);letter-spacing:0.05em">Đang tải dữ liệu...</div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -1057,105 +1067,215 @@ let searchQuery = '';
 let currentUser = null;
 let products = [];
 
-// ─── USER STORAGE ───
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem('svip_users') || '[]'); } catch { return []; }
+// ─── FIREBASE (dữ liệu dùng chung cho mọi người) ───
+const firebaseConfig = {
+  apiKey: "AIzaSyA80m1h3IMimHcRhrA8mulpMtsVGs1o3YU",
+  authDomain: "shopvip-139ea.firebaseapp.com",
+  projectId: "shopvip-139ea",
+  storageBucket: "shopvip-139ea.firebasestorage.app",
+  messagingSenderId: "294804329458",
+  appId: "1:294804329458:web:f4c0996cb51b354237516b",
+  measurementId: "G-QE3W38KBNE"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const FS_COLLECTION = 'shopvip_data';
+function fsDoc(name) { return db.collection(FS_COLLECTION).doc(name); }
+function fsSave(name, dataObj) {
+  fsDoc(name).set(dataObj).catch(err => {
+    console.error('Firestore save error (' + name + '):', err);
+    showToast('⚠️ Lỗi đồng bộ dữ liệu lên máy chủ — kiểm tra kết nối mạng', 'error');
+  });
 }
+
+const DEFAULT_SETTINGS = {
+  siteName: 'ShopVIP.com',
+  hotline: '1900 6969',
+  bankName: 'Vietcombank',
+  bankAccount: '0123456789',
+  bankHolder: 'CONG TY TNHH SHOPVIP',
+  bankBranch: 'Chi nhánh TP.HCM',
+  categories: [
+    { key:'mouse', icon:'🖱️', label:'Chuột' },
+    { key:'keyboard', icon:'⌨️', label:'Bàn Phím' },
+    { key:'headset', icon:'🎧', label:'Tai Nghe' },
+    { key:'monitor', icon:'🖥️', label:'Màn Hình' },
+    { key:'chair', icon:'🪑', label:'Ghế' },
+    { key:'controller', icon:'🎮', label:'Tay Cầm' }
+  ],
+  spinPrizes: [
+    { id:'p1', label:'10.000đ',  value:10000,  weight:30, color:'#00FFCC' },
+    { id:'p2', label:'20.000đ',  value:20000,  weight:18, color:'#7B00FF' },
+    { id:'p3', label:'Chúc May Mắn', value:0,   weight:26, color:'#1A1A2E' },
+    { id:'p4', label:'50.000đ',  value:50000,  weight:8,  color:'#FF003C' },
+    { id:'p5', label:'5.000đ',   value:5000,   weight:12, color:'#00FFCC' },
+    { id:'p6', label:'100.000đ', value:100000, weight:2,  color:'#FFD700' },
+    { id:'p7', label:'Chúc May Mắn', value:0,   weight:22, color:'#1A1A2E' },
+    { id:'p8', label:'15.000đ',  value:15000,  weight:14, color:'#7B00FF' }
+  ]
+};
+
+let _usersCache = [];
+let _ordersCache = [];
+let _depositsCache = [];
+let _spinsCache = [];
+let _settingsCache = null;
+let _appInitialized = false;
+let _usersFirstLoad = true;
+const _loadedFlags = { users:false, products:false, orders:false, deposits:false, spins:false, settings:false };
+
+function markLoaded(key) {
+  _loadedFlags[key] = true;
+  if (!_appInitialized) {
+    if (Object.values(_loadedFlags).every(Boolean)) {
+      _appInitialized = true;
+      runAppInit();
+    }
+  } else {
+    refreshUI();
+  }
+}
+
+function refreshUI() {
+  renderCategoryCards();
+  renderFilterButtons();
+  renderProducts();
+  updateNavAuth();
+  if (currentUser) {
+    const fresh = _usersCache.find(u => u.id === currentUser.id);
+    if (fresh) currentUser = fresh;
+  }
+  if (document.getElementById('profileOverlay').classList.contains('open')) openProfile();
+  if (document.getElementById('adminOverlay').classList.contains('open')) {
+    renderAdminDashboard(); renderAdminUsers(); renderAdminWallets(); renderAdminDeposits();
+    renderAdminProducts(); renderAdminOrders();
+    if (isSuperAdmin()) renderAdminAdmins();
+    const activeSec = document.querySelector('.admin-section.active');
+    if (activeSec && activeSec.id === 'sec-spin') renderAdminSpins();
+    if (activeSec && activeSec.id === 'sec-settings') renderAdminSettings();
+  }
+}
+
+function runAppInit() {
+  restoreSession();
+  renderCategoryCards();
+  renderFilterButtons();
+  renderProducts();
+  startCountdown();
+  updateNavAuth();
+  document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+// ─── REALTIME LISTENERS (đồng bộ dữ liệu giữa mọi thiết bị) ───
+fsDoc('products').onSnapshot(snap => {
+  if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
+    products = snap.data().list;
+  } else {
+    products = defaultProducts;
+    fsSave('products', { list: defaultProducts });
+  }
+  localStorage.setItem('svip_products', JSON.stringify(products));
+  markLoaded('products');
+}, err => { console.error(err); showToast('⚠️ Mất kết nối máy chủ dữ liệu, đang dùng bản lưu tạm trên máy', 'error');
+  try { products = JSON.parse(localStorage.getItem('svip_products') || 'null') || defaultProducts; } catch { products = defaultProducts; }
+  markLoaded('products'); });
+
+fsDoc('users').onSnapshot(snap => {
+  _usersCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
+  if (_usersFirstLoad) {
+    _usersFirstLoad = false;
+    if (!_usersCache.find(u => u.email === 'admin@shopvip.com')) {
+      _usersCache.push({
+        id: 'admin_001', name: 'Admin ShopVIP', email: 'admin@shopvip.com', phone: '0900000001',
+        password: 'admin123', role: 'admin', wallet: 0, joined: new Date().toISOString(), orders: [], ledger: []
+      });
+      saveUsers(_usersCache);
+    }
+  }
+  localStorage.setItem('svip_users', JSON.stringify(_usersCache));
+  markLoaded('users');
+}, err => { console.error(err);
+  try { _usersCache = JSON.parse(localStorage.getItem('svip_users') || '[]'); } catch { _usersCache = []; }
+  markLoaded('users'); });
+
+fsDoc('orders').onSnapshot(snap => {
+  _ordersCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
+  localStorage.setItem('svip_orders', JSON.stringify(_ordersCache));
+  markLoaded('orders');
+}, err => { console.error(err);
+  try { _ordersCache = JSON.parse(localStorage.getItem('svip_orders') || '[]'); } catch { _ordersCache = []; }
+  markLoaded('orders'); });
+
+fsDoc('deposits').onSnapshot(snap => {
+  _depositsCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
+  localStorage.setItem('svip_deposits', JSON.stringify(_depositsCache));
+  markLoaded('deposits');
+}, err => { console.error(err);
+  try { _depositsCache = JSON.parse(localStorage.getItem('svip_deposits') || '[]'); } catch { _depositsCache = []; }
+  markLoaded('deposits'); });
+
+fsDoc('spins').onSnapshot(snap => {
+  _spinsCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
+  localStorage.setItem('svip_spins', JSON.stringify(_spinsCache));
+  markLoaded('spins');
+}, err => { console.error(err);
+  try { _spinsCache = JSON.parse(localStorage.getItem('svip_spins') || '[]'); } catch { _spinsCache = []; }
+  markLoaded('spins'); });
+
+fsDoc('settings').onSnapshot(snap => {
+  const stored = (snap.exists && snap.data().value) ? snap.data().value : {};
+  _settingsCache = { ...DEFAULT_SETTINGS, ...stored,
+    categories: (stored.categories && stored.categories.length) ? stored.categories : DEFAULT_SETTINGS.categories,
+    spinPrizes: (stored.spinPrizes && stored.spinPrizes.length) ? stored.spinPrizes : DEFAULT_SETTINGS.spinPrizes
+  };
+  localStorage.setItem('svip_settings', JSON.stringify(_settingsCache));
+  markLoaded('settings');
+}, err => { console.error(err);
+  try { _settingsCache = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('svip_settings') || '{}') }; } catch { _settingsCache = DEFAULT_SETTINGS; }
+  markLoaded('settings'); });
+
+// ─── USER STORAGE ───
+function getUsers() { return _usersCache; }
 function addLedgerEntry(users, idx, amount, note) {
   if (!users[idx].ledger) users[idx].ledger = [];
   users[idx].ledger.push({ amount, note, date: new Date().toISOString() });
 }
 function saveUsers(users) {
+  _usersCache = users;
   localStorage.setItem('svip_users', JSON.stringify(users));
+  fsSave('users', { list: users });
 }
-function getOrders() {
-  try { return JSON.parse(localStorage.getItem('svip_orders') || '[]'); } catch { return []; }
-}
+function getOrders() { return _ordersCache; }
 function saveOrders(orders) {
+  _ordersCache = orders;
   localStorage.setItem('svip_orders', JSON.stringify(orders));
+  fsSave('orders', { list: orders });
 }
-function getDeposits() {
-  try { return JSON.parse(localStorage.getItem('svip_deposits') || '[]'); } catch { return []; }
-}
+function getDeposits() { return _depositsCache; }
 function saveDeposits(deposits) {
+  _depositsCache = deposits;
   localStorage.setItem('svip_deposits', JSON.stringify(deposits));
+  fsSave('deposits', { list: deposits });
 }
-function getSettings() {
-  const defaults = {
-    siteName: 'ShopVIP.com',
-    hotline: '1900 6969',
-    bankName: 'Vietcombank',
-    bankAccount: '0123456789',
-    bankHolder: 'CONG TY TNHH SHOPVIP',
-    bankBranch: 'Chi nhánh TP.HCM',
-    categories: [
-      { key:'mouse', icon:'🖱️', label:'Chuột' },
-      { key:'keyboard', icon:'⌨️', label:'Bàn Phím' },
-      { key:'headset', icon:'🎧', label:'Tai Nghe' },
-      { key:'monitor', icon:'🖥️', label:'Màn Hình' },
-      { key:'chair', icon:'🪑', label:'Ghế' },
-      { key:'controller', icon:'🎮', label:'Tay Cầm' }
-    ],
-    spinPrizes: [
-      { id:'p1', label:'10.000đ',  value:10000,  weight:30, color:'#00FFCC' },
-      { id:'p2', label:'20.000đ',  value:20000,  weight:18, color:'#7B00FF' },
-      { id:'p3', label:'Chúc May Mắn', value:0,   weight:26, color:'#1A1A2E' },
-      { id:'p4', label:'50.000đ',  value:50000,  weight:8,  color:'#FF003C' },
-      { id:'p5', label:'5.000đ',   value:5000,   weight:12, color:'#00FFCC' },
-      { id:'p6', label:'100.000đ', value:100000, weight:2,  color:'#FFD700' },
-      { id:'p7', label:'Chúc May Mắn', value:0,   weight:22, color:'#1A1A2E' },
-      { id:'p8', label:'15.000đ',  value:15000,  weight:14, color:'#7B00FF' }
-    ]
-  };
-  try {
-    const stored = JSON.parse(localStorage.getItem('svip_settings') || '{}');
-    return { ...defaults, ...stored,
-      categories: (stored.categories && stored.categories.length) ? stored.categories : defaults.categories,
-      spinPrizes: (stored.spinPrizes && stored.spinPrizes.length) ? stored.spinPrizes : defaults.spinPrizes
-    };
-  }
-  catch { return defaults; }
-}
+function getSettings() { return _settingsCache || DEFAULT_SETTINGS; }
 function saveSettings(settings) {
+  _settingsCache = settings;
   localStorage.setItem('svip_settings', JSON.stringify(settings));
+  fsSave('settings', { value: settings });
 }
-function getProducts() {
-  try {
-    const stored = JSON.parse(localStorage.getItem('svip_products') || 'null');
-    if (stored && Array.isArray(stored) && stored.length) return stored;
-  } catch {}
-  saveProducts(defaultProducts);
-  return defaultProducts;
-}
+function getProducts() { return products; }
 function saveProducts(list) {
+  products = list;
   localStorage.setItem('svip_products', JSON.stringify(list));
+  fsSave('products', { list });
 }
-function getSpins() {
-  try { return JSON.parse(localStorage.getItem('svip_spins') || '[]'); } catch { return []; }
-}
+function getSpins() { return _spinsCache; }
 function saveSpins(spins) {
+  _spinsCache = spins;
   localStorage.setItem('svip_spins', JSON.stringify(spins));
+  fsSave('spins', { list: spins });
 }
 
-// Init default admin if not exists
-(function initAdmin() {
-  let users = getUsers();
-  if (!users.find(u => u.email === 'admin@shopvip.com')) {
-    users.push({
-      id: 'admin_001',
-      name: 'Admin ShopVIP',
-      email: 'admin@shopvip.com',
-      phone: '0900000001',
-      password: 'admin123',
-      role: 'admin',
-      wallet: 0,
-      joined: new Date().toISOString(),
-      orders: [],
-      ledger: []
-    });
-    saveUsers(users);
-  }
-})();
 const SUPER_ADMIN_EMAIL = 'admin@shopvip.com';
 function isSuperAdmin() {
   return !!currentUser && currentUser.email === SUPER_ADMIN_EMAIL;
@@ -2414,13 +2534,8 @@ document.addEventListener('keydown', e => {
 });
 
 // ─── INIT ───
-products = getProducts();
-restoreSession();
-renderCategoryCards();
-renderFilterButtons();
-renderProducts();
-startCountdown();
-updateNavAuth();
+// (Việc khởi tạo giờ được gọi tự động trong runAppInit() sau khi dữ liệu
+// từ Firebase tải xong lần đầu — xem markLoaded()/runAppInit() ở trên.)
 </script>
 </body>
 </html>
