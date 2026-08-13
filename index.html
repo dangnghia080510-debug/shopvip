@@ -239,7 +239,7 @@ section { padding:5rem 2rem; max-width:1200px; margin:0 auto; }
 /* ─── AUTH MODAL ─── */
 .auth-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);z-index:4000;opacity:0;pointer-events:none;transition:opacity 0.3s;display:flex;align-items:center;justify-content:center;padding:1.5rem; }
 /* Các modal admin mở TRÊN admin panel (admin-overlay z-index 4500) nên cần z-index cao hơn, nếu không sẽ bị che khuất và không bấm được */
-#depositOverlay, #customOrderOverlay, #productFormOverlay, #spinOverlay { z-index:4600; }
+#depositOverlay, #customOrderOverlay, #productFormOverlay, #spinOverlay, #orderDeliveryOverlay { z-index:4600; }
 .auth-overlay.open { opacity:1;pointer-events:all; }
 .auth-box { background:var(--deep);border:1px solid var(--border);border-radius:16px;width:100%;max-width:440px;overflow:hidden;transform:scale(0.92);transition:transform 0.3s;box-shadow:0 24px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(0,255,204,0.1); }
 .auth-overlay.open .auth-box { transform:scale(1); }
@@ -366,12 +366,15 @@ section { padding:5rem 2rem; max-width:1200px; margin:0 auto; }
 .profile-stat-label { font-size:0.7rem;color:var(--muted);margin-top:0.25rem;font-family:'Rajdhani',sans-serif; }
 .profile-orders { font-family:'Rajdhani',sans-serif; }
 .profile-orders h4 { font-size:1rem;font-weight:700;margin-bottom:1rem;color:var(--teal); }
-.order-row { display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:0.83rem; }
+.order-row { display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:0.83rem;cursor:pointer; }
 .order-row:last-child { border-bottom:none; }
 .order-id { font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--muted); }
 .order-status { font-size:0.72rem;padding:0.2rem 0.6rem;border-radius:3px;font-weight:700; }
 .order-status.done { background:rgba(0,255,204,0.1);color:var(--teal); }
 .order-status.pending { background:rgba(255,215,0,0.1);color:var(--gold); }
+.order-delivery-box { display:none;background:var(--card);border:1px solid rgba(255,215,0,0.25);border-radius:6px;padding:0.75rem;margin:-0.3rem 0 0.6rem;font-family:'Share Tech Mono',monospace;font-size:0.78rem;white-space:pre-wrap;color:var(--gold); }
+.order-delivery-box.show { display:block; }
+.order-copy-btn { background:none;border:1px solid var(--border);color:var(--teal);font-size:0.72rem;padding:0.25rem 0.6rem;border-radius:4px;cursor:pointer;margin-top:0.5rem; }
 .profile-close { position:absolute;top:1rem;right:1rem;background:none;border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s; }
 .profile-close:hover { border-color:var(--crimson);color:var(--crimson); }
 .profile-box { position:relative; }
@@ -786,7 +789,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
           <button class="btn-admin-primary" onclick="openProductModal(null)">+ Thêm Sản Phẩm</button>
         </div>
         <table class="admin-table">
-          <thead><tr><th></th><th>Tên Sản Phẩm</th><th>Danh Mục</th><th>Giá</th><th>Giá Cũ</th><th>Nhãn</th><th>Thao Tác</th></tr></thead>
+          <thead><tr><th></th><th>Tên Sản Phẩm</th><th>Danh Mục</th><th>Giá</th><th>Giá Cũ</th><th>Nhãn</th><th>Kho Giao Hàng</th><th>Thao Tác</th></tr></thead>
           <tbody id="adminProductList"></tbody>
         </table>
       </div>
@@ -797,7 +800,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
           <button class="btn-admin-primary" onclick="openCustomOrderModal()">+ Tạo Đơn Hàng Tùy Chỉnh</button>
         </div>
         <table class="admin-table">
-          <thead><tr><th>Mã Đơn</th><th>Khách Hàng</th><th>Sản Phẩm</th><th>Tổng Tiền</th><th>Trạng Thái</th><th>Ngày</th></tr></thead>
+          <thead><tr><th>Mã Đơn</th><th>Khách Hàng</th><th>Sản Phẩm</th><th>Tổng Tiền</th><th>Trạng Thái</th><th>Ngày</th><th>Giao Hàng</th></tr></thead>
           <tbody id="adminOrderList"></tbody>
         </table>
       </div>
@@ -889,7 +892,30 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
           <option value="unpaid">Chưa Thanh Toán (COD / Ghi Nợ)</option>
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">🎁 Nội Dung Giao Hàng (tùy chọn)</label>
+        <textarea class="form-input" id="coDelivery" rows="3" placeholder="VD: tài khoản/mật khẩu, key, link tải..." style="resize:vertical;font-family:'Share Tech Mono',monospace"></textarea>
+      </div>
       <button class="auth-submit" onclick="submitCustomOrder()">Tạo Đơn Hàng →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER DELIVERY MODAL (admin xem/sửa nội dung giao hàng) -->
+<div class="auth-overlay" id="orderDeliveryOverlay">
+  <div class="auth-box" style="max-width:460px">
+    <button class="auth-close" onclick="closeOrderDeliveryModal()">✕</button>
+    <div class="auth-header">
+      <div class="auth-logo">⚙️ ADMIN</div>
+      <h2 class="auth-title">🎁 Nội Dung Giao Hàng</h2>
+      <p class="auth-sub" id="odOrderInfo">Mã đơn: —</p>
+    </div>
+    <div class="auth-form">
+      <div class="form-group">
+        <label class="form-label">Nội Dung (khách hàng sẽ thấy trong "Đơn Hàng Của Tôi")</label>
+        <textarea class="form-input" id="odDelivery" rows="6" style="resize:vertical;font-family:'Share Tech Mono',monospace"></textarea>
+      </div>
+      <button class="auth-submit" onclick="saveOrderDelivery()">💾 Lưu Nội Dung Giao Hàng</button>
     </div>
   </div>
 </div>
@@ -957,6 +983,14 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <textarea class="form-input" id="pfSpecs" rows="4" placeholder="DPI: 100-25,600
 Kết Nối: USB Wireless
 Pin: 70 giờ" style="resize:vertical;font-family:'Share Tech Mono',monospace"></textarea>
+      </div>
+      <div class="form-group" style="border-top:1px solid var(--border);padding-top:1rem">
+        <label class="form-label">🎁 Kho Nội Dung Giao Hàng Tự Động (mỗi dòng = 1 mã/tài khoản/link)</label>
+        <p style="font-size:0.72rem;color:var(--muted);margin:-0.2rem 0 0.2rem">Khi khách thanh toán, hệ thống tự lấy 1 dòng ở trên gán cho đơn hàng đó và xóa khỏi kho. Còn trống nếu sản phẩm không giao tự động.</p>
+        <textarea class="form-input" id="pfDeliveryCodes" rows="4" placeholder="user1:pass1
+user2:pass2
+KEY-XXXX-XXXX" style="resize:vertical;font-family:'Share Tech Mono',monospace" oninput="updateStockCount()"></textarea>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem">Còn lại: <span id="pfStockCount">0</span> mã</p>
       </div>
       <button class="auth-submit" onclick="submitProductForm()">💾 Lưu Sản Phẩm</button>
     </div>
@@ -1112,6 +1146,21 @@ function showErr(id, msg) {
   el.classList.add('show');
 }
 
+function saveSession(user) {
+  try { localStorage.setItem('svip_session', user.id); } catch {}
+}
+function clearSession() {
+  try { localStorage.removeItem('svip_session'); } catch {}
+}
+function restoreSession() {
+  try {
+    const sid = localStorage.getItem('svip_session');
+    if (!sid) return;
+    const user = getUsers().find(u => u.id === sid);
+    if (user) currentUser = user;
+    else clearSession();
+  } catch {}
+}
 function doLogin() {
   clearErrors();
   const email = document.getElementById('loginEmail').value.trim();
@@ -1121,6 +1170,7 @@ function doLogin() {
   const user = users.find(u => u.email === email && u.password === pass);
   if (!user) { showErr('loginPassErr', 'Sai email hoặc mật khẩu'); return; }
   currentUser = user;
+  saveSession(user);
   closeAuth();
   updateNavAuth();
   showToast(`✅ Chào mừng, ${user.name}!`);
@@ -1153,6 +1203,7 @@ function doRegister() {
   users.push(newUser);
   saveUsers(users);
   currentUser = newUser;
+  saveSession(newUser);
   closeAuth();
   updateNavAuth();
   showToast(`🎉 Đăng ký thành công! Chào mừng ${name} đến ShopVIP!`);
@@ -1160,6 +1211,7 @@ function doRegister() {
 
 function doLogout() {
   currentUser = null;
+  clearSession();
   updateNavAuth();
   closeUserMenu();
   showToast('👋 Đã đăng xuất');
@@ -1219,15 +1271,32 @@ function openProfile() {
   if (orders.length === 0) {
     orderList.innerHTML = '<div style="color:var(--muted);font-size:0.82rem">Chưa có đơn hàng nào.</div>';
   } else {
-    orderList.innerHTML = orders.slice(-5).reverse().map(o => `
-      <div class="order-row">
-        <span class="order-id">${o.id}</span>
-        <span style="font-size:0.82rem">${o.items.map(i=>i.name).join(', ').substring(0,30)}...</span>
-        <span style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--gold)">${fmt(o.total)}</span>
-        <span class="order-status done">Hoàn Tất</span>
-      </div>`).join('');
+    orderList.innerHTML = orders.slice(-8).reverse().map(o => {
+      const hasDelivery = o.delivery && o.delivery.trim();
+      const boxId = 'delbox_' + o.id;
+      return `
+      <div>
+        <div class="order-row" ${hasDelivery ? `onclick="toggleOrderDelivery('${boxId}')"` : ''}>
+          <span class="order-id">${o.id}</span>
+          <span style="font-size:0.82rem">${o.items.map(i=>i.name).join(', ').substring(0,30)}...</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--gold)">${fmt(o.total)}</span>
+          <span class="order-status done">${hasDelivery ? '📦 Xem Giao Hàng' : 'Hoàn Tất'}</span>
+        </div>
+        ${hasDelivery ? `<div class="order-delivery-box" id="${boxId}">${escapeHtml(o.delivery)}
+<button class="order-copy-btn" onclick="event.stopPropagation();copyDelivery('${boxId}')">📋 Sao Chép</button></div>` : ''}
+      </div>`;
+    }).join('');
   }
   document.getElementById('profileOverlay').classList.add('open');
+}
+function toggleOrderDelivery(boxId) {
+  document.getElementById(boxId).classList.toggle('show');
+}
+function copyDelivery(boxId) {
+  const box = document.getElementById(boxId);
+  const text = box.textContent.replace('📋 Sao Chép', '').trim();
+  navigator.clipboard?.writeText(text).then(() => showToast('✅ Đã sao chép nội dung giao hàng'))
+    .catch(() => showToast('❌ Không thể sao chép, vui lòng chọn thủ công', 'error'));
 }
 function closeProfile() {
   document.getElementById('profileOverlay').classList.remove('open');
@@ -1339,7 +1408,7 @@ function renderAdminOrders() {
   const orders = getOrders();
   const users = getUsers();
   document.getElementById('adminOrderList').innerHTML = orders.length === 0
-    ? '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Chưa có đơn hàng nào</td></tr>'
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Chưa có đơn hàng nào</td></tr>'
     : orders.slice().reverse().map(o => `
       <tr>
         <td class="mono">${o.id}</td>
@@ -1348,6 +1417,7 @@ function renderAdminOrders() {
         <td class="mono" style="color:var(--gold)">${fmt(o.total)}</td>
         <td>${orderStatusBadge(o.status)}</td>
         <td style="color:var(--muted);font-size:0.78rem">${new Date(o.date).toLocaleDateString('vi-VN')}</td>
+        <td><button class="deposit-approve-btn" onclick="openOrderDeliveryModal('${o.id}')">🎁 ${o.delivery && o.delivery.trim() ? 'Sửa' : 'Nhập'} Giao Hàng</button></td>
       </tr>`).join('');
 }
 function orderStatusBadge(status) {
@@ -1358,6 +1428,28 @@ function orderStatusBadge(status) {
     custom: '<span class="badge-admin">Đơn Tùy Chỉnh</span>'
   };
   return map[status] || '<span class="badge-active">Hoàn Tất</span>';
+}
+function openOrderDeliveryModal(orderId) {
+  const order = getOrders().find(o => o.id === orderId);
+  if (!order) return;
+  document.getElementById('odOrderInfo').textContent = `Mã đơn: ${order.id} — Khách hàng: ${order.userName}`;
+  document.getElementById('odDelivery').value = order.delivery || '';
+  document.getElementById('orderDeliveryOverlay').dataset.orderId = orderId;
+  document.getElementById('orderDeliveryOverlay').classList.add('open');
+}
+function closeOrderDeliveryModal() {
+  document.getElementById('orderDeliveryOverlay').classList.remove('open');
+}
+function saveOrderDelivery() {
+  const orderId = document.getElementById('orderDeliveryOverlay').dataset.orderId;
+  const orders = getOrders();
+  const idx = orders.findIndex(o => o.id === orderId);
+  if (idx < 0) return;
+  orders[idx].delivery = document.getElementById('odDelivery').value.trim();
+  saveOrders(orders);
+  closeOrderDeliveryModal();
+  renderAdminOrders();
+  showToast('✅ Đã lưu nội dung giao hàng');
 }
 
 // ─── DEPOSITS (nạp ví) ───
@@ -1460,6 +1552,7 @@ function openCustomOrderModal() {
   document.getElementById('coDesc').value = '';
   document.getElementById('coPrice').value = '';
   document.getElementById('coPayment').value = 'wallet';
+  document.getElementById('coDelivery').value = '';
   document.getElementById('coDescErr').classList.remove('show');
   document.getElementById('coPriceErr').classList.remove('show');
   document.getElementById('coNewCustomerBox').style.display = 'none';
@@ -1527,6 +1620,7 @@ function submitCustomOrder() {
     items: [{ id: 'custom', name: desc, qty: 1, price }],
     total: price,
     status: payment === 'wallet' ? 'completed' : payment,
+    delivery: document.getElementById('coDelivery').value.trim(),
     date: new Date().toISOString()
   });
   saveOrders(orders);
@@ -1614,8 +1708,10 @@ function saveAdminSettingsForm() {
 // ─── ADMIN PRODUCTS (thêm/sửa/xóa trực tiếp) ───
 function renderAdminProducts() {
   document.getElementById('adminProductList').innerHTML = products.length === 0
-    ? '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Chưa có sản phẩm nào</td></tr>'
-    : products.map(p => `
+    ? '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Chưa có sản phẩm nào</td></tr>'
+    : products.map(p => {
+      const stock = (p.deliveryCodes || []).length;
+      return `
       <tr>
         <td style="font-size:1.5rem">${p.emoji}</td>
         <td>${p.name}</td>
@@ -1623,11 +1719,13 @@ function renderAdminProducts() {
         <td class="mono" style="color:var(--teal)">${fmt(p.price)}</td>
         <td class="mono" style="color:var(--muted);font-size:0.78rem">${p.oldPrice ? fmt(p.oldPrice) : '—'}</td>
         <td>${p.badge ? `<span class="badge-active">${p.badge.toUpperCase()}</span>` : '—'}</td>
+        <td class="mono" style="font-size:0.78rem;color:${stock>0?'var(--teal)':'var(--muted)'}">${stock>0 ? stock+' mã' : 'Thủ công'}</td>
         <td>
           <button class="deposit-approve-btn" onclick="openProductModal(${p.id})">✎ Sửa</button>
           <button class="deposit-reject-btn" onclick="deleteProduct(${p.id})">🗑 Xóa</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 }
 function openProductModal(id) {
   const editing = id !== null;
@@ -1645,6 +1743,7 @@ function openProductModal(id) {
     document.getElementById('pfBg').value = p.bg;
     document.getElementById('pfDesc').value = p.desc || '';
     document.getElementById('pfSpecs').value = (p.specs||[]).map(([k,v])=>`${k}: ${v}`).join('\n');
+    document.getElementById('pfDeliveryCodes').value = (p.deliveryCodes||[]).join('\n');
   } else {
     document.getElementById('pfName').value = '';
     document.getElementById('pfCategory').value = 'mouse';
@@ -1655,10 +1754,16 @@ function openProductModal(id) {
     document.getElementById('pfBg').value = 'linear-gradient(135deg,#0d0020,#001a10)';
     document.getElementById('pfDesc').value = '';
     document.getElementById('pfSpecs').value = '';
+    document.getElementById('pfDeliveryCodes').value = '';
   }
   document.getElementById('pfNameErr').classList.remove('show');
   document.getElementById('pfPriceErr').classList.remove('show');
+  updateStockCount();
   document.getElementById('productFormOverlay').classList.add('open');
+}
+function updateStockCount() {
+  const n = document.getElementById('pfDeliveryCodes').value.split('\n').map(l=>l.trim()).filter(Boolean).length;
+  document.getElementById('pfStockCount').textContent = n;
 }
 function closeProductModal() {
   document.getElementById('productFormOverlay').classList.remove('open');
@@ -1676,6 +1781,7 @@ function submitProductForm() {
     const idx = line.indexOf(':');
     return idx === -1 ? [line, ''] : [line.slice(0,idx).trim(), line.slice(idx+1).trim()];
   });
+  const deliveryCodes = document.getElementById('pfDeliveryCodes').value.split('\n').map(l=>l.trim()).filter(Boolean);
   const editId = document.getElementById('productFormOverlay').dataset.editId;
   const data = {
     name,
@@ -1686,7 +1792,8 @@ function submitProductForm() {
     badge: document.getElementById('pfBadge').value || null,
     bg: document.getElementById('pfBg').value,
     desc: document.getElementById('pfDesc').value.trim(),
-    specs
+    specs,
+    deliveryCodes
   };
   if (editId) {
     const idx = products.findIndex(p => p.id === parseInt(editId));
@@ -1779,6 +1886,9 @@ function renderFilterButtons() {
     cats.map(c => `<button class="filter-btn" onclick="filterCat('${c.key}',this)">${c.label}</button>`).join('');
 }
 function fmt(n) { return new Intl.NumberFormat('vi-VN').format(n) + '₫'; }
+function escapeHtml(str) {
+  return String(str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
 function filterCat(cat, btn) {
   currentFilter = cat;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -1891,6 +2001,22 @@ function checkout() {
   users[idx].wallet -= total;
   currentUser.wallet = users[idx].wallet;
   saveUsers(users);
+  // Auto-delivery: pull codes from each product's stock
+  let anyManual = false;
+  const deliveryBlocks = cart.map(c => {
+    const p = products.find(x => x.id === c.id);
+    const lines = [];
+    for (let i = 0; i < c.qty; i++) {
+      if (p && p.deliveryCodes && p.deliveryCodes.length) {
+        lines.push(p.deliveryCodes.shift());
+      } else {
+        anyManual = true;
+        lines.push('[Đang chờ Admin giao thủ công]');
+      }
+    }
+    return `— ${c.name} (x${c.qty}):\n` + lines.map(l => '  ' + l).join('\n');
+  });
+  saveProducts(products);
   // Save order
   const orders = getOrders();
   const order = {
@@ -1900,6 +2026,7 @@ function checkout() {
     items: cart.map(c => ({id:c.id, name:c.name, qty:c.qty, price:c.price})),
     total,
     status: 'completed',
+    delivery: deliveryBlocks.join('\n'),
     date: new Date().toISOString()
   };
   orders.push(order);
@@ -1909,7 +2036,11 @@ function checkout() {
   updateCartUI();
   closeCart();
   updateNavAuth();
-  showToast(`🎉 Đặt hàng thành công! Đã trừ ${fmt(total)} từ ví.`);
+  if (anyManual) {
+    showToast(`🎉 Đặt hàng thành công! Một số sản phẩm sẽ được Admin giao thủ công — xem chi tiết trong Đơn Hàng Của Tôi.`);
+  } else {
+    showToast(`🎉 Đặt hàng thành công! Nội dung giao hàng đã có trong Đơn Hàng Của Tôi.`);
+  }
 }
 
 // ─── MODAL ───
@@ -2083,13 +2214,14 @@ function scrollTo(id) { document.getElementById(id)?.scrollIntoView({behavior:'s
 // ─── KEYBOARD ESC ───
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
-    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); closeCustomOrderModal(); closeProductModal();
+    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); closeCustomOrderModal(); closeProductModal(); closeOrderDeliveryModal(); closeSpinModal();
     document.getElementById('modalOverlay').classList.remove('open');
   }
 });
 
 // ─── INIT ───
 products = getProducts();
+restoreSession();
 renderCategoryCards();
 renderFilterButtons();
 renderProducts();
