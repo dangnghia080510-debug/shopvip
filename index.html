@@ -1038,12 +1038,16 @@ Kết Nối: USB Wireless
 Pin: 70 giờ" style="resize:vertical;font-family:'Share Tech Mono',monospace"></textarea>
       </div>
       <div class="form-group" style="border-top:1px solid var(--border);padding-top:1rem">
-        <label class="form-label">🎁 Kho Nội Dung Giao Hàng Tự Động (mỗi dòng = 1 mã/tài khoản/link)</label>
-        <p style="font-size:0.72rem;color:var(--muted);margin:-0.2rem 0 0.2rem">Khi khách thanh toán, hệ thống tự lấy 1 dòng ở trên gán cho đơn hàng đó và xóa khỏi kho. Còn trống nếu sản phẩm không giao tự động.</p>
+        <label class="form-label">🎁 Chế Độ Giao Hàng Tự Động</label>
+        <select class="form-input" id="pfDeliveryMode" onchange="updateStockCount()">
+          <option value="stock">Kho Mã Dùng 1 Lần (mỗi dòng chỉ bán được 1 đơn, hết kho thì chuyển giao thủ công)</option>
+          <option value="fixed">Nội Dung Cố Định (gửi giống nhau cho MỌI đơn hàng, không giới hạn số lượng bán)</option>
+        </select>
+        <p style="font-size:0.72rem;color:var(--muted);margin:0.3rem 0 0.2rem" id="pfDeliveryModeHint">Khi khách thanh toán, hệ thống tự lấy 1 dòng ở trên gán cho đơn hàng đó và xóa khỏi kho. Còn trống nếu sản phẩm không giao tự động.</p>
         <textarea class="form-input" id="pfDeliveryCodes" rows="4" placeholder="user1:pass1
 user2:pass2
 KEY-XXXX-XXXX" style="resize:vertical;font-family:'Share Tech Mono',monospace" oninput="updateStockCount()"></textarea>
-        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem">Còn lại: <span id="pfStockCount">0</span> mã</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem" id="pfStockCountWrap">Còn lại: <span id="pfStockCount">0</span> mã</p>
       </div>
       <button class="auth-submit" onclick="submitProductForm()">💾 Lưu Sản Phẩm</button>
     </div>
@@ -1933,8 +1937,8 @@ function refreshCoProductSelect() {
   const sel = document.getElementById('coProduct');
   const opts = ['<option value="">— Không dùng (nhập tay bên dưới) —</option>']
     .concat(products.map(p => {
-      const stock = (p.deliveryCodes || []).length;
-      return `<option value="${p.id}">${p.name} — ${fmt(p.price)} (kho: ${stock})</option>`;
+      const label = p.deliveryMode === 'fixed' ? 'không giới hạn' : `kho: ${(p.deliveryCodes || []).length}`;
+      return `<option value="${p.id}">${p.name} — ${fmt(p.price)} (${label})</option>`;
     }));
   sel.innerHTML = opts.join('');
 }
@@ -1955,9 +1959,15 @@ function onCoProductChange() {
   const stock = (p.deliveryCodes || []).length;
   deliveryTextarea.value = '';
   deliveryTextarea.readOnly = true;
-  deliveryTextarea.placeholder = stock > 0
-    ? `✅ Sẽ tự động rút 1 mã trong kho (còn ${stock} mã) khi tạo đơn.`
-    : `⚠️ Kho sản phẩm này đang trống — đơn sẽ tạo với trạng thái "chờ giao thủ công".`;
+  if (p.deliveryMode === 'fixed') {
+    deliveryTextarea.placeholder = stock > 0
+      ? `✅ Sẽ gửi nội dung cố định của sản phẩm (không trừ kho) khi tạo đơn.`
+      : `⚠️ Sản phẩm chưa có nội dung cố định — đơn sẽ tạo với trạng thái "chờ giao thủ công".`;
+  } else {
+    deliveryTextarea.placeholder = stock > 0
+      ? `✅ Sẽ tự động rút 1 mã trong kho (còn ${stock} mã) khi tạo đơn.`
+      : `⚠️ Kho sản phẩm này đang trống — đơn sẽ tạo với trạng thái "chờ giao thủ công".`;
+  }
 }
 function openCustomOrderModal() {
   refreshCoCustomerSelect();
@@ -2034,7 +2044,9 @@ function submitCustomOrder() {
   let delivery = document.getElementById('coDelivery').value.trim();
   if (pid) {
     const p = products.find(x => x.id === pid);
-    if (p && p.deliveryCodes && p.deliveryCodes.length) {
+    if (p && p.deliveryMode === 'fixed' && p.deliveryCodes && p.deliveryCodes.length) {
+      delivery = p.deliveryCodes.join('\n');
+    } else if (p && (!p.deliveryMode || p.deliveryMode === 'stock') && p.deliveryCodes && p.deliveryCodes.length) {
       delivery = p.deliveryCodes.shift();
       saveProducts(products);
     } else {
@@ -2148,7 +2160,7 @@ function renderAdminProducts() {
         <td class="mono" style="color:var(--teal)">${fmt(p.price)}</td>
         <td class="mono" style="color:var(--muted);font-size:0.78rem">${p.oldPrice ? fmt(p.oldPrice) : '—'}</td>
         <td>${p.badge ? `<span class="badge-active">${p.badge.toUpperCase()}</span>` : '—'}</td>
-        <td class="mono" style="font-size:0.78rem;color:${stock>0?'var(--teal)':'var(--muted)'}">${stock>0 ? stock+' mã' : 'Thủ công'}</td>
+        <td class="mono" style="font-size:0.78rem;color:${p.deliveryMode==='fixed'&&stock>0?'var(--plasma)':stock>0?'var(--teal)':'var(--muted)'}">${p.deliveryMode==='fixed' ? (stock>0?'♾️ Không giới hạn':'Thủ công') : (stock>0 ? stock+' mã' : 'Thủ công')}</td>
         <td>
           <button class="deposit-approve-btn" onclick="openProductModal(${p.id})">✎ Sửa</button>
           <button class="deposit-reject-btn" onclick="deleteProduct(${p.id})">🗑 Xóa</button>
@@ -2173,6 +2185,7 @@ function openProductModal(id) {
     document.getElementById('pfDesc').value = p.desc || '';
     document.getElementById('pfSpecs').value = (p.specs||[]).map(([k,v])=>`${k}: ${v}`).join('\n');
     document.getElementById('pfDeliveryCodes').value = (p.deliveryCodes||[]).join('\n');
+    document.getElementById('pfDeliveryMode').value = p.deliveryMode === 'fixed' ? 'fixed' : 'stock';
   } else {
     document.getElementById('pfName').value = '';
     document.getElementById('pfCategory').value = 'mouse';
@@ -2184,6 +2197,7 @@ function openProductModal(id) {
     document.getElementById('pfDesc').value = '';
     document.getElementById('pfSpecs').value = '';
     document.getElementById('pfDeliveryCodes').value = '';
+    document.getElementById('pfDeliveryMode').value = 'stock';
   }
   document.getElementById('pfNameErr').classList.remove('show');
   document.getElementById('pfPriceErr').classList.remove('show');
@@ -2191,8 +2205,15 @@ function openProductModal(id) {
   document.getElementById('productFormOverlay').classList.add('open');
 }
 function updateStockCount() {
+  const mode = document.getElementById('pfDeliveryMode').value;
   const n = document.getElementById('pfDeliveryCodes').value.split('\n').map(l=>l.trim()).filter(Boolean).length;
-  document.getElementById('pfStockCount').textContent = n;
+  if (mode === 'fixed') {
+    document.getElementById('pfDeliveryModeHint').textContent = 'Nội dung này sẽ được gửi giống hệt cho TẤT CẢ đơn hàng của sản phẩm này, không bị trừ kho, bán được không giới hạn.';
+    document.getElementById('pfStockCountWrap').innerHTML = n > 0 ? '✅ Đã có nội dung cố định — bán không giới hạn' : '⚠️ Chưa nhập nội dung — đơn sẽ chuyển giao thủ công';
+  } else {
+    document.getElementById('pfDeliveryModeHint').textContent = 'Khi khách thanh toán, hệ thống tự lấy 1 dòng ở trên gán cho đơn hàng đó và xóa khỏi kho. Còn trống nếu sản phẩm không giao tự động.';
+    document.getElementById('pfStockCountWrap').innerHTML = `Còn lại: <span id="pfStockCount">${n}</span> mã`;
+  }
 }
 function closeProductModal() {
   document.getElementById('productFormOverlay').classList.remove('open');
@@ -2211,6 +2232,7 @@ function submitProductForm() {
     return idx === -1 ? [line, ''] : [line.slice(0,idx).trim(), line.slice(idx+1).trim()];
   });
   const deliveryCodes = document.getElementById('pfDeliveryCodes').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const deliveryMode = document.getElementById('pfDeliveryMode').value === 'fixed' ? 'fixed' : 'stock';
   const editId = document.getElementById('productFormOverlay').dataset.editId;
   const data = {
     name,
@@ -2222,7 +2244,8 @@ function submitProductForm() {
     bg: document.getElementById('pfBg').value,
     desc: document.getElementById('pfDesc').value.trim(),
     specs,
-    deliveryCodes
+    deliveryCodes,
+    deliveryMode
   };
   if (editId) {
     const idx = products.findIndex(p => p.id === parseInt(editId));
@@ -2271,7 +2294,7 @@ function renderProducts() {
     return;
   }
   grid.innerHTML = filtered.map(p => {
-    const outOfStock = Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
+    const outOfStock = p.deliveryMode !== 'fixed' && Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
     return `
     <div class="product-card" onclick="openModal(${p.id})">
       <div class="product-img" style="background:${p.bg}">
@@ -2456,13 +2479,16 @@ function checkout() {
   addLedgerEntry(users, idx, -total, `Thanh toán đơn hàng${appliedCoupon ? ' (mã '+appliedCoupon.code+')' : ''}`);
   currentUser.wallet = users[idx].wallet;
   saveUsers(users);
-  // Auto-delivery: pull codes from each product's stock
+  // Auto-delivery: pull codes from each product's stock, or reuse fixed content
   let anyManual = false;
   const deliveryBlocks = cart.map(c => {
     const p = products.find(x => x.id === c.id);
+    if (p && p.deliveryMode === 'fixed' && p.deliveryCodes && p.deliveryCodes.length) {
+      return `— ${c.name} (x${c.qty}):\n` + p.deliveryCodes.map(l => '  ' + l).join('\n');
+    }
     const lines = [];
     for (let i = 0; i < c.qty; i++) {
-      if (p && p.deliveryCodes && p.deliveryCodes.length) {
+      if (p && (!p.deliveryMode || p.deliveryMode === 'stock') && p.deliveryCodes && p.deliveryCodes.length) {
         lines.push(p.deliveryCodes.shift());
       } else {
         anyManual = true;
@@ -2512,7 +2538,7 @@ function openModal(id) {
   document.getElementById('modalOld').textContent = p.oldPrice ? fmt(p.oldPrice) : '';
   document.getElementById('modalDesc').textContent = p.desc;
   document.getElementById('modalSpecs').innerHTML = p.specs.map(([k,v])=>`<div class="spec-row"><span class="spec-key">${k}</span><span class="spec-val">${v}</span></div>`).join('');
-  const outOfStock = Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
+  const outOfStock = p.deliveryMode !== 'fixed' && Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
   const addBtn = document.getElementById('modalAddBtn');
   addBtn.disabled = outOfStock;
   addBtn.style.opacity = outOfStock ? '0.4' : '';
