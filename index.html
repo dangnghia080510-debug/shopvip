@@ -399,23 +399,290 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 .payment-methods { display:flex;gap:0.5rem; }
 .pay-badge { font-family:'Share Tech Mono',monospace;font-size:0.65rem;padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:3px;color:var(--muted); }
 
-@media(max-width:768px){
-  .hero-content{grid-template-columns:1fr}
-  .hero-visual{display:none}
-  .footer-top{grid-template-columns:1fr 1fr}
-  .modal-inner{grid-template-columns:1fr}
-  .modal-img{height:200px;font-size:4rem}
-  .admin-sidebar{width:200px}
-  .admin-cards{grid-template-columns:1fr 1fr}
-  nav{padding:0 1rem}
-  .nav-links{display:none}
+/* ─── VIDEO AD BANNER ─── */
+#videoAdOverlay {
+  position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.92);
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(8px);
 }
+.video-ad-box {
+  position:relative; width:min(800px,95vw); background:#000;
+  border:1px solid rgba(0,255,209,0.3); border-radius:12px; overflow:hidden;
+  box-shadow:0 0 60px rgba(0,255,209,0.15), 0 32px 80px rgba(0,0,0,0.6);
+}
+.video-ad-label {
+  position:absolute; top:12px; left:12px; z-index:5;
+  background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.15);
+  color:#fff; font-family:'Share Tech Mono',monospace; font-size:0.7rem;
+  padding:0.3rem 0.7rem; border-radius:3px; letter-spacing:0.08em;
+}
+.video-ad-skip {
+  position:absolute; bottom:16px; right:16px; z-index:5;
+  background:rgba(0,0,0,0.8); border:1px solid rgba(255,255,255,0.35);
+  color:#fff; font-family:'Rajdhani',sans-serif; font-weight:700;
+  font-size:0.82rem; letter-spacing:0.08em; padding:0.5rem 1.1rem;
+  border-radius:4px; cursor:pointer; transition:all 0.2s;
+}
+.video-ad-skip:hover { border-color:var(--teal); color:var(--teal); }
+.video-ad-skip:disabled { opacity:0.5; cursor:default; }
+.video-ad-countdown {
+  position:absolute; top:12px; right:12px; z-index:5;
+  background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.15);
+  color:var(--gold); font-family:'Share Tech Mono',monospace; font-size:0.75rem;
+  padding:0.3rem 0.7rem; border-radius:3px;
+}
+.video-ad-frame {
+  width:100%; aspect-ratio:16/9; display:block; border:none;
+}
+.video-ad-close-later {
+  display:block; width:100%; text-align:center;
+  padding:0.75rem; background:rgba(0,255,209,0.05);
+  font-family:'Rajdhani',sans-serif; font-size:0.78rem; color:var(--muted);
+}
+
+/* ─── MUSIC PLAYER ─── */
+#musicPlayer {
+  position:fixed; bottom:5rem; right:1.5rem; z-index:7999;
+  background:rgba(15,11,40,0.97); border:1px solid rgba(168,85,247,0.4);
+  border-radius:16px; padding:1rem 1.25rem; min-width:260px; max-width:290px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.5), 0 0 24px rgba(168,85,247,0.15);
+  backdrop-filter:blur(16px);
+  transform:translateY(120%); transition:transform 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+#musicPlayer.open { transform:translateY(0); }
+.music-player-header {
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;
+}
+.music-player-title {
+  font-family:'Rajdhani',sans-serif; font-size:0.78rem; font-weight:700;
+  letter-spacing:0.1em; text-transform:uppercase; color:var(--plasma);
+}
+.music-player-close {
+  background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; line-height:1;
+  transition:color 0.2s; padding:0.1rem 0.3rem;
+}
+.music-player-close:hover { color:var(--crimson); }
+.music-track-info {
+  display:flex; align-items:center; gap:0.75rem; margin-bottom:0.85rem;
+}
+.music-disc {
+  width:44px; height:44px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg,var(--plasma),var(--teal));
+  display:flex; align-items:center; justify-content:center; font-size:1.2rem;
+  border:2px solid rgba(168,85,247,0.4);
+  animation:none;
+}
+.music-disc.playing { animation:spin360 3s linear infinite; }
+.music-track-name {
+  font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.music-track-artist { font-size:0.72rem; color:var(--muted); margin-top:0.1rem; }
+.music-progress-wrap { margin-bottom:0.75rem; }
+.music-progress-bar {
+  width:100%; height:4px; background:rgba(255,255,255,0.08);
+  border-radius:2px; appearance:none; cursor:pointer; outline:none;
+  accent-color:var(--plasma);
+}
+.music-time { display:flex; justify-content:space-between; font-family:'Share Tech Mono',monospace; font-size:0.62rem; color:var(--muted); margin-top:0.3rem; }
+.music-controls {
+  display:flex; align-items:center; justify-content:center; gap:1rem;
+}
+.music-btn {
+  background:none; border:none; color:var(--text); cursor:pointer;
+  font-size:1.1rem; transition:all 0.2s; padding:0.25rem;
+  display:flex; align-items:center; justify-content:center;
+}
+.music-btn:hover { color:var(--plasma); transform:scale(1.1); }
+.music-btn.play-btn {
+  width:40px; height:40px; border-radius:50%;
+  background:linear-gradient(135deg,var(--plasma),var(--teal));
+  color:var(--void); font-size:1rem;
+}
+.music-btn.play-btn:hover { box-shadow:0 0 16px rgba(168,85,247,0.5); transform:scale(1.05); }
+.music-volume-wrap { display:flex; align-items:center; gap:0.5rem; margin-top:0.7rem; }
+.music-vol-icon { font-size:0.85rem; color:var(--muted); }
+.music-vol-slider {
+  flex:1; height:3px; appearance:none; background:rgba(255,255,255,0.08);
+  border-radius:2px; cursor:pointer; outline:none; accent-color:var(--plasma);
+}
+
+/* Nút toggle nhạc nổi */
+#musicToggleBtn {
+  position:fixed; bottom:5rem; right:1.5rem; z-index:7998;
+  width:48px; height:48px; border-radius:50%;
+  background:linear-gradient(135deg,var(--plasma),var(--teal));
+  border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; box-shadow:0 4px 20px rgba(168,85,247,0.4);
+  transition:all 0.3s;
+}
+#musicToggleBtn:hover { transform:scale(1.1); box-shadow:0 6px 28px rgba(168,85,247,0.6); }
+#musicToggleBtn.hidden { display:none; }
+
+/* ─── HAMBURGER MENU ─── */
+.hamburger {
+  display:none; flex-direction:column; gap:5px; background:none;
+  border:1px solid var(--border); border-radius:4px; padding:0.5rem 0.6rem;
+  cursor:pointer; transition:all 0.2s;
+}
+.hamburger span {
+  display:block; width:20px; height:2px; background:var(--text);
+  border-radius:1px; transition:all 0.3s;
+}
+.hamburger.open span:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity:0; }
+.hamburger.open span:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+.hamburger:hover { border-color:var(--teal); }
+
+/* Mobile nav drawer */
+.mobile-nav-drawer {
+  position:fixed; top:64px; left:0; right:0; z-index:999;
+  background:rgba(15,11,40,0.98); border-bottom:1px solid var(--border);
+  padding:1rem 1.5rem; display:flex; flex-direction:column; gap:0;
+  transform:translateY(-110%); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  backdrop-filter:blur(20px);
+}
+.mobile-nav-drawer.open { transform:translateY(0); }
+.mobile-nav-link {
+  display:block; padding:0.85rem 0; font-family:'Rajdhani',sans-serif;
+  font-weight:700; font-size:1rem; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--muted); cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05);
+  transition:color 0.2s; background:none; border-left:none; border-right:none; border-top:none;
+  text-align:left; width:100%;
+}
+.mobile-nav-link:last-child { border-bottom:none; }
+.mobile-nav-link:hover, .mobile-nav-link:active { color:var(--teal); }
+
+/* ─── RESPONSIVE OVERHAUL ─── */
+@media(max-width:1024px) {
+  .hero-content { gap:2rem; }
+  .hero-card-showcase { width:280px; height:360px; }
+  .footer-top { grid-template-columns:1fr 1fr; gap:2rem; }
+}
+
+@media(max-width:768px){
+  /* Nav */
+  nav { padding:0 1rem; }
+  .nav-links { display:none; }
+  .hamburger { display:flex; }
+  .search-bar { display:none; }
+  .nav-actions { gap:0.5rem; }
+  .cart-btn { padding:0.5rem 0.7rem; font-size:0.78rem; gap:0.3rem; }
+
+  /* Hero */
+  .hero { min-height:auto; padding-top:64px; padding-bottom:2rem; }
+  .hero-content { grid-template-columns:1fr; gap:0; padding:2rem 1.25rem; }
+  .hero-visual { display:none; }
+  .hero-title { font-size:clamp(2.4rem,10vw,3.5rem); margin-bottom:1rem; }
+  .hero-desc { font-size:0.9rem; margin-bottom:1.5rem; max-width:100%; }
+  .hero-cta { gap:0.75rem; }
+  .btn-primary, .btn-ghost { padding:0.75rem 1.4rem; font-size:0.88rem; }
+  .hero-stats { gap:1.25rem; margin-top:1.75rem; padding-top:1.5rem; flex-wrap:wrap; }
+  .stat-num { font-size:1.3rem; }
+
+  /* Sections */
+  section { padding:3rem 1.25rem; }
+  .section-header { flex-direction:column; align-items:flex-start; gap:0.75rem; margin-bottom:1.75rem; }
+
+  /* Products */
+  .product-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:1rem; }
+  .product-img { height:140px; font-size:3.5rem; }
+  .product-body { padding:0.9rem; }
+  .product-name { font-size:0.9rem; }
+  .price-current { font-size:1rem; }
+
+  /* Categories */
+  .categories-grid { grid-template-columns:repeat(3,1fr); gap:0.75rem; }
+  .cat-icon { font-size:1.6rem; margin-bottom:0.5rem; }
+  .category-card { padding:1rem 0.75rem; }
+
+  /* Featured banner */
+  .featured-banner {
+    grid-template-columns:1fr; padding:2rem 1.5rem;
+    margin:0 1.25rem 3rem;
+  }
+  .banner-visual { display:none; }
+  .banner-title { font-size:1.6rem; }
+
+  /* Modal */
+  .modal { max-width:calc(100vw - 2rem); max-height:calc(100vh - 2rem); overflow-y:auto; }
+  .modal-inner { grid-template-columns:1fr; }
+  .modal-img { height:180px; font-size:4rem; }
+  .modal-body { padding:1.5rem; gap:0.75rem; }
+  .modal-name { font-size:1.2rem; }
+  .modal-overlay { padding:1rem; }
+
+  /* Cart */
+  .cart-sidebar { width:100%; }
+
+  /* Footer */
+  .footer-top { grid-template-columns:1fr 1fr; gap:1.5rem; }
+  footer { padding:3rem 1.25rem 1.5rem; }
+  .footer-bottom { flex-direction:column; gap:1rem; text-align:center; }
+
+  /* Admin */
+  .admin-overlay { flex-direction:column; }
+  .admin-sidebar { width:100%; height:auto; flex-shrink:0; }
+  .admin-nav { display:flex; flex-wrap:nowrap; overflow-x:auto; padding:0; }
+  .admin-nav-item { padding:0.75rem 1rem; font-size:0.78rem; white-space:nowrap; flex-shrink:0; }
+  .admin-cards { grid-template-columns:1fr 1fr; }
+  .admin-content { padding:1rem; }
+
+  /* Music player */
+  #musicPlayer { min-width:240px; max-width:calc(100vw - 3rem); right:1rem; }
+  #musicToggleBtn { right:1rem; bottom:4.5rem; }
+  .scroll-top-btn { right:1rem; }
+
+  /* Zalo */
+  .zalo-fab-wrap { bottom:1.5rem; left:1rem; }
+  .zalo-fab { padding:0.5rem 0.8rem 0.5rem 0.6rem; font-size:0.78rem; }
+  .zalo-fab-icon { width:24px; height:24px; font-size:0.9rem; }
+}
+
 @media(max-width:480px){
-  .admin-overlay{flex-direction:column}
-  .admin-sidebar{width:100%;height:auto}
-  .admin-nav{display:flex;padding:0}
-  .admin-nav-item{padding:0.6rem 1rem;font-size:0.75rem}
-  .admin-cards{grid-template-columns:1fr}
+  /* Nav compact */
+  .cart-btn span:not(.cart-count) { display:none; }
+  .auth-btn { font-size:0.75rem; padding:0.45rem 0.7rem; }
+
+  /* Products 2 columns */
+  .product-grid { grid-template-columns:1fr 1fr; gap:0.75rem; }
+  .product-img { height:120px; font-size:3rem; }
+  .product-body { padding:0.75rem 0.65rem; }
+  .product-name { font-size:0.82rem; }
+  .price-current { font-size:0.9rem; }
+  .add-to-cart { font-size:0.75rem; padding:0.55rem; }
+
+  /* Categories */
+  .categories-grid { grid-template-columns:repeat(3,1fr); gap:0.6rem; }
+  .category-card { padding:0.85rem 0.5rem; }
+  .cat-name { font-size:0.75rem; }
+  .cat-count { font-size:0.62rem; }
+
+  /* Footer single column */
+  .footer-top { grid-template-columns:1fr; }
+
+  /* Admin */
+  .admin-cards { grid-template-columns:1fr; }
+  .admin-table { font-size:0.78rem; }
+  .admin-table th, .admin-table td { padding:0.5rem 0.6rem; }
+
+  /* Profile */
+  .profile-stats { grid-template-columns:1fr 1fr; }
+  .profile-header { flex-direction:column; gap:1rem; }
+
+  /* Auth */
+  .auth-form { padding:1.25rem 1.5rem 2rem; }
+  .auth-header { padding:1.5rem 1.5rem 0; }
+
+  /* Featured banner */
+  .featured-banner { padding:1.5rem 1.25rem; margin:0 0 2.5rem; }
+  .countdown { gap:0.6rem; }
+  .countdown-unit { min-width:50px; padding:0.4rem 0.6rem; }
+  .countdown-num { font-size:1.2rem; }
+
+  /* Music player */
+  #musicPlayer { bottom:5rem; right:0.75rem; min-width:220px; }
+  #musicToggleBtn { bottom:4.5rem; right:0.75rem; width:42px; height:42px; font-size:1.1rem; }
 }
 
 /* ─── ZALO SUPPORT BUTTONS ─── */
@@ -469,6 +736,75 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 <body>
 
 
+<!-- ═══ VIDEO AD OVERLAY ═══ -->
+<div id="videoAdOverlay">
+  <div class="video-ad-box">
+    <div class="video-ad-label">📢 QUẢNG CÁO · SHOPVIP.COM</div>
+    <div class="video-ad-countdown" id="adCountdown">Bỏ qua sau <b id="adSecs">5</b>s</div>
+    <!-- Thay src bên dưới bằng link YouTube embed của bạn -->
+    <iframe
+      id="adIframe"
+      class="video-ad-frame"
+      src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0"
+      allow="autoplay; encrypted-media"
+      allowfullscreen
+      title="Quảng cáo ShopVIP"
+    ></iframe>
+    <button class="video-ad-skip" id="adSkipBtn" disabled onclick="closeVideoAd()">
+      ⏭ Bỏ Qua
+    </button>
+    <div class="video-ad-close-later">ShopVIP.com — Gaming Gear Store hàng đầu Việt Nam</div>
+  </div>
+</div>
+
+<!-- ═══ MUSIC PLAYER ═══ -->
+<!-- Nút toggle -->
+<button id="musicToggleBtn" onclick="toggleMusicPlayer()" title="Nhạc Remix">🎵</button>
+
+<!-- Player panel -->
+<div id="musicPlayer">
+  <div class="music-player-header">
+    <span class="music-player-title">🎵 REMIX GAMING</span>
+    <button class="music-player-close" onclick="toggleMusicPlayer()">✕</button>
+  </div>
+  <div class="music-track-info">
+    <div class="music-disc" id="musicDisc">🎧</div>
+    <div>
+      <div class="music-track-name" id="trackName">NCS: Legends Never Die</div>
+      <div class="music-track-artist" id="trackArtist">League × NCS Remix</div>
+    </div>
+  </div>
+  <div class="music-progress-wrap">
+    <input type="range" class="music-progress-bar" id="musicProgress" value="0" min="0" max="100" oninput="seekMusic(this.value)">
+    <div class="music-time">
+      <span id="musicCurrent">0:00</span>
+      <span id="musicDuration">0:00</span>
+    </div>
+  </div>
+  <div class="music-controls">
+    <button class="music-btn" onclick="prevTrack()" title="Trước">⏮</button>
+    <button class="music-btn play-btn" id="playPauseBtn" onclick="togglePlay()" title="Phát/Dừng">▶</button>
+    <button class="music-btn" onclick="nextTrack()" title="Tiếp">⏭</button>
+    <button class="music-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Ngẫu nhiên" style="font-size:0.85rem;opacity:0.5">🔀</button>
+  </div>
+  <div class="music-volume-wrap">
+    <span class="music-vol-icon">🔊</span>
+    <input type="range" class="music-vol-slider" id="musicVolume" value="70" min="0" max="100" oninput="setVolume(this.value)">
+  </div>
+</div>
+
+<!-- Hidden audio element -->
+<audio id="bgAudio" preload="none"></audio>
+
+<!-- ═══ HAMBURGER MOBILE MENU ═══ -->
+<!-- Drawer -->
+<div class="mobile-nav-drawer" id="mobileNavDrawer">
+  <button class="mobile-nav-link" onclick="mobileNav('products')">🕹 Sản Phẩm</button>
+  <button class="mobile-nav-link" onclick="mobileNav('categories')">📂 Danh Mục</button>
+  <button class="mobile-nav-link" onclick="mobileNav('deals')">🔥 Deal Hot</button>
+  <button class="mobile-nav-link" onclick="mobileNav('footer')">📞 Liên Hệ</button>
+</div>
+
 <!-- ZALO SUPPORT BUTTONS -->
 <div class="zalo-fab-wrap" id="zaloFabWrap" style="display:none">
   <a class="zalo-fab zalo-fab-main" id="zaloMainBtn" href="#" target="_blank" rel="noopener">
@@ -500,6 +836,9 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
     <li><a onclick="scrollTo('deals')">Deal Hot</a></li>
     <li><a onclick="scrollTo('footer')">Liên Hệ</a></li>
   </ul>
+  <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
   <div class="nav-actions">
     <div class="search-bar">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -3017,6 +3356,176 @@ function showToast(msg, type='success') {
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
+
+// ═══ VIDEO AD ═══
+(function() {
+  let adTimer = null;
+  let secsLeft = 5;
+  function startAdCountdown() {
+    const secsEl = document.getElementById('adSecs');
+    const skipBtn = document.getElementById('adSkipBtn');
+    adTimer = setInterval(() => {
+      secsLeft--;
+      if (secsEl) secsEl.textContent = Math.max(0, secsLeft);
+      if (secsLeft <= 0) {
+        clearInterval(adTimer);
+        if (skipBtn) { skipBtn.disabled = false; skipBtn.textContent = '⏭ Bỏ Qua Quảng Cáo'; }
+        const countdownEl = document.getElementById('adCountdown');
+        if (countdownEl) countdownEl.textContent = '✓ Sẵn sàng bỏ qua';
+      }
+    }, 1000);
+  }
+  // Chạy đếm ngược khi trang load
+  document.addEventListener('DOMContentLoaded', () => { setTimeout(startAdCountdown, 500); });
+  // Cũng chạy ngay nếu DOM đã sẵn
+  if (document.readyState !== 'loading') setTimeout(startAdCountdown, 500);
+})();
+
+window.closeVideoAd = function() {
+  const overlay = document.getElementById('videoAdOverlay');
+  if (!overlay) return;
+  // Dừng iframe để tắt âm thanh
+  const iframe = document.getElementById('adIframe');
+  if (iframe) { const src = iframe.src; iframe.src = ''; iframe.src = src.replace('autoplay=1','autoplay=0'); }
+  overlay.style.opacity = '0';
+  overlay.style.transition = 'opacity 0.4s ease';
+  setTimeout(() => { overlay.style.display = 'none'; }, 400);
+};
+
+// ═══ MUSIC PLAYER ═══
+const TRACKS = [
+  { name:'Legends Never Die', artist:'NCS × League Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', icon:'🎧' },
+  { name:'Cyberpunk Night Drive', artist:'NEFFEX Gaming Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', icon:'🎮' },
+  { name:'HERO - Nightcore', artist:'NCS Remix 2026', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', icon:'⚔️' },
+  { name:'Phoenix Rising', artist:'RIOT × ShopVIP Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', icon:'🔥' },
+  { name:'Warriors EDM Drop', artist:'Imagine Dragons × Bass', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', icon:'🎵' },
+];
+let currentTrackIdx = 0;
+let isPlaying = false;
+let shuffleOn = false;
+const audio = document.getElementById('bgAudio');
+
+function loadTrack(idx) {
+  currentTrackIdx = ((idx % TRACKS.length) + TRACKS.length) % TRACKS.length;
+  const t = TRACKS[currentTrackIdx];
+  audio.src = t.url;
+  audio.volume = (document.getElementById('musicVolume')?.value || 70) / 100;
+  document.getElementById('trackName').textContent = t.name;
+  document.getElementById('trackArtist').textContent = t.artist;
+  document.getElementById('musicDisc').textContent = t.icon;
+  document.getElementById('musicProgress').value = 0;
+  document.getElementById('musicCurrent').textContent = '0:00';
+  document.getElementById('musicDuration').textContent = '0:00';
+}
+
+function fmtTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return m + ':' + String(sec).padStart(2,'0');
+}
+
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  document.getElementById('musicProgress').value = pct;
+  document.getElementById('musicCurrent').textContent = fmtTime(audio.currentTime);
+});
+audio.addEventListener('loadedmetadata', () => {
+  document.getElementById('musicDuration').textContent = fmtTime(audio.duration);
+});
+audio.addEventListener('ended', () => {
+  if (shuffleOn) { nextTrack(); }
+  else { loadTrack(currentTrackIdx + 1); if(isPlaying) audio.play(); }
+});
+
+window.togglePlay = function() {
+  if (!audio.src) loadTrack(0);
+  if (isPlaying) {
+    audio.pause();
+    isPlaying = false;
+    document.getElementById('playPauseBtn').textContent = '▶';
+    document.getElementById('musicDisc').style.animation = 'none';
+    document.getElementById('musicDisc').classList.remove('playing');
+  } else {
+    audio.play().catch(()=>{});
+    isPlaying = true;
+    document.getElementById('playPauseBtn').textContent = '⏸';
+    document.getElementById('musicDisc').classList.add('playing');
+  }
+};
+
+window.prevTrack = function() {
+  loadTrack(currentTrackIdx - 1);
+  if (isPlaying) audio.play().catch(()=>{});
+};
+
+window.nextTrack = function() {
+  const idx = shuffleOn ? Math.floor(Math.random() * TRACKS.length) : currentTrackIdx + 1;
+  loadTrack(idx);
+  if (isPlaying) audio.play().catch(()=>{});
+};
+
+window.seekMusic = function(val) {
+  if (audio.duration) audio.currentTime = (val / 100) * audio.duration;
+};
+
+window.setVolume = function(val) {
+  audio.volume = val / 100;
+};
+
+window.toggleShuffle = function() {
+  shuffleOn = !shuffleOn;
+  document.getElementById('shuffleBtn').style.opacity = shuffleOn ? '1' : '0.5';
+  document.getElementById('shuffleBtn').style.color = shuffleOn ? 'var(--plasma)' : '';
+};
+
+window.toggleMusicPlayer = function() {
+  const panel = document.getElementById('musicPlayer');
+  const toggleBtn = document.getElementById('musicToggleBtn');
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+    setTimeout(() => { toggleBtn.classList.remove('hidden'); }, 400);
+  } else {
+    panel.classList.add('open');
+    toggleBtn.classList.add('hidden');
+    if (!audio.src) loadTrack(0);
+  }
+};
+
+// Preload first track info
+document.addEventListener('DOMContentLoaded', () => {
+  const t = TRACKS[0];
+  document.getElementById('trackName').textContent = t.name;
+  document.getElementById('trackArtist').textContent = t.artist;
+  document.getElementById('musicDisc').textContent = t.icon;
+});
+
+// ═══ HAMBURGER / MOBILE NAV ═══
+window.toggleMobileNav = function() {
+  const drawer = document.getElementById('mobileNavDrawer');
+  const btn = document.getElementById('hamburgerBtn');
+  const isOpen = drawer.classList.contains('open');
+  drawer.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+};
+
+window.mobileNav = function(id) {
+  // Đóng drawer trước
+  document.getElementById('mobileNavDrawer')?.classList.remove('open');
+  document.getElementById('hamburgerBtn')?.classList.remove('open');
+  setTimeout(() => { document.getElementById(id)?.scrollIntoView({behavior:'smooth'}); }, 200);
+};
+
+// Đóng drawer khi click ra ngoài
+document.addEventListener('click', function(e) {
+  const drawer = document.getElementById('mobileNavDrawer');
+  const btn = document.getElementById('hamburgerBtn');
+  if (drawer?.classList.contains('open') && !drawer.contains(e.target) && !btn?.contains(e.target)) {
+    drawer.classList.remove('open');
+    btn?.classList.remove('open');
+  }
+});
 
 // ─── COUNTDOWN ───
 function startCountdown() {
