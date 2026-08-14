@@ -1725,6 +1725,8 @@ function runAppInit() {
   startCountdown();
   updateNavAuth();
   updateZaloButtons();
+  applyVideoBanner();
+  applyMusicTracks();
   document.getElementById('loadingOverlay').style.display = 'none';
   if (!firebaseReady) {
     showToast('⚠️ Không kết nối được máy chủ — dữ liệu chỉ lưu trên máy này (không đồng bộ nhiều thiết bị)', 'error');
@@ -2661,11 +2663,25 @@ function submitCustomOrder() {
 function renderAdminSettings() {
   const s = getSettings();
   document.getElementById('settingsForm').innerHTML = `
+    <div style="background:rgba(0,255,209,0.05);border:1px solid rgba(0,255,209,0.2);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.25rem">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;color:var(--teal);margin-bottom:0.5rem">📹 VIDEO BANNER ĐẦU TRANG</div>
+      <div class="form-group">
+        <label class="form-label">Link YouTube Video của bạn</label>
+        <input class="form-input" id="stVideoBanner" value="${s.videoBanner||''}" placeholder="VD: https://www.youtube.com/watch?v=XXXXXXXXX">
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">Dán link YouTube thường (watch?v=...) hoặc link embed. Hệ thống tự chuyển sang embed. Để trống để ẩn banner video.</p>
+      </div>
+    </div>
+    <div style="background:rgba(168,85,247,0.05);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.25rem">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;color:var(--plasma);margin-bottom:0.5rem">🎵 DANH SÁCH NHẠC (link mp3 trực tiếp)</div>
+      <p style="font-size:0.72rem;color:var(--muted);margin-bottom:0.85rem">Mỗi dòng một bài: <b style="color:var(--teal)">Tên bài|Tên ca sĩ|link_mp3.mp3</b> — Dùng link Google Drive (chọn Chia sẻ → Bất kỳ ai có link), link Dropbox, hoặc link mp3 trực tiếp.</p>
+      <textarea class="form-input" id="stMusicTracks" rows="8" style="resize:vertical;font-family:'Share Tech Mono',monospace;font-size:0.75rem;line-height:1.7" placeholder="Người Ơi Người Ở Đừng Về|Sơn Tùng M-TP Remix|https://link-mp3-cua-ban.mp3
+Hoa Nở Không Màu|Hoài Lâm Remix|https://link-mp3-cua-ban.mp3
+Waiting For You|MONO Remix|https://link-mp3-cua-ban.mp3">${(s.musicTracks||[]).map(t=>t.name+'|'+t.artist+'|'+t.url).join('\n')}</textarea>
+      <p style="font-size:0.7rem;color:var(--muted);margin-top:0.3rem">💡 Để trống → dùng nhạc mặc định. Sau khi lưu, nhạc player cập nhật ngay.</p>
+    </div>
     <div class="form-group"><label class="form-label">Tên Cửa Hàng</label><input class="form-input" id="stSiteName" value="${s.siteName}"></div>
     <div class="form-group"><label class="form-label">Hotline</label><input class="form-input" id="stHotline" value="${s.hotline}"></div>
     <div class="form-group"><label class="form-label">Zalo Admin Chính (số điện thoại)</label><input class="form-input" id="stZaloMain" value="${s.zaloMain||''}" placeholder="VD: 0912345678"><p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Nút Zalo nổi góc trái màn hình sẽ dẫn đến số này.</p></div>
-    <div class="form-group"><label class="form-label">Zalo Admin Phụ (để trống nếu không có)</label><input class="form-input" id="stZaloSub" value="${s.zaloSub||''}" placeholder="VD: 0987654321"></div>
-    <div class="form-group"><label class="form-label">Zalo Admin Chính (số điện thoại)</label><input class="form-input" id="stZaloMain" value="${s.zaloMain||''}" placeholder="VD: 0912345678"><p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Nút Zalo nổi góc trái màn hình sẽ dẫn đến số Zalo này.</p></div>
     <div class="form-group"><label class="form-label">Zalo Admin Phụ (để trống nếu không có)</label><input class="form-input" id="stZaloSub" value="${s.zaloSub||''}" placeholder="VD: 0987654321"></div>
     <div class="form-group"><label class="form-label">Ngân Hàng Nhận Nạp Ví</label><input class="form-input" id="stBankName" value="${s.bankName}"></div>
     <div class="form-group"><label class="form-label">Số Tài Khoản</label><input class="form-input" id="stBankAccount" value="${s.bankAccount}"></div>
@@ -2719,6 +2735,14 @@ function saveAdminSettingsForm() {
     categories.push({ key, icon, label });
   });
   if (categories.length === 0) { showToast('❌ Cần ít nhất 1 danh mục', 'error'); return; }
+  const videoBanner = document.getElementById('stVideoBanner').value.trim();
+  // Parse music tracks from textarea
+  const musicRaw = document.getElementById('stMusicTracks').value.trim();
+  const musicTracks = musicRaw ? musicRaw.split('\n').map(line => {
+    const parts = line.split('|');
+    return { name: (parts[0]||'').trim(), artist: (parts[1]||'').trim(), url: (parts[2]||'').trim(), icon: '🎵' };
+  }).filter(t => t.name && t.url) : [];
+
   const settings = {
     siteName: document.getElementById('stSiteName').value.trim() || 'ShopVIP.com',
     hotline: document.getElementById('stHotline').value.trim(),
@@ -2729,7 +2753,10 @@ function saveAdminSettingsForm() {
     bankHolder: document.getElementById('stBankHolder').value.trim(),
     bankBranch: document.getElementById('stBankBranch').value.trim(),
     categories,
-    spinPrizes: getSettings().spinPrizes
+    spinPrizes: getSettings().spinPrizes,
+    vouchers: getSettings().vouchers || [],
+    videoBanner,
+    musicTracks
   };
   saveSettings(settings);
   renderAdminSettings();
@@ -2737,6 +2764,8 @@ function saveAdminSettingsForm() {
   renderFilterButtons();
   renderProducts();
   updateZaloButtons();
+  applyVideoBanner();
+  applyMusicTracks();
   showToast('✅ Đã lưu cài đặt cửa hàng');
 }
 
@@ -3526,8 +3555,53 @@ window.closeTopBanner = function() {
   banner.style.padding = '0';
   setTimeout(() => { banner.style.display = 'none'; }, 400);
 };
-// alias cũ nếu còn reference nào đó
 window.closeVideoAdBanner = window.closeTopBanner;
+
+function toYouTubeEmbed(url) {
+  if (!url) return '';
+  // Đã là embed rồi
+  if (url.includes('youtube.com/embed/')) return url;
+  // watch?v=
+  const m1 = url.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  if (m1) return `https://www.youtube.com/embed/${m1[1]}?autoplay=1&mute=1&controls=1&loop=1&modestbranding=1&rel=0`;
+  // youtu.be/
+  const m2 = url.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
+  if (m2) return `https://www.youtube.com/embed/${m2[1]}?autoplay=1&mute=1&controls=1&loop=1&modestbranding=1&rel=0`;
+  return url; // link khác giữ nguyên
+}
+
+function applyVideoBanner() {
+  const s = getSettings();
+  const banner = document.getElementById('videoTopBanner');
+  const iframe = document.getElementById('topBannerVideo');
+  if (!banner || !iframe) return;
+  if (!s.videoBanner) {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'flex';
+    const embedUrl = toYouTubeEmbed(s.videoBanner);
+    if (iframe.src !== embedUrl) iframe.src = embedUrl;
+  }
+}
+
+function applyMusicTracks() {
+  const s = getSettings();
+  if (s.musicTracks && s.musicTracks.length > 0) {
+    TRACKS.length = 0;
+    s.musicTracks.forEach(t => TRACKS.push(t));
+  }
+  // Reload current track info display
+  if (TRACKS.length > 0) {
+    const t = TRACKS[0];
+    const nameEl = document.getElementById('trackName');
+    const artistEl = document.getElementById('trackArtist');
+    const discEl = document.getElementById('musicDisc');
+    if (nameEl) nameEl.textContent = t.name;
+    if (artistEl) artistEl.textContent = t.artist;
+    if (discEl) discEl.textContent = t.icon || '🎵';
+    if (isPlaying) { loadTrack(0); audio.play().catch(()=>{}); }
+  }
+}
 
 // ═══ BUY NOW / VOUCHER SYSTEM ═══
 let _buyNowProductId = null;
