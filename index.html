@@ -9,17 +9,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
 :root {
-  --void: #120E2E;
-  --deep: #241C4F;
+  --void: #0F0B28;
+  --deep: #1A1540;
   --teal: #00FFD1;
   --crimson: #FF2E63;
-  --plasma: #9B30FF;
+  --plasma: #A855F7;
   --gold: #FFD93D;
-  --text: #F5F5FF;
-  --muted: #A5A5D0;
-  --card: #1E1840;
-  --border: rgba(0,255,209,0.25);
+  --text: #EEEEFF;
+  --muted: #9898C0;
+  --card: #1C1838;
+  --border: rgba(0,255,209,0.30);
   --admin: #FFA733;
+  --surf: #221D4A;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -37,7 +38,7 @@ nav {
   position:fixed; top:0; left:0; right:0; z-index:1000;
   display:flex; align-items:center; justify-content:space-between;
   padding:0 2rem; height:64px;
-  background:rgba(10,10,15,0.9); backdrop-filter:blur(20px);
+  background:rgba(15,11,40,0.95); backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border);
 }
 .logo { font-family:'Rajdhani',sans-serif; font-size:1.5rem; font-weight:700; letter-spacing:0.15em; color:var(--teal); text-shadow:0 0 20px rgba(0,255,209,0.5); text-decoration:none; cursor:pointer; }
@@ -76,7 +77,7 @@ nav {
 
 /* ─── HERO ─── */
 .hero { position:relative; min-height:100vh; display:flex; align-items:center; overflow:hidden; padding:64px 0 0; }
-.hero-bg { position:absolute; inset:0; background:radial-gradient(ellipse 55% 45% at 75% 20%, rgba(255,46,99,0.28) 0%, transparent 55%),radial-gradient(ellipse 60% 55% at 70% 55%, rgba(155,48,255,0.35) 0%, transparent 62%),radial-gradient(ellipse 45% 45% at 25% 65%, rgba(0,255,209,0.22) 0%, transparent 55%),radial-gradient(ellipse 35% 35% at 15% 15%, rgba(255,217,61,0.12) 0%, transparent 50%),linear-gradient(180deg, #120E2E 0%, #241C4F 100%); }
+.hero-bg { position:absolute; inset:0; background:radial-gradient(ellipse 55% 45% at 75% 20%, rgba(255,46,99,0.38) 0%, transparent 55%),radial-gradient(ellipse 60% 55% at 70% 55%, rgba(168,85,247,0.45) 0%, transparent 62%),radial-gradient(ellipse 45% 45% at 25% 65%, rgba(0,255,209,0.30) 0%, transparent 55%),radial-gradient(ellipse 35% 35% at 15% 15%, rgba(255,217,61,0.18) 0%, transparent 50%),linear-gradient(180deg, #0F0B28 0%, #1A1540 100%); }
 .hero-bg::after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,209,0.015) 2px, rgba(0,255,209,0.015) 4px); pointer-events:none; }
 .hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(0,255,209,0.05) 1px, transparent 1px),linear-gradient(90deg, rgba(0,255,209,0.05) 1px, transparent 1px); background-size:60px 60px; mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%); }
 .hero-content { position:relative; z-index:2; padding:0 2rem; max-width:1200px; margin:0 auto; width:100%; display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center; }
@@ -416,9 +417,72 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
   .admin-nav-item{padding:0.6rem 1rem;font-size:0.75rem}
   .admin-cards{grid-template-columns:1fr}
 }
+
+/* ─── ZALO SUPPORT BUTTONS ─── */
+.zalo-fab-wrap { position:fixed; bottom:2rem; left:1.5rem; z-index:8000; display:flex; flex-direction:column; gap:0.6rem; align-items:flex-start; }
+.zalo-fab { display:flex; align-items:center; gap:0.6rem; padding:0.55rem 1rem 0.55rem 0.7rem; border-radius:50px; border:none; cursor:pointer; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.82rem; letter-spacing:0.04em; text-decoration:none; transition:all 0.25s; box-shadow:0 4px 20px rgba(0,0,0,0.4); white-space:nowrap; }
+.zalo-fab-main { background:linear-gradient(135deg,#0068FF,#00A8FF); color:#fff; }
+.zalo-fab-main:hover { transform:translateY(-2px) scale(1.03); box-shadow:0 6px 28px rgba(0,104,255,0.45); }
+.zalo-fab-sub { background:linear-gradient(135deg,#1A1540,#221D4A); color:var(--teal); border:1px solid rgba(0,255,209,0.3); font-size:0.78rem; padding:0.45rem 0.85rem 0.45rem 0.6rem; }
+.zalo-fab-sub:hover { transform:translateY(-2px); border-color:var(--teal); box-shadow:0 4px 20px rgba(0,255,209,0.2); }
+.zalo-fab-icon { width:28px; height:28px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:1rem; }
+.zalo-fab-sub .zalo-fab-icon { width:22px; height:22px; background:rgba(0,255,209,0.12); font-size:0.85rem; }
+.zalo-fab-label { display:flex; flex-direction:column; line-height:1.1; }
+.zalo-fab-label small { font-size:0.65rem; opacity:0.75; font-weight:400; letter-spacing:0; }
+
+/* ─── SCROLL TO TOP ─── */
+.scroll-top-btn { position:fixed; bottom:2rem; right:1.5rem; z-index:8000; width:44px; height:44px; border-radius:50%; background:var(--deep); border:1px solid var(--border); color:var(--teal); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1.1rem; opacity:0; pointer-events:none; transition:all 0.3s; box-shadow:0 4px 16px rgba(0,0,0,0.3); }
+.scroll-top-btn.show { opacity:1; pointer-events:all; }
+.scroll-top-btn:hover { background:rgba(0,255,209,0.1); border-color:var(--teal); transform:translateY(-2px); }
+
+/* ─── REVIEW SYSTEM ─── */
+.reviews-section { margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.25rem; }
+.reviews-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1rem; letter-spacing:0.05em; margin-bottom:0.85rem; color:var(--text); }
+.review-form { background:rgba(0,255,209,0.04); border:1px solid rgba(0,255,209,0.15); border-radius:8px; padding:1rem; margin-bottom:1rem; }
+.review-form-title { font-family:'Rajdhani',sans-serif; font-size:0.82rem; font-weight:600; color:var(--muted); margin-bottom:0.6rem; text-transform:uppercase; letter-spacing:0.05em; }
+.star-picker { display:flex; gap:0.3rem; margin-bottom:0.6rem; }
+.star-picker span { font-size:1.3rem; cursor:pointer; transition:transform 0.15s; color:var(--muted); }
+.star-picker span:hover, .star-picker span.active { color:var(--gold); transform:scale(1.15); }
+.review-textarea { width:100%; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:0.6rem 0.75rem; color:var(--text); font-size:0.82rem; outline:none; resize:vertical; min-height:64px; font-family:'Inter',sans-serif; }
+.review-textarea:focus { border-color:var(--teal); }
+.review-submit { margin-top:0.5rem; background:linear-gradient(135deg,var(--plasma),var(--teal)); border:none; padding:0.5rem 1.25rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.82rem; letter-spacing:0.08em; color:var(--void); cursor:pointer; border-radius:4px; transition:all 0.2s; }
+.review-submit:hover { box-shadow:0 4px 16px rgba(155,48,255,0.35); }
+.review-list { display:flex; flex-direction:column; gap:0.65rem; max-height:220px; overflow-y:auto; }
+.review-item { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:0.75rem 1rem; }
+.review-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem; }
+.review-author { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.82rem; color:var(--teal); }
+.review-stars { color:var(--gold); font-size:0.75rem; }
+.review-date { font-size:0.68rem; color:var(--muted); }
+.review-text { font-size:0.82rem; color:var(--text); line-height:1.5; }
+.review-empty { font-size:0.8rem; color:var(--muted); font-style:italic; padding:0.5rem 0; }
+
+/* ─── PRODUCT IMAGE UPLOAD ─── */
+.img-upload-area { border:2px dashed var(--border); border-radius:8px; padding:1.25rem; text-align:center; cursor:pointer; transition:all 0.2s; position:relative; }
+.img-upload-area:hover { border-color:var(--teal); background:rgba(0,255,209,0.03); }
+.img-upload-area input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+.img-upload-preview { width:100%; max-height:160px; object-fit:contain; border-radius:6px; margin-top:0.5rem; display:none; }
+.img-upload-label { font-family:'Rajdhani',sans-serif; font-size:0.82rem; color:var(--muted); pointer-events:none; }
+.img-upload-label span { color:var(--teal); }
+
 </style>
 </head>
 <body>
+
+
+<!-- ZALO SUPPORT BUTTONS -->
+<div class="zalo-fab-wrap" id="zaloFabWrap" style="display:none">
+  <a class="zalo-fab zalo-fab-main" id="zaloMainBtn" href="#" target="_blank" rel="noopener">
+    <div class="zalo-fab-icon">💬</div>
+    <div class="zalo-fab-label">Admin Chính<small>Hỗ trợ 24/7</small></div>
+  </a>
+  <a class="zalo-fab zalo-fab-sub" id="zaloSubBtn" href="#" target="_blank" rel="noopener" style="display:none">
+    <div class="zalo-fab-icon">💬</div>
+    <div class="zalo-fab-label">Admin Phụ<small>Hỗ trợ thêm</small></div>
+  </a>
+</div>
+
+<!-- SCROLL TO TOP -->
+<button class="scroll-top-btn" id="scrollTopBtn" onclick="scrollToTop()" title="Lên đầu trang">↑</button>
 
 <!-- LOADING OVERLAY (chờ tải dữ liệu từ máy chủ) -->
 <div id="loadingOverlay" style="position:fixed;inset:0;z-index:99999;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem">
@@ -625,6 +689,24 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <div class="modal-desc" id="modalDesc"></div>
         <div class="modal-specs" id="modalSpecs"></div>
         <button class="modal-add" id="modalAddBtn">+ Thêm Vào Giỏ</button>
+        <div class="reviews-section">
+          <div class="reviews-title" id="reviewsTitle">⭐ Đánh Giá (0)</div>
+          <div id="reviewFormWrap" style="display:none">
+            <div class="review-form">
+              <div class="review-form-title">Viết đánh giá của bạn</div>
+              <div class="star-picker" id="starPicker">
+                <span data-v="1" onclick="pickStar(1)">★</span>
+                <span data-v="2" onclick="pickStar(2)">★</span>
+                <span data-v="3" onclick="pickStar(3)">★</span>
+                <span data-v="4" onclick="pickStar(4)">★</span>
+                <span data-v="5" onclick="pickStar(5)">★</span>
+              </div>
+              <textarea class="review-textarea" id="reviewText" placeholder="Chia sẻ trải nghiệm của bạn..."></textarea>
+              <button class="review-submit" onclick="submitReview()">Gửi Đánh Giá</button>
+            </div>
+          </div>
+          <div class="review-list" id="reviewList"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -994,8 +1076,20 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <select class="form-input" id="pfCategory"></select>
       </div>
       <div class="form-group">
-        <label class="form-label">Emoji Đại Diện</label>
+        <label class="form-label">Emoji Đại Diện (dùng nếu không có ảnh)</label>
         <input class="form-input" type="text" id="pfEmoji" placeholder="🖱️" maxlength="4">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ảnh Sản Phẩm (tuỳ chọn — ưu tiên hơn emoji)</label>
+        <div class="img-upload-area" onclick="document.getElementById('pfImgFile').click()">
+          <input type="file" id="pfImgFile" accept="image/*" onchange="handleProductImageUpload(this)" style="display:none">
+          <div class="img-upload-label">📷 <span>Nhấn để chọn ảnh</span> hoặc kéo thả<br><small style="color:var(--muted);font-size:0.7rem">JPG, PNG, WebP — tối đa 2MB</small></div>
+          <img class="img-upload-preview" id="pfImgPreview" alt="preview">
+          <div id="pfImgClearWrap" style="display:none;margin-top:0.4rem">
+            <button type="button" onclick="event.stopPropagation();clearProductImage()" style="background:none;border:1px solid var(--crimson);color:var(--crimson);border-radius:4px;padding:0.25rem 0.6rem;cursor:pointer;font-size:0.75rem;font-family:'Rajdhani',sans-serif">🗑 Xoá Ảnh</button>
+          </div>
+        </div>
+        <input type="hidden" id="pfImgData">
       </div>
       <div class="form-group">
         <label class="form-label">Giá Bán (VND)</label>
@@ -1130,6 +1224,8 @@ function watchCollection(name, onData, onFallback) {
 const DEFAULT_SETTINGS = {
   siteName: 'ShopVIP.com',
   hotline: '1900 6969',
+  zaloMain: '',
+  zaloSub: '',
   bankName: 'Vietcombank',
   bankAccount: '0123456789',
   bankHolder: 'CONG TY TNHH SHOPVIP',
@@ -1180,6 +1276,7 @@ function refreshUI() {
   renderFilterButtons();
   renderProducts();
   updateNavAuth();
+  updateZaloButtons();
   if (currentUser) {
     const fresh = _usersCache.find(u => u.id === currentUser.id);
     if (fresh) currentUser = fresh;
@@ -1202,6 +1299,7 @@ function runAppInit() {
   renderProducts();
   startCountdown();
   updateNavAuth();
+  updateZaloButtons();
   document.getElementById('loadingOverlay').style.display = 'none';
   if (!firebaseReady) {
     showToast('⚠️ Không kết nối được máy chủ — dữ liệu chỉ lưu trên máy này (không đồng bộ nhiều thiết bị)', 'error');
@@ -2139,6 +2237,10 @@ function renderAdminSettings() {
   document.getElementById('settingsForm').innerHTML = `
     <div class="form-group"><label class="form-label">Tên Cửa Hàng</label><input class="form-input" id="stSiteName" value="${s.siteName}"></div>
     <div class="form-group"><label class="form-label">Hotline</label><input class="form-input" id="stHotline" value="${s.hotline}"></div>
+    <div class="form-group"><label class="form-label">Zalo Admin Chính (số điện thoại)</label><input class="form-input" id="stZaloMain" value="${s.zaloMain||''}" placeholder="VD: 0912345678"><p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Nút Zalo nổi góc trái màn hình sẽ dẫn đến số này.</p></div>
+    <div class="form-group"><label class="form-label">Zalo Admin Phụ (để trống nếu không có)</label><input class="form-input" id="stZaloSub" value="${s.zaloSub||''}" placeholder="VD: 0987654321"></div>
+    <div class="form-group"><label class="form-label">Zalo Admin Chính (số điện thoại)</label><input class="form-input" id="stZaloMain" value="${s.zaloMain||''}" placeholder="VD: 0912345678"><p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Nút Zalo nổi góc trái màn hình sẽ dẫn đến số Zalo này.</p></div>
+    <div class="form-group"><label class="form-label">Zalo Admin Phụ (để trống nếu không có)</label><input class="form-input" id="stZaloSub" value="${s.zaloSub||''}" placeholder="VD: 0987654321"></div>
     <div class="form-group"><label class="form-label">Ngân Hàng Nhận Nạp Ví</label><input class="form-input" id="stBankName" value="${s.bankName}"></div>
     <div class="form-group"><label class="form-label">Số Tài Khoản</label><input class="form-input" id="stBankAccount" value="${s.bankAccount}"></div>
     <div class="form-group"><label class="form-label">Chủ Tài Khoản</label><input class="form-input" id="stBankHolder" value="${s.bankHolder}"></div>
@@ -2194,6 +2296,8 @@ function saveAdminSettingsForm() {
   const settings = {
     siteName: document.getElementById('stSiteName').value.trim() || 'ShopVIP.com',
     hotline: document.getElementById('stHotline').value.trim(),
+    zaloMain: document.getElementById('stZaloMain').value.trim(),
+    zaloSub: document.getElementById('stZaloSub').value.trim(),
     bankName: document.getElementById('stBankName').value.trim(),
     bankAccount: document.getElementById('stBankAccount').value.trim(),
     bankHolder: document.getElementById('stBankHolder').value.trim(),
@@ -2206,6 +2310,7 @@ function saveAdminSettingsForm() {
   renderCategoryCards();
   renderFilterButtons();
   renderProducts();
+  updateZaloButtons();
   showToast('✅ Đã lưu cài đặt cửa hàng');
 }
 
@@ -2217,7 +2322,7 @@ function renderAdminProducts() {
       const stock = (p.deliveryCodes || []).length;
       return `
       <tr>
-        <td style="font-size:1.5rem">${p.emoji}</td>
+        <td style="font-size:1.5rem">${p.imgData ? `<img src="${p.imgData}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)" alt="${p.name}">` : p.emoji}</td>
         <td>${p.name}</td>
         <td style="font-size:0.82rem">${getCatLabel(p.category)}</td>
         <td class="mono" style="color:var(--teal)">${fmt(p.price)}</td>
@@ -2249,6 +2354,18 @@ function openProductModal(id) {
     document.getElementById('pfSpecs').value = (p.specs||[]).map(([k,v])=>`${k}: ${v}`).join('\n');
     document.getElementById('pfDeliveryCodes').value = (p.deliveryCodes||[]).join('\n');
     document.getElementById('pfDeliveryMode').value = p.deliveryMode === 'fixed' ? 'fixed' : 'stock';
+    // Load ảnh nếu có
+    const pfPrev = document.getElementById('pfImgPreview');
+    const pfImgData = document.getElementById('pfImgData');
+    if (p.imgData) {
+      pfImgData.value = p.imgData;
+      pfPrev.src = p.imgData;
+      pfPrev.style.display = 'block';
+      document.getElementById('pfImgClearWrap').style.display = 'block';
+      document.querySelector('.img-upload-label').style.display = 'none';
+    } else {
+      clearProductImage();
+    }
   } else {
     document.getElementById('pfName').value = '';
     document.getElementById('pfCategory').value = 'mouse';
@@ -2261,6 +2378,7 @@ function openProductModal(id) {
     document.getElementById('pfSpecs').value = '';
     document.getElementById('pfDeliveryCodes').value = '';
     document.getElementById('pfDeliveryMode').value = 'stock';
+    clearProductImage();
   }
   document.getElementById('pfNameErr').classList.remove('show');
   document.getElementById('pfPriceErr').classList.remove('show');
@@ -2297,10 +2415,12 @@ function submitProductForm() {
   const deliveryCodes = document.getElementById('pfDeliveryCodes').value.split('\n').map(l=>l.trim()).filter(Boolean);
   const deliveryMode = document.getElementById('pfDeliveryMode').value === 'fixed' ? 'fixed' : 'stock';
   const editId = document.getElementById('productFormOverlay').dataset.editId;
+  const imgData = document.getElementById('pfImgData').value || null;
   const data = {
     name,
     category: document.getElementById('pfCategory').value,
     emoji: document.getElementById('pfEmoji').value.trim() || '🎮',
+    imgData,
     price,
     oldPrice: oldPriceRaw ? parseInt(oldPriceRaw) : null,
     badge: document.getElementById('pfBadge').value || null,
@@ -2363,7 +2483,10 @@ function renderProducts() {
       <div class="product-img" style="background:${p.bg}">
         <div class="product-img-bg" style="background:${p.bg}"></div>
         ${outOfStock ? `<span class="product-badge" style="background:var(--crimson);color:#fff">HẾT HÀNG</span>` : (p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge==='sale'?'SALE':p.badge==='new'?'NEW':p.badge==='hot'?'HOT':'LIMITED'}</span>` : '')}
-        <span style="position:relative;z-index:2;font-size:4rem;${outOfStock?'opacity:0.4':''}">${p.emoji}</span>
+        ${p.imgData
+          ? `<img src="${p.imgData}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;${outOfStock?'opacity:0.4':''}" alt="${p.name}">`
+          : `<span style="position:relative;z-index:2;font-size:4rem;${outOfStock?'opacity:0.4':''}">${p.emoji}</span>`
+        }
         <button class="wishlist-btn ${wishlist.includes(p.id)?'active':''}" onclick="event.stopPropagation();toggleWishlist(${p.id},this)">${wishlist.includes(p.id)?'❤️':'🤍'}</button>
       </div>
       <div class="product-body">
@@ -2593,8 +2716,23 @@ function checkout() {
 function openModal(id) {
   const p = products.find(x => x.id===id);
   if (!p) return;
-  document.getElementById('modalEmoji').textContent = p.emoji;
-  document.getElementById('modalImg').style.background = p.bg;
+  const imgEl = document.getElementById('modalImg');
+  imgEl.style.background = p.bg;
+  // Hiển thị ảnh thật nếu có, ngược lại hiện emoji
+  const existingRealImg = imgEl.querySelector('.product-real-img');
+  if (existingRealImg) existingRealImg.remove();
+  const emojiEl = document.getElementById('modalEmoji');
+  if (p.imgData) {
+    const img = document.createElement('img');
+    img.src = p.imgData;
+    img.className = 'product-real-img';
+    img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;border-radius:0';
+    imgEl.appendChild(img);
+    emojiEl.style.display = 'none';
+  } else {
+    emojiEl.style.display = '';
+    emojiEl.textContent = p.emoji;
+  }
   document.getElementById('modalCat').textContent = '// ' + getCatLabel(p.category).toUpperCase();
   document.getElementById('modalName').textContent = p.name;
   document.getElementById('modalPrice').textContent = fmt(p.price);
@@ -2604,12 +2742,16 @@ function openModal(id) {
   const outOfStock = p.deliveryMode !== 'fixed' && Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
   const addBtn = document.getElementById('modalAddBtn');
   addBtn.disabled = outOfStock;
-  addBtn.style.opacity = outOfStock ? '0.4' : '';
-  addBtn.style.cursor = outOfStock ? 'not-allowed' : '';
+  addBtn.style.opacity = outOfStock ? '0.5' : '';
   addBtn.textContent = outOfStock ? 'Hết Hàng' : '+ Thêm Vào Giỏ';
   addBtn.onclick = outOfStock ? null : () => { addToCart(p.id); closeModal(null); };
+  // Init reviews
+  _selectedStars = 5;
+  pickStar(5);
+  renderReviews(id);
   document.getElementById('modalOverlay').classList.add('open');
 }
+
 function closeModal(e) {
   if (!e || e.target===document.getElementById('modalOverlay')) {
     document.getElementById('modalOverlay').classList.remove('open');
@@ -2735,6 +2877,134 @@ function saveSpinPrizes() {
   settings.spinPrizes = prizes;
   saveSettings(settings);
   showToast('✅ Đã lưu cấu hình vòng quay');
+}
+
+
+// ─── ZALO SUPPORT BUTTONS ───
+function updateZaloButtons() {
+  const s = getSettings();
+  const wrap = document.getElementById('zaloFabWrap');
+  const mainBtn = document.getElementById('zaloMainBtn');
+  const subBtn = document.getElementById('zaloSubBtn');
+  if (!s.zaloMain) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  mainBtn.href = 'https://zalo.me/' + s.zaloMain.replace(/[^0-9]/g,'');
+  if (s.zaloSub) {
+    subBtn.style.display = 'flex';
+    subBtn.href = 'https://zalo.me/' + s.zaloSub.replace(/[^0-9]/g,'');
+  } else {
+    subBtn.style.display = 'none';
+  }
+}
+
+// ─── SCROLL TO TOP ───
+window.addEventListener('scroll', () => {
+  const btn = document.getElementById('scrollTopBtn');
+  if (btn) btn.classList.toggle('show', window.scrollY > 400);
+});
+
+// ─── REVIEWS ───
+let _currentReviewProductId = null;
+let _selectedStars = 5;
+
+function getReviews() {
+  try { return JSON.parse(localStorage.getItem('svip_reviews') || '{}'); } catch { return {}; }
+}
+function saveReviews(rv) {
+  localStorage.setItem('svip_reviews', JSON.stringify(rv));
+}
+function pickStar(n) {
+  _selectedStars = n;
+  document.querySelectorAll('#starPicker span').forEach((s, i) => {
+    s.classList.toggle('active', i < n);
+  });
+}
+function renderReviews(productId) {
+  _currentReviewProductId = productId;
+  const rv = getReviews();
+  const list = rv[productId] || [];
+  const title = document.getElementById('reviewsTitle');
+  const reviewList = document.getElementById('reviewList');
+  const formWrap = document.getElementById('reviewFormWrap');
+  title.textContent = '⭐ Đánh Giá (' + list.length + ')';
+
+  // Chỉ cho user đã đăng nhập và chưa review sản phẩm này
+  const alreadyReviewed = currentUser && list.some(r => r.userId === currentUser.id);
+  formWrap.style.display = (currentUser && !alreadyReviewed) ? 'block' : 'none';
+
+  if (list.length === 0) {
+    reviewList.innerHTML = '<div class="review-empty">Chưa có đánh giá nào. Hãy là người đầu tiên!</div>';
+    return;
+  }
+  reviewList.innerHTML = list.slice().reverse().map(r => `
+    <div class="review-item">
+      <div class="review-header">
+        <div>
+          <span class="review-author">${escapeHtml(r.name)}</span>
+          <span class="review-stars" style="margin-left:0.4rem">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</span>
+        </div>
+        <span class="review-date">${new Date(r.date).toLocaleDateString('vi-VN')}</span>
+      </div>
+      <div class="review-text">${escapeHtml(r.text)}</div>
+    </div>`).join('');
+
+  // Cập nhật rating trung bình vào product card (live)
+  const avg = list.reduce((s,r)=>s+r.stars,0)/list.length;
+  const p = products.find(x=>x.id===productId);
+  if (p) {
+    p._realRating = Math.round(avg*10)/10;
+    p._realReviews = list.length;
+  }
+}
+function submitReview() {
+  if (!currentUser) { showToast('❌ Vui lòng đăng nhập để đánh giá', 'error'); return; }
+  const text = document.getElementById('reviewText').value.trim();
+  if (!text) { showToast('❌ Vui lòng nhập nội dung đánh giá', 'error'); return; }
+  if (_selectedStars < 1) { showToast('❌ Vui lòng chọn số sao', 'error'); return; }
+  const rv = getReviews();
+  const pid = _currentReviewProductId;
+  if (!rv[pid]) rv[pid] = [];
+  if (rv[pid].some(r => r.userId === currentUser.id)) {
+    showToast('❌ Bạn đã đánh giá sản phẩm này rồi', 'error'); return;
+  }
+  rv[pid].push({
+    userId: currentUser.id,
+    name: currentUser.name,
+    stars: _selectedStars,
+    text,
+    date: new Date().toISOString()
+  });
+  saveReviews(rv);
+  document.getElementById('reviewText').value = '';
+  pickStar(5);
+  renderReviews(pid);
+  showToast('✅ Cảm ơn đánh giá của bạn!');
+}
+
+// ─── PRODUCT IMAGE UPLOAD ───
+function handleProductImageUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('❌ Ảnh quá lớn — tối đa 2MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = e.target.result;
+    document.getElementById('pfImgData').value = data;
+    const preview = document.getElementById('pfImgPreview');
+    preview.src = data;
+    preview.style.display = 'block';
+    document.getElementById('pfImgClearWrap').style.display = 'block';
+    document.querySelector('.img-upload-label').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+function clearProductImage() {
+  document.getElementById('pfImgData').value = '';
+  document.getElementById('pfImgPreview').style.display = 'none';
+  document.getElementById('pfImgPreview').src = '';
+  document.getElementById('pfImgClearWrap').style.display = 'none';
+  document.querySelector('.img-upload-label').style.display = '';
+  document.getElementById('pfImgFile').value = '';
 }
 
 // ─── TOAST ───
