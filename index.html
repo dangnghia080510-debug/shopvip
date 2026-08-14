@@ -735,6 +735,15 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <h4>💳 Lịch Sử Giao Dịch Ví</h4>
         <div id="profileLedgerList"><div style="color:var(--muted);font-size:0.82rem">Chưa có giao dịch nào.</div></div>
       </div>
+      <div class="profile-orders" style="margin-top:1.5rem">
+        <h4>🔒 Đổi Mật Khẩu</h4>
+        <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:0.75rem">
+          <input class="form-input" type="password" id="pwCurrent" placeholder="Mật khẩu hiện tại">
+          <input class="form-input" type="password" id="pwNew" placeholder="Mật khẩu mới (ít nhất 6 ký tự)">
+          <input class="form-input" type="password" id="pwNew2" placeholder="Nhập lại mật khẩu mới">
+          <button class="auth-submit" style="padding:0.65rem" onclick="changeMyPassword()">🔒 Cập Nhật Mật Khẩu</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -775,7 +784,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       <div class="admin-section" id="sec-users">
         <div class="section-subtitle">Danh Sách Khách Hàng</div>
         <table class="admin-table">
-          <thead><tr><th>#</th><th>Tên</th><th>Email</th><th>SĐT</th><th>Vai Trò</th><th>Ví</th><th>Ngày Đăng Ký</th></tr></thead>
+          <thead><tr><th>#</th><th>Tên</th><th>Email</th><th>SĐT</th><th>Vai Trò</th><th>Ví</th><th>Ngày Đăng Ký</th><th>Hành Động</th></tr></thead>
           <tbody id="adminUserList"></tbody>
         </table>
       </div>
@@ -1077,15 +1086,40 @@ const firebaseConfig = {
   appId: "1:294804329458:web:f4c0996cb51b354237516b",
   measurementId: "G-QE3W38KBNE"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// Bọc try/catch: nếu SDK Firebase không tải được (mạng chặn, CDN lỗi,
+// trình duyệt/app chặn gstatic.com...) trang sẽ TỰ ĐỘNG chuyển sang chế độ
+// lưu cục bộ (localStorage) thay vì treo mãi ở màn hình loading.
+let db = null;
+let firebaseReady = false;
+try {
+  if (typeof firebase === 'undefined') throw new Error('Firebase SDK chưa tải được (bị chặn mạng hoặc CDN lỗi).');
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+} catch (e) {
+  console.error('Firebase init failed, fallback to localStorage mode:', e);
+}
 const FS_COLLECTION = 'shopvip_data';
-function fsDoc(name) { return db.collection(FS_COLLECTION).doc(name); }
+function fsDoc(name) { return firebaseReady ? db.collection(FS_COLLECTION).doc(name) : null; }
 function fsSave(name, dataObj) {
+  if (!firebaseReady) return;
   fsDoc(name).set(dataObj).catch(err => {
     console.error('Firestore save error (' + name + '):', err);
     showToast('⚠️ Lỗi đồng bộ dữ liệu lên máy chủ — kiểm tra kết nối mạng', 'error');
   });
+}
+// Đăng ký lắng nghe 1 collection nếu có Firebase, nếu không thì dùng ngay
+// dữ liệu đã lưu trong localStorage (không chờ mạng).
+function watchCollection(name, onData, onFallback) {
+  if (firebaseReady) {
+    fsDoc(name).onSnapshot(onData, err => {
+      console.error(name, err);
+      showToast('⚠️ Mất kết nối máy chủ dữ liệu (' + name + '), đang dùng bản lưu tạm trên máy', 'error');
+      onFallback();
+    });
+  } else {
+    onFallback();
+  }
 }
 
 const DEFAULT_SETTINGS = {
@@ -1164,10 +1198,13 @@ function runAppInit() {
   startCountdown();
   updateNavAuth();
   document.getElementById('loadingOverlay').style.display = 'none';
+  if (!firebaseReady) {
+    showToast('⚠️ Không kết nối được máy chủ — dữ liệu chỉ lưu trên máy này (không đồng bộ nhiều thiết bị)', 'error');
+  }
 }
 
 // ─── REALTIME LISTENERS (đồng bộ dữ liệu giữa mọi thiết bị) ───
-fsDoc('products').onSnapshot(snap => {
+watchCollection('products', snap => {
   if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
     products = snap.data().list;
   } else {
@@ -1176,11 +1213,12 @@ fsDoc('products').onSnapshot(snap => {
   }
   localStorage.setItem('svip_products', JSON.stringify(products));
   markLoaded('products');
-}, err => { console.error(err); showToast('⚠️ Mất kết nối máy chủ dữ liệu, đang dùng bản lưu tạm trên máy', 'error');
+}, () => {
   try { products = JSON.parse(localStorage.getItem('svip_products') || 'null') || defaultProducts; } catch { products = defaultProducts; }
-  markLoaded('products'); });
+  markLoaded('products');
+});
 
-fsDoc('users').onSnapshot(snap => {
+watchCollection('users', snap => {
   _usersCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
   if (_usersFirstLoad) {
     _usersFirstLoad = false;
@@ -1194,35 +1232,49 @@ fsDoc('users').onSnapshot(snap => {
   }
   localStorage.setItem('svip_users', JSON.stringify(_usersCache));
   markLoaded('users');
-}, err => { console.error(err);
+}, () => {
   try { _usersCache = JSON.parse(localStorage.getItem('svip_users') || '[]'); } catch { _usersCache = []; }
-  markLoaded('users'); });
+  if (_usersFirstLoad) {
+    _usersFirstLoad = false;
+    if (!_usersCache.find(u => u.email === 'admin@shopvip.com')) {
+      _usersCache.push({
+        id: 'admin_001', name: 'Admin ShopVIP', email: 'admin@shopvip.com', phone: '0900000001',
+        password: 'admin123', role: 'admin', wallet: 0, joined: new Date().toISOString(), orders: [], ledger: []
+      });
+      localStorage.setItem('svip_users', JSON.stringify(_usersCache));
+    }
+  }
+  markLoaded('users');
+});
 
-fsDoc('orders').onSnapshot(snap => {
+watchCollection('orders', snap => {
   _ordersCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
   localStorage.setItem('svip_orders', JSON.stringify(_ordersCache));
   markLoaded('orders');
-}, err => { console.error(err);
+}, () => {
   try { _ordersCache = JSON.parse(localStorage.getItem('svip_orders') || '[]'); } catch { _ordersCache = []; }
-  markLoaded('orders'); });
+  markLoaded('orders');
+});
 
-fsDoc('deposits').onSnapshot(snap => {
+watchCollection('deposits', snap => {
   _depositsCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
   localStorage.setItem('svip_deposits', JSON.stringify(_depositsCache));
   markLoaded('deposits');
-}, err => { console.error(err);
+}, () => {
   try { _depositsCache = JSON.parse(localStorage.getItem('svip_deposits') || '[]'); } catch { _depositsCache = []; }
-  markLoaded('deposits'); });
+  markLoaded('deposits');
+});
 
-fsDoc('spins').onSnapshot(snap => {
+watchCollection('spins', snap => {
   _spinsCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
   localStorage.setItem('svip_spins', JSON.stringify(_spinsCache));
   markLoaded('spins');
-}, err => { console.error(err);
+}, () => {
   try { _spinsCache = JSON.parse(localStorage.getItem('svip_spins') || '[]'); } catch { _spinsCache = []; }
-  markLoaded('spins'); });
+  markLoaded('spins');
+});
 
-fsDoc('settings').onSnapshot(snap => {
+watchCollection('settings', snap => {
   const stored = (snap.exists && snap.data().value) ? snap.data().value : {};
   _settingsCache = { ...DEFAULT_SETTINGS, ...stored,
     categories: (stored.categories && stored.categories.length) ? stored.categories : DEFAULT_SETTINGS.categories,
@@ -1230,9 +1282,40 @@ fsDoc('settings').onSnapshot(snap => {
   };
   localStorage.setItem('svip_settings', JSON.stringify(_settingsCache));
   markLoaded('settings');
-}, err => { console.error(err);
+}, () => {
   try { _settingsCache = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('svip_settings') || '{}') }; } catch { _settingsCache = DEFAULT_SETTINGS; }
-  markLoaded('settings'); });
+  markLoaded('settings');
+});
+
+// ─── LƯỚI AN TOÀN (WATCHDOG) ───
+// Nếu vì bất kỳ lý do gì mà sau 10 giây trang vẫn chưa tải xong dữ liệu,
+// buộc khởi tạo bằng dữ liệu cục bộ để KHÔNG BAO GIỜ treo màn hình loading.
+function forceInitFallback(key) {
+  if (_loadedFlags[key]) return;
+  try {
+    switch (key) {
+      case 'products': products = JSON.parse(localStorage.getItem('svip_products') || 'null') || defaultProducts; break;
+      case 'users': _usersCache = JSON.parse(localStorage.getItem('svip_users') || '[]'); break;
+      case 'orders': _ordersCache = JSON.parse(localStorage.getItem('svip_orders') || '[]'); break;
+      case 'deposits': _depositsCache = JSON.parse(localStorage.getItem('svip_deposits') || '[]'); break;
+      case 'spins': _spinsCache = JSON.parse(localStorage.getItem('svip_spins') || '[]'); break;
+      case 'settings': _settingsCache = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('svip_settings') || '{}') }; break;
+    }
+  } catch (e) {
+    if (key === 'products') products = defaultProducts;
+    if (key === 'users') _usersCache = [];
+    if (key === 'orders') _ordersCache = [];
+    if (key === 'deposits') _depositsCache = [];
+    if (key === 'spins') _spinsCache = [];
+    if (key === 'settings') _settingsCache = DEFAULT_SETTINGS;
+  }
+  markLoaded(key);
+}
+setTimeout(() => {
+  if (_appInitialized) return;
+  console.warn('Watchdog: dữ liệu tải quá lâu, buộc khởi tạo bằng dữ liệu cục bộ.');
+  Object.keys(_loadedFlags).forEach(forceInitFallback);
+}, 10000);
 
 // ─── USER STORAGE ───
 function getUsers() { return _usersCache; }
@@ -1463,7 +1546,27 @@ function openProfile() {
         <span style="font-size:0.72rem;color:var(--muted)">${new Date(l.date).toLocaleString('vi-VN')}</span>
       </div>`).join('');
   }
+  ['pwCurrent','pwNew','pwNew2'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('profileOverlay').classList.add('open');
+}
+function changeMyPassword() {
+  if (!currentUser) { showToast('❌ Vui lòng đăng nhập', 'error'); return; }
+  const cur = document.getElementById('pwCurrent').value;
+  const next = document.getElementById('pwNew').value;
+  const next2 = document.getElementById('pwNew2').value;
+  if (!cur || !next || !next2) { showToast('❌ Vui lòng nhập đầy đủ các ô', 'error'); return; }
+  if (cur !== currentUser.password) { showToast('❌ Mật khẩu hiện tại không đúng', 'error'); return; }
+  if (next.length < 6) { showToast('❌ Mật khẩu mới cần ít nhất 6 ký tự', 'error'); return; }
+  if (next !== next2) { showToast('❌ Mật khẩu mới nhập lại không khớp', 'error'); return; }
+  if (next === cur) { showToast('❌ Mật khẩu mới phải khác mật khẩu hiện tại', 'error'); return; }
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === currentUser.id);
+  if (idx < 0) return;
+  users[idx].password = next;
+  saveUsers(users);
+  currentUser = users[idx];
+  ['pwCurrent','pwNew','pwNew2'].forEach(id => document.getElementById(id).value = '');
+  showToast('✅ Đã đổi mật khẩu thành công');
 }
 function toggleOrderDelivery(boxId) {
   document.getElementById(boxId).classList.toggle('show');
@@ -1581,7 +1684,9 @@ function renderAdminDashboard() {
 
 function renderAdminUsers() {
   const users = getUsers();
-  document.getElementById('adminUserList').innerHTML = users.map((u,i) => `
+  document.getElementById('adminUserList').innerHTML = users.map((u,i) => {
+    const isSuper = u.email === SUPER_ADMIN_EMAIL;
+    return `
     <tr>
       <td class="mono">${i+1}</td>
       <td>${u.name}</td>
@@ -1590,7 +1695,46 @@ function renderAdminUsers() {
       <td><span class="${u.role==='admin'?'badge-admin':'badge-active'}">${u.role==='admin'?'ADMIN':'KHÁCH HÀNG'}</span></td>
       <td class="mono" style="color:var(--gold)">${fmt(u.wallet)}</td>
       <td style="color:var(--muted);font-size:0.78rem">${new Date(u.joined).toLocaleDateString('vi-VN')}</td>
-    </tr>`).join('');
+      <td style="white-space:nowrap">
+        <button class="dropdown-item" style="width:auto;display:inline-flex;padding:0.4rem 0.6rem;font-size:0.78rem" onclick="adminResetPassword('${u.id}')">🔒 Đặt Lại MK</button>
+        ${isSuper ? '' : `<button class="dropdown-item danger" style="width:auto;display:inline-flex;padding:0.4rem 0.6rem;font-size:0.78rem" onclick="adminDeleteUser('${u.id}')">🗑️ Xoá</button>`}
+      </td>
+    </tr>`; }).join('');
+}
+function adminResetPassword(userId) {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx < 0) return;
+  const target = users[idx];
+  if (target.email === SUPER_ADMIN_EMAIL && !isSuperAdmin()) {
+    showToast('❌ Chỉ Admin gốc mới đổi được mật khẩu Admin gốc', 'error'); return;
+  }
+  const newPass = prompt(`Nhập mật khẩu mới cho ${target.name} (${target.email}), tối thiểu 6 ký tự:`);
+  if (newPass === null) return;
+  if (newPass.trim().length < 6) { showToast('❌ Mật khẩu cần ít nhất 6 ký tự', 'error'); return; }
+  users[idx].password = newPass.trim();
+  saveUsers(users);
+  if (currentUser.id === userId) currentUser = users[idx];
+  showToast(`✅ Đã đặt lại mật khẩu cho ${target.name}`);
+  renderAdminUsers();
+}
+function adminDeleteUser(userId) {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx < 0) return;
+  const target = users[idx];
+  if (target.email === SUPER_ADMIN_EMAIL) { showToast('❌ Không thể xoá Admin gốc', 'error'); return; }
+  if (target.role === 'admin' && !isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới xoá được Admin phụ', 'error'); return; }
+  if (currentUser.id === userId) { showToast('❌ Không thể tự xoá tài khoản đang đăng nhập', 'error'); return; }
+  if (!confirm(`Xoá tài khoản ${target.name} (${target.email})? Hành động này không thể hoàn tác.`)) return;
+  users.splice(idx, 1);
+  saveUsers(users);
+  showToast(`✅ Đã xoá tài khoản ${target.name}`);
+  renderAdminUsers();
+  renderAdminDashboard();
+  renderAdminWallets();
 }
 
 function renderAdminWallets() {
