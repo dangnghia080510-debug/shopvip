@@ -76,7 +76,7 @@ nav {
 
 /* ─── HERO ─── */
 .hero { position:relative; min-height:100vh; display:flex; align-items:center; overflow:hidden; padding:64px 0 0; }
-.hero-bg { position:absolute; inset:0; background:radial-gradient(ellipse 60% 50% at 70% 50%, rgba(155,48,255,0.15) 0%, transparent 60%),radial-gradient(ellipse 40% 40% at 30% 60%, rgba(0,255,209,0.08) 0%, transparent 50%),linear-gradient(180deg, #120E2E 0%, #241C4F 100%); }
+.hero-bg { position:absolute; inset:0; background:radial-gradient(ellipse 55% 45% at 75% 20%, rgba(255,46,99,0.28) 0%, transparent 55%),radial-gradient(ellipse 60% 55% at 70% 55%, rgba(155,48,255,0.35) 0%, transparent 62%),radial-gradient(ellipse 45% 45% at 25% 65%, rgba(0,255,209,0.22) 0%, transparent 55%),radial-gradient(ellipse 35% 35% at 15% 15%, rgba(255,217,61,0.12) 0%, transparent 50%),linear-gradient(180deg, #120E2E 0%, #241C4F 100%); }
 .hero-bg::after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,209,0.015) 2px, rgba(0,255,209,0.015) 4px); pointer-events:none; }
 .hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(0,255,209,0.05) 1px, transparent 1px),linear-gradient(90deg, rgba(0,255,209,0.05) 1px, transparent 1px); background-size:60px 60px; mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%); }
 .hero-content { position:relative; z-index:2; padding:0 2rem; max-width:1200px; margin:0 auto; width:100%; display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center; }
@@ -99,7 +99,7 @@ nav {
 .hero-visual { position:relative; display:flex; align-items:center; justify-content:center; }
 .hero-card-showcase { position:relative; width:340px; height:420px; }
 .showcase-card { position:absolute; width:260px; border-radius:12px; overflow:hidden; border:1px solid rgba(0,255,209,0.2); }
-.showcase-card.main { top:50%;left:50%;transform:translate(-50%,-50%);width:280px;z-index:3;box-shadow:0 0 60px rgba(0,255,209,0.15),0 20px 60px rgba(0,0,0,0.5); }
+.showcase-card.main { top:50%;left:50%;transform:translate(-50%,-50%);width:280px;z-index:3;box-shadow:0 0 70px rgba(0,255,209,0.28),0 0 120px rgba(155,48,255,0.18),0 20px 60px rgba(0,0,0,0.5); }
 .showcase-card.back1 { top:30px;left:0;transform:rotate(-8deg);z-index:1;opacity:0.6;filter:blur(1px); }
 .showcase-card.back2 { top:50px;right:0;transform:rotate(6deg);z-index:2;opacity:0.7;filter:blur(0.5px); }
 .sc-img { width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:4rem; }
@@ -127,9 +127,10 @@ section { padding:5rem 2rem; max-width:1200px; margin:0 auto; }
 /* ─── PRODUCTS ─── */
 .product-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1.5rem; }
 .product-card { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; cursor:pointer; transition:all 0.3s; position:relative; }
-.product-card::before { content:''; position:absolute; inset:0; border-radius:8px; background:linear-gradient(135deg,rgba(0,255,209,0.05),rgba(155,48,255,0.05)); opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:1; }
+.product-card::after { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--crimson),var(--plasma),var(--teal),var(--gold)); opacity:0.85; z-index:2; }
+.product-card::before { content:''; position:absolute; inset:0; border-radius:8px; background:linear-gradient(135deg,rgba(0,255,209,0.1),rgba(155,48,255,0.12)); opacity:0.5; transition:opacity 0.3s; pointer-events:none; z-index:1; }
 .product-card:hover::before { opacity:1; }
-.product-card:hover { border-color:rgba(0,255,209,0.4); transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.4),0 0 0 1px rgba(0,255,209,0.1); }
+.product-card:hover { border-color:rgba(0,255,209,0.55); transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.4),0 0 24px rgba(0,255,209,0.18),0 0 0 1px rgba(0,255,209,0.15); }
 .product-img { width:100%;height:200px;display:flex;align-items:center;justify-content:center;font-size:5rem;position:relative;overflow:hidden; }
 .product-img-bg { position:absolute;inset:0;transition:transform 0.4s; }
 .product-card:hover .product-img-bg { transform:scale(1.05); }
@@ -1222,29 +1223,33 @@ watchCollection('products', snap => {
   markLoaded('products');
 });
 
-watchCollection('users', snap => {
+watchCollection('users', async snap => {
   _usersCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
   if (_usersFirstLoad) {
     _usersFirstLoad = false;
     if (!_usersCache.find(u => u.email === 'admin@shopvip.com')) {
-      _usersCache.push({
+      const seedAdmin = {
         id: 'admin_001', name: 'Admin ShopVIP', email: 'admin@shopvip.com', phone: '0900000001',
-        password: 'admin123', role: 'admin', wallet: 0, joined: new Date().toISOString(), orders: [], ledger: []
-      });
+        role: 'admin', wallet: 0, joined: new Date().toISOString(), orders: [], ledger: []
+      };
+      await setUserPassword(seedAdmin, 'admin123'); // nhớ đổi mật khẩu này ngay sau khi đăng nhập lần đầu
+      _usersCache.push(seedAdmin);
       saveUsers(_usersCache);
     }
   }
   localStorage.setItem('svip_users', JSON.stringify(_usersCache));
   markLoaded('users');
-}, () => {
+}, async () => {
   try { _usersCache = JSON.parse(localStorage.getItem('svip_users') || '[]'); } catch { _usersCache = []; }
   if (_usersFirstLoad) {
     _usersFirstLoad = false;
     if (!_usersCache.find(u => u.email === 'admin@shopvip.com')) {
-      _usersCache.push({
+      const seedAdmin = {
         id: 'admin_001', name: 'Admin ShopVIP', email: 'admin@shopvip.com', phone: '0900000001',
-        password: 'admin123', role: 'admin', wallet: 0, joined: new Date().toISOString(), orders: [], ledger: []
-      });
+        role: 'admin', wallet: 0, joined: new Date().toISOString(), orders: [], ledger: []
+      };
+      await setUserPassword(seedAdmin, 'admin123');
+      _usersCache.push(seedAdmin);
       localStorage.setItem('svip_users', JSON.stringify(_usersCache));
     }
   }
@@ -1364,8 +1369,58 @@ function saveSpins(spins) {
 }
 
 const SUPER_ADMIN_EMAIL = 'admin@shopvip.com';
+// Không tin thẳng object `currentUser` trong bộ nhớ (dễ sửa qua console) —
+// luôn đối chiếu lại với bản ghi mới nhất trong danh sách users đồng bộ từ
+// Firestore trước khi cấp quyền. Vẫn CHƯA an toàn tuyệt đối: nếu Firestore
+// Rules đang mở ghi tự do, ai đó vẫn có thể tự sửa role trong chính document
+// của họ trên Firestore rồi mới bị đọc lại vào đây. Muốn chặn triệt để bắt
+// buộc phải xiết Firestore Security Rules + xác thực phía server.
+function isCurrentUserAdmin() {
+  if (!currentUser) return false;
+  const fresh = getUsers().find(u => u.id === currentUser.id);
+  return !!fresh && fresh.role === 'admin';
+}
 function isSuperAdmin() {
-  return !!currentUser && currentUser.email === SUPER_ADMIN_EMAIL;
+  if (!currentUser) return false;
+  const fresh = getUsers().find(u => u.id === currentUser.id);
+  return !!fresh && fresh.email === SUPER_ADMIN_EMAIL;
+}
+
+// ─── PASSWORD HASHING (vá tạm phía client) ───
+// LƯU Ý QUAN TRỌNG: đây chỉ là hash + salt bằng Web Crypto API để mật khẩu
+// không còn nằm trần trong Firestore nữa. Nó KHÔNG thay thế cho backend
+// thật + Firestore Security Rules — ai có quyền ghi vào Firestore (vì rules
+// đang mở) vẫn có thể tự sửa passwordHash/role của chính họ. Muốn chặn thật
+// sự phải chuyển sang Firebase Auth + Cloud Functions xác thực phía server.
+const SVIP_PEPPER = 'SVIP_STATIC_PEPPER_v1'; // tách riêng để không lộ chung với salt
+function genSalt() {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256Hex(str) {
+  const data = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function hashPassword(plainPass, salt) {
+  return sha256Hex(`${salt}:${plainPass}:${SVIP_PEPPER}`);
+}
+// Gán passwordHash + passwordSalt cho user, xoá field password thô nếu có
+async function setUserPassword(user, plainPass) {
+  const salt = genSalt();
+  user.passwordSalt = salt;
+  user.passwordHash = await hashPassword(plainPass, salt);
+  delete user.password;
+}
+// So khớp mật khẩu nhập vào với user. Có fallback cho tài khoản cũ còn
+// lưu password thô (trước khi có bản vá này) — khớp xong sẽ tự nâng cấp
+// lên hash ở nơi gọi (xem doLogin).
+async function verifyPassword(user, plainPass) {
+  if (user.passwordHash && user.passwordSalt) {
+    return (await hashPassword(plainPass, user.passwordSalt)) === user.passwordHash;
+  }
+  return !!user.password && user.password === plainPass; // legacy, chưa migrate
 }
 
 // ─── AUTH FUNCTIONS ───
@@ -1411,14 +1466,18 @@ function restoreSession() {
     else clearSession();
   } catch {}
 }
-function doLogin() {
+async function doLogin() {
   clearErrors();
   const email = document.getElementById('loginEmail').value.trim();
   const pass = document.getElementById('loginPass').value;
   if (!email || !email.includes('@')) { showErr('loginEmailErr'); return; }
   const users = getUsers();
-  const user = users.find(u => u.email === email && u.password === pass);
-  if (!user) { showErr('loginPassErr', 'Sai email hoặc mật khẩu'); return; }
+  const user = users.find(u => u.email === email);
+  if (!user || !(await verifyPassword(user, pass))) { showErr('loginPassErr', 'Sai email hoặc mật khẩu'); return; }
+  if (!user.passwordHash) { // tài khoản cũ còn password thô → nâng cấp lên hash ngay
+    await setUserPassword(user, pass);
+    saveUsers(users);
+  }
   currentUser = user;
   saveSession(user);
   closeAuth();
@@ -1426,7 +1485,7 @@ function doLogin() {
   showToast(`✅ Chào mừng, ${user.name}!`);
 }
 
-function doRegister() {
+async function doRegister() {
   clearErrors();
   const name = document.getElementById('regName').value.trim();
   const email = document.getElementById('regEmail').value.trim();
@@ -1444,13 +1503,14 @@ function doRegister() {
   if (users.find(u => u.email === email)) { showErr('regEmailErr', 'Email đã được sử dụng'); return; }
   const newUser = {
     id: 'u_' + Date.now(),
-    name, email, phone, password: pass,
+    name, email, phone,
     role: 'customer',
     wallet: 0,
     joined: new Date().toISOString(),
     orders: [],
     ledger: []
   };
+  await setUserPassword(newUser, pass);
   users.push(newUser);
   saveUsers(users);
   currentUser = newUser;
@@ -1472,7 +1532,7 @@ function updateNavAuth() {
   const navAuth = document.getElementById('navAuth');
   if (currentUser) {
     const initials = currentUser.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-    const isAdmin = currentUser.role === 'admin';
+    const isAdmin = isCurrentUserAdmin();
     navAuth.innerHTML = `
       <div class="user-menu">
         <button class="user-avatar" onclick="toggleUserMenu()" title="${currentUser.name}">${initials}</button>
@@ -1553,20 +1613,20 @@ function openProfile() {
   ['pwCurrent','pwNew','pwNew2'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('profileOverlay').classList.add('open');
 }
-function changeMyPassword() {
+async function changeMyPassword() {
   if (!currentUser) { showToast('❌ Vui lòng đăng nhập', 'error'); return; }
   const cur = document.getElementById('pwCurrent').value;
   const next = document.getElementById('pwNew').value;
   const next2 = document.getElementById('pwNew2').value;
   if (!cur || !next || !next2) { showToast('❌ Vui lòng nhập đầy đủ các ô', 'error'); return; }
-  if (cur !== currentUser.password) { showToast('❌ Mật khẩu hiện tại không đúng', 'error'); return; }
+  if (!(await verifyPassword(currentUser, cur))) { showToast('❌ Mật khẩu hiện tại không đúng', 'error'); return; }
   if (next.length < 6) { showToast('❌ Mật khẩu mới cần ít nhất 6 ký tự', 'error'); return; }
   if (next !== next2) { showToast('❌ Mật khẩu mới nhập lại không khớp', 'error'); return; }
   if (next === cur) { showToast('❌ Mật khẩu mới phải khác mật khẩu hiện tại', 'error'); return; }
   const users = getUsers();
   const idx = users.findIndex(u => u.id === currentUser.id);
   if (idx < 0) return;
-  users[idx].password = next;
+  await setUserPassword(users[idx], next);
   saveUsers(users);
   currentUser = users[idx];
   ['pwCurrent','pwNew','pwNew2'].forEach(id => document.getElementById(id).value = '');
@@ -1587,7 +1647,7 @@ function closeProfile() {
 
 // ─── ADMIN ───
 function openAdmin() {
-  if (!currentUser || currentUser.role !== 'admin') {
+  if (!isCurrentUserAdmin()) {
     showToast('❌ Chỉ Admin mới có quyền truy cập', 'error'); return;
   }
   renderAdminDashboard();
@@ -1616,7 +1676,7 @@ function renderAdminAdmins() {
     </tr>`;
   }).join('');
 }
-function addSubAdmin() {
+async function addSubAdmin() {
   if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền thêm Admin phụ', 'error'); return; }
   const name = document.getElementById('subAdminName').value.trim();
   const email = document.getElementById('subAdminEmail').value.trim();
@@ -1626,15 +1686,17 @@ function addSubAdmin() {
   if (password.length < 6) { showToast('❌ Mật khẩu cần ít nhất 6 ký tự', 'error'); return; }
   const users = getUsers();
   if (users.find(u => u.email === email)) { showToast('❌ Email này đã tồn tại', 'error'); return; }
-  users.push({
+  const newSubAdmin = {
     id: 'admin_' + Date.now(),
-    name, email, phone: '', password,
+    name, email, phone: '',
     role: 'admin',
     wallet: 0,
     joined: new Date().toISOString(),
     orders: [],
     ledger: []
-  });
+  };
+  await setUserPassword(newSubAdmin, password);
+  users.push(newSubAdmin);
   saveUsers(users);
   document.getElementById('subAdminName').value = '';
   document.getElementById('subAdminEmail').value = '';
@@ -1711,8 +1773,8 @@ function renderAdminUsers() {
       </td>
     </tr>`; }).join('');
 }
-function adminResetPassword(userId) {
-  if (!currentUser || currentUser.role !== 'admin') return;
+async function adminResetPassword(userId) {
+  if (!isCurrentUserAdmin()) return;
   const users = getUsers();
   const idx = users.findIndex(u => u.id === userId);
   if (idx < 0) return;
@@ -1723,14 +1785,14 @@ function adminResetPassword(userId) {
   const newPass = prompt(`Nhập mật khẩu mới cho ${target.name} (${target.email}), tối thiểu 6 ký tự:`);
   if (newPass === null) return;
   if (newPass.trim().length < 6) { showToast('❌ Mật khẩu cần ít nhất 6 ký tự', 'error'); return; }
-  users[idx].password = newPass.trim();
+  await setUserPassword(users[idx], newPass.trim());
   saveUsers(users);
   if (currentUser.id === userId) currentUser = users[idx];
   showToast(`✅ Đã đặt lại mật khẩu cho ${target.name}`);
   renderAdminUsers();
 }
 function adminDeleteUser(userId) {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const users = getUsers();
   const idx = users.findIndex(u => u.id === userId);
   if (idx < 0) return;
@@ -1765,7 +1827,7 @@ function renderAdminWallets() {
 }
 
 function adminWalletOp(userId, sign) {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const input = document.getElementById('wi_' + userId);
   const amount = parseInt(input.value);
   if (!amount || amount <= 0) { showToast('❌ Nhập số tiền hợp lệ', 'error'); return; }
@@ -1892,7 +1954,7 @@ function renderAdminDeposits() {
       </tr>`).join('');
 }
 function adminApproveDeposit(id) {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const deposits = getDeposits();
   const dep = deposits.find(d => d.id === id);
   if (!dep || dep.status !== 'pending') return;
@@ -1912,7 +1974,7 @@ function adminApproveDeposit(id) {
   renderAdminDeposits(); renderAdminDashboard(); renderAdminUsers(); renderAdminWallets();
 }
 function adminRejectDeposit(id) {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const deposits = getDeposits();
   const dep = deposits.find(d => d.id === id);
   if (!dep || dep.status !== 'pending') return;
@@ -1992,34 +2054,35 @@ function toggleCoNewCustomer() {
   const box = document.getElementById('coNewCustomerBox');
   box.style.display = box.style.display === 'none' ? 'flex' : 'none';
 }
-function quickCreateCustomer() {
+async function quickCreateCustomer() {
   const name = document.getElementById('coNewName').value.trim();
   const email = document.getElementById('coNewEmail').value.trim();
   if (name.length < 2) { showToast('❌ Vui lòng nhập tên khách hàng hợp lệ', 'error'); return; }
   if (!email || !email.includes('@')) { showToast('❌ Vui lòng nhập email hợp lệ', 'error'); return; }
   const users = getUsers();
   if (users.find(u => u.email === email)) { showToast('❌ Email này đã tồn tại', 'error'); return; }
+  const tempPass = Math.random().toString(36).slice(2, 10);
   const newUser = {
     id: 'u_' + Date.now(),
     name, email, phone: '',
-    password: Math.random().toString(36).slice(2, 10),
     role: 'customer',
     wallet: 0,
     joined: new Date().toISOString(),
     orders: [],
     ledger: []
   };
+  await setUserPassword(newUser, tempPass);
   users.push(newUser);
   saveUsers(users);
   refreshCoCustomerSelect(newUser.id);
   document.getElementById('coNewCustomerBox').style.display = 'none';
   document.getElementById('coNewName').value = '';
   document.getElementById('coNewEmail').value = '';
-  showToast(`✅ Đã tạo khách hàng "${name}" và chọn sẵn`);
+  showToast(`✅ Đã tạo khách hàng "${name}" — mật khẩu tạm: ${tempPass}`);
   renderAdminUsers(); renderAdminWallets(); renderAdminDashboard();
 }
 function submitCustomOrder() {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const userId = document.getElementById('coCustomer').value;
   const desc = document.getElementById('coDesc').value.trim();
   const price = parseInt(document.getElementById('coPrice').value);
@@ -2114,7 +2177,7 @@ function slugifyCatKey(label, existingKeys) {
   return key;
 }
 function saveAdminSettingsForm() {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const rows = Array.from(document.querySelectorAll('#catRows [data-cat-row]'));
   const categories = [];
   const keys = [];
@@ -2219,7 +2282,7 @@ function closeProductModal() {
   document.getElementById('productFormOverlay').classList.remove('open');
 }
 function submitProductForm() {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const name = document.getElementById('pfName').value.trim();
   const price = parseInt(document.getElementById('pfPrice').value);
   let valid = true;
@@ -2262,7 +2325,7 @@ function submitProductForm() {
   renderProducts();
 }
 function deleteProduct(id) {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!isCurrentUserAdmin()) return;
   const p = products.find(x => x.id === id);
   if (!p) return;
   if (!confirm(`Xóa sản phẩm "${p.name}"? Hành động này không thể hoàn tác.`)) return;
