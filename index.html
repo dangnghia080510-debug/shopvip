@@ -76,7 +76,7 @@ nav {
 .dropdown-item.admin-item:hover { background:rgba(255,167,51,0.1); color:var(--admin); }
 
 /* ─── HERO ─── */
-.hero { position:relative; min-height:100vh; display:flex; align-items:center; overflow:hidden; padding:64px 0 0; }
+.hero { position:relative; min-height:100vh; display:flex; align-items:center; overflow:hidden; padding:5rem 0 0; }
 .hero-bg { position:absolute; inset:0; background:radial-gradient(ellipse 55% 45% at 75% 20%, rgba(255,46,99,0.38) 0%, transparent 55%),radial-gradient(ellipse 60% 55% at 70% 55%, rgba(168,85,247,0.45) 0%, transparent 62%),radial-gradient(ellipse 45% 45% at 25% 65%, rgba(0,255,209,0.30) 0%, transparent 55%),radial-gradient(ellipse 35% 35% at 15% 15%, rgba(255,217,61,0.18) 0%, transparent 50%),linear-gradient(180deg, #0F0B28 0%, #1A1540 100%); }
 .hero-bg::after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,209,0.015) 2px, rgba(0,255,209,0.015) 4px); pointer-events:none; }
 .hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(0,255,209,0.05) 1px, transparent 1px),linear-gradient(90deg, rgba(0,255,209,0.05) 1px, transparent 1px); background-size:60px 60px; mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%); }
@@ -736,25 +736,20 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 <body>
 
 
-<!-- ═══ VIDEO AD OVERLAY ═══ -->
-<div id="videoAdOverlay">
-  <div class="video-ad-box">
-    <div class="video-ad-label">📢 QUẢNG CÁO · SHOPVIP.COM</div>
-    <div class="video-ad-countdown" id="adCountdown">Bỏ qua sau <b id="adSecs">5</b>s</div>
-    <!-- Thay src bên dưới bằng link YouTube embed của bạn -->
-    <iframe
-      id="adIframe"
-      class="video-ad-frame"
-      src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0"
-      allow="autoplay; encrypted-media"
-      allowfullscreen
-      title="Quảng cáo ShopVIP"
-    ></iframe>
-    <button class="video-ad-skip" id="adSkipBtn" disabled onclick="closeVideoAd()">
-      ⏭ Bỏ Qua
-    </button>
-    <div class="video-ad-close-later">ShopVIP.com — Gaming Gear Store hàng đầu Việt Nam</div>
-  </div>
+<!-- ═══ VIDEO AD BANNER (đầu trang, không chặn cuộn) ═══ -->
+<div id="videoAdBanner" style="width:100%;background:#000;position:relative;margin-top:64px;z-index:500;">
+  <div style="position:absolute;top:10px;left:12px;z-index:5;background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.15);color:#fff;font-family:'Share Tech Mono',monospace;font-size:0.7rem;padding:0.3rem 0.7rem;border-radius:3px;letter-spacing:0.08em;">📢 QUẢNG CÁO · SHOPVIP.COM</div>
+  <button onclick="closeVideoAdBanner()" style="position:absolute;top:10px;right:12px;z-index:5;background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.35);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.08em;padding:0.4rem 1rem;border-radius:4px;cursor:pointer;">✕ Đóng</button>
+  <!-- Thay src bên dưới bằng link YouTube embed của bạn -->
+  <iframe
+    id="adIframe"
+    src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=1&modestbranding=1&rel=0"
+    allow="autoplay; encrypted-media"
+    allowfullscreen
+    title="Quảng cáo ShopVIP"
+    style="width:100%;aspect-ratio:16/9;display:block;border:none;max-height:480px;"
+  ></iframe>
+  <div style="width:100%;text-align:center;padding:0.65rem;background:rgba(0,255,209,0.05);font-family:'Rajdhani',sans-serif;font-size:0.78rem;color:#9898C0;">ShopVIP.com — Gaming Gear Store hàng đầu Việt Nam</div>
 </div>
 
 <!-- ═══ MUSIC PLAYER ═══ -->
@@ -1185,6 +1180,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       <button class="admin-nav-item" onclick="adminTab('products')">🛒 Sản Phẩm</button>
       <button class="admin-nav-item" onclick="adminTab('orders')">📦 Đơn Hàng</button>
       <button class="admin-nav-item" onclick="adminTab('spin')">🎡 Vòng Quay</button>
+      <button class="admin-nav-item" onclick="adminTab('vouchers')">🎟️ Voucher</button>
       <button class="admin-nav-item" id="navAdmins" style="display:none" onclick="adminTab('admins')">🔑 Quản Trị Viên</button>
       <button class="admin-nav-item" onclick="adminTab('settings')">⚙️ Cài Đặt</button>
     </div>
@@ -1263,6 +1259,40 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <table class="admin-table">
           <thead><tr><th>Khách Hàng</th><th>Kết Quả</th><th>Giá Trị</th><th>Thời Gian</th></tr></thead>
           <tbody id="adminSpinLogList"></tbody>
+        </table>
+      </div>
+      <!-- VOUCHERS ADMIN -->
+      <div class="admin-section" id="sec-vouchers">
+        <div class="section-toolbar">
+          <div class="section-subtitle" style="margin-bottom:0">🎟️ Quản Lý Voucher Giảm Giá</div>
+        </div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.25rem">Tạo mã giảm giá cho khách hàng nhập khi mua hàng. Voucher hỗ trợ giới hạn số lần dùng và có thể tắt bất kỳ lúc nào.</p>
+        <div class="admin-card" style="margin-bottom:1.5rem;max-width:520px">
+          <div class="section-subtitle" style="font-size:0.85rem;margin-bottom:1rem">➕ Tạo Voucher Mới</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem">
+            <div class="form-group">
+              <label class="form-label">Mã Voucher</label>
+              <input class="form-input" type="text" id="newVoucherCode" placeholder="VD: SHOPVIP20" style="text-transform:uppercase">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Giảm (%)</label>
+              <input class="form-input" type="number" id="newVoucherPercent" placeholder="VD: 20" min="1" max="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Giới Hạn Dùng (0 = không giới hạn)</label>
+              <input class="form-input" type="number" id="newVoucherMax" placeholder="VD: 100" min="0" value="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mô Tả</label>
+              <input class="form-input" type="text" id="newVoucherDesc" placeholder="VD: Khuyến mãi tháng 8">
+            </div>
+          </div>
+          <button class="btn-admin-primary" onclick="adminCreateVoucher()">➕ Tạo Voucher</button>
+        </div>
+        <div class="section-subtitle" style="margin-bottom:0.75rem">Danh Sách Voucher</div>
+        <table class="admin-table">
+          <thead><tr><th>Mã</th><th>Giảm</th><th>Đã Dùng</th><th>Giới Hạn</th><th>Mô Tả</th><th>Trạng Thái</th><th>Thao Tác</th></tr></thead>
+          <tbody id="adminVoucherList"></tbody>
         </table>
       </div>
       <!-- SUB-ADMINS (chỉ super admin thấy) -->
@@ -1484,6 +1514,51 @@ KEY-XXXX-XXXX" style="resize:vertical;font-family:'Share Tech Mono',monospace" o
         <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem" id="pfStockCountWrap">Còn lại: <span id="pfStockCount">0</span> mã</p>
       </div>
       <button class="auth-submit" onclick="submitProductForm()">💾 Lưu Sản Phẩm</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUY NOW CONFIRM MODAL -->
+<div class="auth-overlay" id="buyNowOverlay" style="z-index:4700;">
+  <div class="auth-box" style="max-width:460px;">
+    <button class="auth-close" onclick="closeBuyNow()">✕</button>
+    <div class="auth-header">
+      <div class="auth-logo">SHOP<span>VIP</span>.COM</div>
+      <div class="auth-title">Xác Nhận Mua Hàng</div>
+      <div class="auth-sub" id="buyNowProductName" style="color:var(--teal);font-size:0.95rem;margin-top:0.5rem;font-weight:600;"></div>
+    </div>
+    <div class="auth-form">
+      <div style="background:rgba(0,255,209,0.05);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'Rajdhani',sans-serif;font-size:0.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Giá sản phẩm</span>
+        <span class="mono" id="buyNowPrice" style="font-family:'Share Tech Mono',monospace;color:var(--teal);font-size:1.1rem;"></span>
+      </div>
+      <!-- VOUCHER -->
+      <div class="form-group">
+        <label class="form-label">🎟️ Mã Voucher (nếu có)</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input class="form-input" type="text" id="buyNowVoucherInput" placeholder="Nhập mã giảm giá..." style="flex:1;">
+          <button onclick="applyBuyNowVoucher()" style="background:rgba(0,255,209,0.1);border:1px solid rgba(0,255,209,0.3);color:var(--teal);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:0.05em;padding:0 1rem;border-radius:4px;cursor:pointer;white-space:nowrap;">Áp dụng</button>
+        </div>
+        <div id="buyNowVoucherMsg" style="font-size:0.75rem;margin-top:0.3rem;display:none;"></div>
+      </div>
+      <!-- TỔNG TIỀN -->
+      <div id="buyNowDiscountRow" style="display:none;background:rgba(255,46,99,0.08);border:1px solid rgba(255,46,99,0.2);border-radius:6px;padding:0.65rem 1rem;display:none;justify-content:space-between;align-items:center;">
+        <span style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;color:var(--muted);">Giảm giá</span>
+        <span id="buyNowDiscountAmt" style="font-family:'Share Tech Mono',monospace;color:var(--crimson);font-size:0.9rem;"></span>
+      </div>
+      <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:8px;padding:1rem;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.9rem;letter-spacing:0.05em;text-transform:uppercase;">Tổng Thanh Toán</span>
+        <span id="buyNowTotal" style="font-family:'Share Tech Mono',monospace;color:var(--gold);font-size:1.25rem;font-weight:700;"></span>
+      </div>
+      <div id="buyNowWalletInfo" style="font-size:0.78rem;color:var(--muted);text-align:center;"></div>
+      <!-- NỘI DUNG GIAO HÀNG (hiện sau khi mua) -->
+      <div id="buyNowDeliveryResult" style="display:none;background:rgba(0,255,209,0.06);border:1px solid rgba(0,255,209,0.25);border-radius:8px;padding:1rem;">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;color:var(--teal);margin-bottom:0.5rem;">✅ Mua Thành Công! Nội Dung Giao Hàng:</div>
+        <pre id="buyNowDeliveryContent" style="font-family:'Share Tech Mono',monospace;font-size:0.82rem;color:var(--text);white-space:pre-wrap;word-break:break-all;margin:0;line-height:1.6;"></pre>
+      </div>
+      <div id="buyNowActionBtns">
+        <button class="auth-submit" onclick="confirmBuyNow()" id="buyNowConfirmBtn">✅ Xác Nhận Mua — Trừ Ví Ngay</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2160,8 +2235,9 @@ function adminTab(tab) {
   document.querySelectorAll('.admin-nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   event.target.classList.add('active');
-  const titles = {dashboard:'📊 Dashboard',users:'👥 Khách Hàng',wallets:'💰 Quản Lý Ví',deposits:'🏦 Yêu Cầu Nạp Tiền',products:'🛒 Sản Phẩm',orders:'📦 Đơn Hàng',spin:'🎡 Vòng Quay',admins:'🔑 Quản Trị Viên',settings:'⚙️ Cài Đặt'};
+  const titles = {dashboard:'📊 Dashboard',users:'👥 Khách Hàng',wallets:'💰 Quản Lý Ví',deposits:'🏦 Yêu Cầu Nạp Tiền',products:'🛒 Sản Phẩm',orders:'📦 Đơn Hàng',spin:'🎡 Vòng Quay',vouchers:'🎟️ Voucher',admins:'🔑 Quản Trị Viên',settings:'⚙️ Cài Đặt'};
   if (tab === 'spin') renderAdminSpins();
+  if (tab === 'vouchers') renderAdminVouchers();
   if (tab === 'admins') { if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền truy cập', 'error'); return; } renderAdminAdmins(); }
   if (tab === 'users') { if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền xem danh sách khách hàng', 'error'); return; } renderAdminUsers(); }
   document.getElementById('adminPageTitle').textContent = titles[tab] || tab;
@@ -2838,7 +2914,7 @@ function renderProducts() {
         </div>
         ${outOfStock
           ? `<button class="add-to-cart" disabled style="opacity:0.4;cursor:not-allowed">Hết Hàng</button>`
-          : `<button class="add-to-cart" onclick="event.stopPropagation();addToCart(${p.id})">+ Thêm Vào Giỏ</button>`}
+          : `<button class="add-to-cart" onclick="event.stopPropagation();openBuyNow(${p.id})" style="background:linear-gradient(135deg,var(--crimson),var(--plasma));border-color:var(--crimson);color:#fff;">🛒 Mua Ngay</button>`}
       </div>
     </div>`;
   }).join('');
@@ -3082,8 +3158,9 @@ function openModal(id) {
   const addBtn = document.getElementById('modalAddBtn');
   addBtn.disabled = outOfStock;
   addBtn.style.opacity = outOfStock ? '0.5' : '';
-  addBtn.textContent = outOfStock ? 'Hết Hàng' : '+ Thêm Vào Giỏ';
-  addBtn.onclick = outOfStock ? null : () => { addToCart(p.id); closeModal(null); };
+  addBtn.textContent = outOfStock ? 'Hết Hàng' : '🛒 Mua Ngay';
+  addBtn.style.background = outOfStock ? '' : 'linear-gradient(135deg,var(--crimson),var(--plasma))';
+  addBtn.onclick = outOfStock ? null : () => { closeModal(null); openBuyNow(p.id); };
   // Init reviews
   _selectedStars = 5;
   pickStar(5);
@@ -3218,6 +3295,73 @@ function saveSpinPrizes() {
   showToast('✅ Đã lưu cấu hình vòng quay');
 }
 
+
+// ─── VOUCHER ADMIN ───
+function renderAdminVouchers() {
+  const vouchers = getVouchers();
+  const tbody = document.getElementById('adminVoucherList');
+  if (!tbody) return;
+  if (vouchers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Chưa có voucher nào. Tạo voucher đầu tiên ở trên!</td></tr>';
+    return;
+  }
+  tbody.innerHTML = vouchers.map((v, i) => `
+    <tr>
+      <td><span style="font-family:'Share Tech Mono',monospace;font-size:0.9rem;color:var(--gold);">${v.code}</span></td>
+      <td style="color:var(--teal);font-weight:700;">${v.percent}%</td>
+      <td>${v.usedCount || 0}</td>
+      <td>${v.maxUses ? v.maxUses : '∞'}</td>
+      <td style="color:var(--muted);font-size:0.8rem;">${v.desc || '—'}</td>
+      <td><span class="${v.active !== false ? 'badge-active' : 'badge-admin'}">${v.active !== false ? 'Đang Mở' : 'Đã Tắt'}</span></td>
+      <td style="display:flex;gap:0.5rem;">
+        <button onclick="toggleVoucher(${i})" style="background:none;border:1px solid var(--border);color:var(--muted);padding:0.3rem 0.6rem;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:0.75rem;">${v.active !== false ? '🔴 Tắt' : '🟢 Bật'}</button>
+        <button onclick="deleteVoucher(${i})" style="background:none;border:1px solid rgba(255,46,99,0.3);color:var(--crimson);padding:0.3rem 0.6rem;border-radius:3px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:0.75rem;">🗑 Xóa</button>
+      </td>
+    </tr>`).join('');
+}
+
+function adminCreateVoucher() {
+  const code = (document.getElementById('newVoucherCode').value || '').toUpperCase().trim();
+  const percent = parseInt(document.getElementById('newVoucherPercent').value) || 0;
+  const maxUses = parseInt(document.getElementById('newVoucherMax').value) || 0;
+  const desc = document.getElementById('newVoucherDesc').value.trim();
+
+  if (!code) { showToast('❌ Vui lòng nhập mã voucher', 'error'); return; }
+  if (percent < 1 || percent > 100) { showToast('❌ % giảm phải từ 1 đến 100', 'error'); return; }
+
+  const settings = getSettings();
+  if (!settings.vouchers) settings.vouchers = [];
+  if (settings.vouchers.find(v => v.code === code)) { showToast('❌ Mã voucher đã tồn tại', 'error'); return; }
+
+  settings.vouchers.push({ code, percent, maxUses, desc, active: true, usedCount: 0, createdAt: new Date().toISOString() });
+  saveSettings(settings);
+  document.getElementById('newVoucherCode').value = '';
+  document.getElementById('newVoucherPercent').value = '';
+  document.getElementById('newVoucherMax').value = '0';
+  document.getElementById('newVoucherDesc').value = '';
+  renderAdminVouchers();
+  showToast(`✅ Đã tạo voucher ${code} (giảm ${percent}%)`);
+}
+
+function toggleVoucher(idx) {
+  const settings = getSettings();
+  if (!settings.vouchers || !settings.vouchers[idx]) return;
+  settings.vouchers[idx].active = settings.vouchers[idx].active === false ? true : false;
+  saveSettings(settings);
+  renderAdminVouchers();
+  showToast(`✅ Đã ${settings.vouchers[idx].active ? 'bật' : 'tắt'} voucher ${settings.vouchers[idx].code}`);
+}
+
+function deleteVoucher(idx) {
+  const settings = getSettings();
+  if (!settings.vouchers || !settings.vouchers[idx]) return;
+  const code = settings.vouchers[idx].code;
+  if (!window.confirm(`Xoá voucher ${code}?`)) return;
+  settings.vouchers.splice(idx, 1);
+  saveSettings(settings);
+  renderAdminVouchers();
+  showToast(`✅ Đã xoá voucher ${code}`);
+}
 
 // ─── ZALO SUPPORT BUTTONS ───
 function updateZaloButtons() {
@@ -3357,48 +3501,165 @@ function showToast(msg, type='success') {
   setTimeout(() => toast.remove(), 3000);
 }
 
-// ═══ VIDEO AD ═══
-(function() {
-  let adTimer = null;
-  let secsLeft = 5;
-  function startAdCountdown() {
-    const secsEl = document.getElementById('adSecs');
-    const skipBtn = document.getElementById('adSkipBtn');
-    adTimer = setInterval(() => {
-      secsLeft--;
-      if (secsEl) secsEl.textContent = Math.max(0, secsLeft);
-      if (secsLeft <= 0) {
-        clearInterval(adTimer);
-        if (skipBtn) { skipBtn.disabled = false; skipBtn.textContent = '⏭ Bỏ Qua Quảng Cáo'; }
-        const countdownEl = document.getElementById('adCountdown');
-        if (countdownEl) countdownEl.textContent = '✓ Sẵn sàng bỏ qua';
-      }
-    }, 1000);
-  }
-  // Chạy đếm ngược khi trang load
-  document.addEventListener('DOMContentLoaded', () => { setTimeout(startAdCountdown, 500); });
-  // Cũng chạy ngay nếu DOM đã sẵn
-  if (document.readyState !== 'loading') setTimeout(startAdCountdown, 500);
-})();
+// ═══ VIDEO AD BANNER — không cần countdown vì không chặn cuộn ═══
 
-window.closeVideoAd = function() {
-  const overlay = document.getElementById('videoAdOverlay');
-  if (!overlay) return;
-  // Dừng iframe để tắt âm thanh
+window.closeVideoAdBanner = function() {
+  const banner = document.getElementById('videoAdBanner');
+  if (!banner) return;
   const iframe = document.getElementById('adIframe');
-  if (iframe) { const src = iframe.src; iframe.src = ''; iframe.src = src.replace('autoplay=1','autoplay=0'); }
-  overlay.style.opacity = '0';
-  overlay.style.transition = 'opacity 0.4s ease';
-  setTimeout(() => { overlay.style.display = 'none'; }, 400);
+  if (iframe) { iframe.src = ''; }
+  banner.style.transition = 'opacity 0.4s ease';
+  banner.style.opacity = '0';
+  setTimeout(() => { banner.style.display = 'none'; }, 400);
 };
+
+// ═══ BUY NOW / VOUCHER SYSTEM ═══
+let _buyNowProductId = null;
+let _buyNowAppliedVoucher = null;
+
+function getVouchers() {
+  // Lấy từ settings admin; nếu chưa có thì trả về mảng rỗng
+  return getSettings().vouchers || [];
+}
+
+function openBuyNow(productId) {
+  if (!currentUser) { showToast('⚠️ Vui lòng đăng nhập để mua hàng', 'error'); openAuth('login'); return; }
+  const p = products.find(x => x.id === productId);
+  if (!p) return;
+  _buyNowProductId = productId;
+  _buyNowAppliedVoucher = null;
+
+  document.getElementById('buyNowProductName').textContent = '🎮 ' + p.name;
+  document.getElementById('buyNowPrice').textContent = fmt(p.price);
+  document.getElementById('buyNowTotal').textContent = fmt(p.price);
+  document.getElementById('buyNowWalletInfo').textContent = `Số dư ví của bạn: ${fmt(currentUser.wallet || 0)}`;
+  document.getElementById('buyNowVoucherInput').value = '';
+  document.getElementById('buyNowVoucherMsg').style.display = 'none';
+  document.getElementById('buyNowDiscountRow').style.display = 'none';
+  document.getElementById('buyNowDeliveryResult').style.display = 'none';
+  document.getElementById('buyNowActionBtns').style.display = 'block';
+  document.getElementById('buyNowConfirmBtn').disabled = false;
+  document.getElementById('buyNowConfirmBtn').textContent = '✅ Xác Nhận Mua — Trừ Ví Ngay';
+  document.getElementById('buyNowOverlay').classList.add('open');
+}
+
+function closeBuyNow() {
+  document.getElementById('buyNowOverlay').classList.remove('open');
+  _buyNowProductId = null;
+  _buyNowAppliedVoucher = null;
+}
+
+function applyBuyNowVoucher() {
+  const code = document.getElementById('buyNowVoucherInput').value.toUpperCase().trim();
+  const msgEl = document.getElementById('buyNowVoucherMsg');
+  const p = products.find(x => x.id === _buyNowProductId);
+  if (!p) return;
+
+  // Tìm voucher trong danh sách admin tạo
+  const vouchers = getVouchers();
+  const v = vouchers.find(v => v.code === code && v.active !== false);
+  if (v) {
+    _buyNowAppliedVoucher = v;
+    const discount = Math.round(p.price * v.percent / 100);
+    const total = p.price - discount;
+    msgEl.style.display = 'block';
+    msgEl.style.color = 'var(--teal)';
+    msgEl.textContent = `✅ Áp dụng thành công! Giảm ${v.percent}%`;
+    document.getElementById('buyNowDiscountRow').style.display = 'flex';
+    document.getElementById('buyNowDiscountAmt').textContent = '-' + fmt(discount);
+    document.getElementById('buyNowTotal').textContent = fmt(total);
+  } else {
+    _buyNowAppliedVoucher = null;
+    msgEl.style.display = 'block';
+    msgEl.style.color = 'var(--crimson)';
+    msgEl.textContent = '❌ Mã voucher không hợp lệ hoặc đã hết hạn';
+    document.getElementById('buyNowDiscountRow').style.display = 'none';
+    document.getElementById('buyNowTotal').textContent = fmt(p.price);
+  }
+  document.getElementById('buyNowWalletInfo').textContent = `Số dư ví của bạn: ${fmt(currentUser.wallet || 0)}`;
+}
+
+function confirmBuyNow() {
+  if (!currentUser) { showToast('⚠️ Vui lòng đăng nhập', 'error'); return; }
+  const p = products.find(x => x.id === _buyNowProductId);
+  if (!p) return;
+
+  const outOfStock = p.deliveryMode !== 'fixed' && Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
+  if (outOfStock) { showToast('❌ Sản phẩm đã hết hàng', 'error'); return; }
+
+  const discount = _buyNowAppliedVoucher ? Math.round(p.price * _buyNowAppliedVoucher.percent / 100) : 0;
+  const total = p.price - discount;
+
+  if ((currentUser.wallet || 0) < total) {
+    showToast(`❌ Số dư ví không đủ. Cần ${fmt(total)}, có ${fmt(currentUser.wallet || 0)}`, 'error'); return;
+  }
+
+  // Trừ ví
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === currentUser.id);
+  users[idx].wallet -= total;
+  addLedgerEntry(users, idx, -total, `Mua ngay: ${p.name}${_buyNowAppliedVoucher ? ' (voucher '+_buyNowAppliedVoucher.code+')' : ''}`);
+  currentUser.wallet = users[idx].wallet;
+  saveUsers(users);
+
+  // Lấy nội dung giao hàng
+  let deliveryContent = '';
+  if (p.deliveryMode === 'fixed' && p.deliveryCodes && p.deliveryCodes.length) {
+    deliveryContent = p.deliveryCodes.join('\n');
+  } else if ((!p.deliveryMode || p.deliveryMode === 'stock') && p.deliveryCodes && p.deliveryCodes.length) {
+    deliveryContent = p.deliveryCodes.shift();
+    saveProducts(products);
+  } else {
+    deliveryContent = '[Đang chờ Admin giao thủ công — Admin sẽ liên hệ sớm]';
+  }
+
+  // Lưu đơn hàng
+  const orders = getOrders();
+  const order = {
+    id: 'SVP' + Date.now(),
+    userId: currentUser.id,
+    userName: currentUser.name,
+    items: [{ id: p.id, name: p.name, qty: 1, price: p.price }],
+    subtotal: p.price, discount, couponCode: _buyNowAppliedVoucher ? _buyNowAppliedVoucher.code : null,
+    total, status: 'completed',
+    delivery: deliveryContent,
+    date: new Date().toISOString()
+  };
+  orders.push(order);
+  saveOrders(orders);
+
+  // Cập nhật voucher usage nếu cần
+  if (_buyNowAppliedVoucher) {
+    const settings = getSettings();
+    const vi = (settings.vouchers || []).findIndex(v => v.code === _buyNowAppliedVoucher.code);
+    if (vi >= 0) {
+      settings.vouchers[vi].usedCount = (settings.vouchers[vi].usedCount || 0) + 1;
+      if (settings.vouchers[vi].maxUses && settings.vouchers[vi].usedCount >= settings.vouchers[vi].maxUses) {
+        settings.vouchers[vi].active = false;
+      }
+      saveSettings(settings);
+    }
+  }
+
+  updateNavAuth();
+
+  // Hiện nội dung giao hàng ngay trên modal
+  document.getElementById('buyNowDeliveryContent').textContent = deliveryContent;
+  document.getElementById('buyNowDeliveryResult').style.display = 'block';
+  document.getElementById('buyNowActionBtns').innerHTML = '<button class="auth-submit" onclick="closeBuyNow()" style="background:linear-gradient(135deg,#00FFD1,#A855F7)">✓ Đã Nhận — Đóng</button>';
+  document.getElementById('buyNowWalletInfo').textContent = `Số dư ví còn lại: ${fmt(currentUser.wallet)}`;
+  showToast(`🎉 Mua thành công! ${p.name}`);
+}
 
 // ═══ MUSIC PLAYER ═══
 const TRACKS = [
-  { name:'Legends Never Die', artist:'NCS × League Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', icon:'🎧' },
-  { name:'Cyberpunk Night Drive', artist:'NEFFEX Gaming Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', icon:'🎮' },
-  { name:'HERO - Nightcore', artist:'NCS Remix 2026', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', icon:'⚔️' },
-  { name:'Phoenix Rising', artist:'RIOT × ShopVIP Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', icon:'🔥' },
-  { name:'Warriors EDM Drop', artist:'Imagine Dragons × Bass', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', icon:'🎵' },
+  { name:'Cupid (Twin Ver.) - TikTok Remix', artist:'FIFTY FIFTY × Bass Boosted', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', icon:'💘' },
+  { name:'Flowers - Slowed Remix', artist:'Miley Cyrus × TikTok Viral', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', icon:'🌸' },
+  { name:'Escapism - TikTok Trending', artist:'RAYE × 070 Shake Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', icon:'🔥' },
+  { name:'As It Was - EDM Drop', artist:'Harry Styles × NCS Remix', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', icon:'⚡' },
+  { name:'Creepin\' - TikTok Viral', artist:'Metro Boomin × Remix 2024', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', icon:'🎵' },
+  { name:'Unholy - Bass Remix', artist:'Sam Smith × TikTok Hot', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', icon:'🎶' },
+  { name:'Calm Down - Afrobeat Remix', artist:'Rema × Selena Gomez TikTok', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', icon:'🌊' },
 ];
 let currentTrackIdx = 0;
 let isPlaying = false;
@@ -3546,7 +3807,7 @@ function scrollTo(id) { document.getElementById(id)?.scrollIntoView({behavior:'s
 // ─── KEYBOARD ESC ───
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
-    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); closeCustomOrderModal(); closeProductModal(); closeOrderDeliveryModal(); closeSpinModal();
+    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); closeCustomOrderModal(); closeProductModal(); closeOrderDeliveryModal(); closeSpinModal(); closeBuyNow();
     document.getElementById('modalOverlay').classList.remove('open');
   }
 });
