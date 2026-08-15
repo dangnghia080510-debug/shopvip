@@ -1516,6 +1516,32 @@ function fsSave(name, dataObj) {
     showToast('⚠️ Lỗi đồng bộ dữ liệu lên máy chủ — kiểm tra kết nối mạng', 'error');
   });
 }
+
+// ─── TELEGRAM BOT NOTIFICATIONS ───
+// Cách lấy TOKEN và CHAT_ID (làm 1 lần):
+// 1) Trong Telegram, chat với @BotFather → gõ /newbot → đặt tên → nhận về TOKEN
+//    dạng "123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+// 2) Tạo 1 group riêng (hoặc dùng chat cá nhân), thêm bot vào group đó,
+//    rồi gửi thử 1 tin nhắn bất kỳ trong group (hoặc bấm Start nếu chat riêng)
+// 3) Mở trình duyệt vào: https://api.telegram.org/bot<TOKEN>/getUpdates
+//    (thay <TOKEN> bằng token thật) → tìm số ở "chat":{"id":-100xxxxxxxxxx}
+//    → đó là CHAT_ID (group thường có id âm, bắt đầu bằng -100)
+// 4) Dán TOKEN và CHAT_ID vào 2 dòng bên dưới rồi lưu lại file.
+const TELEGRAM_BOT_TOKEN = 'DÁN_BOT_TOKEN_VÀO_ĐÂY';
+const TELEGRAM_CHAT_ID   = 'DÁN_CHAT_ID_VÀO_ĐÂY';
+
+function notifyTelegram(text) {
+  if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('DÁN_') ||
+      !TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID.includes('DÁN_')) {
+    console.warn('[Telegram] Chưa cấu hình TOKEN/CHAT_ID — bỏ qua thông báo:', text);
+    return;
+  }
+  fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' })
+  }).catch(err => console.error('[Telegram] Gửi thông báo thất bại:', err));
+}
 // Đăng ký lắng nghe 1 collection nếu có Firebase, nếu không thì dùng ngay
 // dữ liệu đã lưu trong localStorage (không chờ mạng).
 function watchCollection(name, onData, onFallback) {
@@ -1925,6 +1951,7 @@ async function doRegister() {
   saveSession(newUser);
   closeAuth();
   updateNavAuth();
+  notifyTelegram(`👤 <b>KHÁCH HÀNG MỚI ĐĂNG KÝ</b>\nTên: ${name}\nEmail: ${email}\nSĐT: ${phone}`);
   showToast(`🎉 Đăng ký thành công! Chào mừng ${name} đến ShopVIP!`);
 }
 
@@ -2344,6 +2371,12 @@ function submitDepositRequest() {
     date: new Date().toISOString()
   });
   saveDeposits(deposits);
+  notifyTelegram(
+    `💰 <b>YÊU CẦU NẠP TIỀN</b>\n` +
+    `Khách: ${currentUser.name}\n` +
+    `Số tiền: ${fmt(amount)}\n` +
+    `Nội dung CK: ${code}`
+  );
   closeDepositModal();
   showToast('🕓 Đã gửi yêu cầu nạp tiền. Admin sẽ xác nhận sau khi kiểm tra chuyển khoản.');
 }
@@ -3037,6 +3070,14 @@ function checkout() {
   };
   orders.push(order);
   saveOrders(orders);
+  notifyTelegram(
+    `🛒 <b>ĐƠN HÀNG MỚI</b>\n` +
+    `Mã đơn: ${order.id}\n` +
+    `Khách: ${order.userName}\n` +
+    `Sản phẩm: ${order.items.map(i => i.name + ' x' + i.qty).join(', ')}\n` +
+    `Tổng tiền: ${fmt(order.total)}` +
+    (order.couponCode ? `\nMã giảm giá: ${order.couponCode}` : '')
+  );
   // Clear cart
   cart = [];
   appliedCoupon = null;
@@ -3615,6 +3656,14 @@ function confirmBuyNow() {
   };
   orders.push(order);
   saveOrders(orders);
+  notifyTelegram(
+    `⚡ <b>MUA NGAY</b>\n` +
+    `Mã đơn: ${order.id}\n` +
+    `Khách: ${order.userName}\n` +
+    `Sản phẩm: ${p.name}\n` +
+    `Tổng tiền: ${fmt(order.total)}` +
+    (order.couponCode ? `\nMã giảm giá: ${order.couponCode}` : '')
+  );
 
   // Cập nhật voucher usage nếu cần
   if (_buyNowAppliedVoucher) {
