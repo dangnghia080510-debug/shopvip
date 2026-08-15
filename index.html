@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <style>
 :root {
   --void: #0F0B28;
@@ -440,6 +441,35 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
   font-family:'Rajdhani',sans-serif; font-size:0.78rem; color:var(--muted);
 }
 
+/* ─── VIDEO BANNER NHỎ ĐẦU TRANG (responsive) ─── */
+.video-top-banner {
+  width:100%; margin-top:64px; background:#000;
+  display:flex; align-items:center; justify-content:center;
+  padding:8px 16px; gap:14px; position:relative; z-index:500;
+  border-bottom:1px solid rgba(0,255,209,0.15);
+}
+.video-top-banner-box {
+  flex-shrink:0; width:220px; height:124px; border-radius:8px;
+  overflow:hidden; border:1px solid rgba(0,255,209,0.25);
+  position:relative; background:#000;
+}
+.video-top-banner-video { width:100%; height:100%; object-fit:cover; display:block; }
+.video-top-banner-sound {
+  position:absolute; bottom:5px; right:5px; z-index:2; width:26px; height:26px;
+  border-radius:50%; border:1px solid rgba(255,255,255,0.4); background:rgba(0,0,0,0.65);
+  color:#fff; font-size:0.75rem; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; padding:0;
+}
+.video-top-banner-text { flex:1; min-width:0; }
+.video-top-banner-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1rem; color:#fff; letter-spacing:0.05em; margin-bottom:3px; }
+.video-top-banner-sub { font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--teal); }
+.video-top-banner-close {
+  flex-shrink:0; background:none; border:1px solid rgba(255,255,255,0.2); color:#aaa;
+  padding:0.3rem 0.7rem; border-radius:4px; cursor:pointer; font-family:'Rajdhani',sans-serif;
+  font-size:0.78rem; transition:all 0.2s;
+}
+.video-top-banner-close:hover { border-color:var(--crimson); color:var(--crimson); }
+
 /* ─── HAMBURGER MENU ─── */
 .hamburger {
   display:none; flex-direction:column; gap:5px; background:none;
@@ -489,6 +519,13 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
   .search-bar { display:none; }
   .nav-actions { gap:0.5rem; }
   .cart-btn { padding:0.5rem 0.7rem; font-size:0.78rem; gap:0.3rem; }
+
+  /* Video banner đầu trang */
+  .video-top-banner { margin-top:64px; padding:6px 10px; gap:10px; }
+  .video-top-banner-box { width:140px; height:80px; }
+  .video-top-banner-title { font-size:0.82rem; }
+  .video-top-banner-sub { font-size:0.66rem; }
+  .video-top-banner-close { padding:0.25rem 0.55rem; font-size:0.72rem; }
 
   /* Hero */
   .hero { min-height:auto; padding-top:64px; padding-bottom:2rem; }
@@ -558,6 +595,13 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 }
 
 @media(max-width:480px){
+  /* Video banner đầu trang — màn hình rất nhỏ: ẩn mô tả phụ, thu gọn video */
+  .video-top-banner { padding:5px 8px; gap:8px; }
+  .video-top-banner-box { width:96px; height:56px; }
+  .video-top-banner-title { font-size:0.72rem; margin-bottom:1px; }
+  .video-top-banner-sub { display:none; }
+  .video-top-banner-close { padding:0.2rem 0.45rem; font-size:0.68rem; }
+
   /* Nav compact */
   .cart-btn span:not(.cart-count) { display:none; }
   .auth-btn { font-size:0.75rem; padding:0.45rem 0.7rem; }
@@ -652,38 +696,33 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 
 
 <!-- ═══ VIDEO BANNER NHỎ ĐẦU TRANG ═══ -->
-<div id="videoTopBanner" style="
-  width:100%; margin-top:64px; background:#000;
-  display:flex; align-items:center; justify-content:center;
-  padding:6px 12px; gap:12px; position:relative; z-index:500;
-  border-bottom:1px solid rgba(0,255,209,0.15);
-">
+<div id="videoTopBanner" class="video-top-banner">
   <!-- VIDEO NHỎ — video tự quay của bạn, phát từ file video trực tiếp (không nhúng từ nơi khác) -->
-  <div style="flex-shrink:0;width:180px;height:100px;border-radius:6px;overflow:hidden;border:1px solid rgba(0,255,209,0.25);position:relative;background:#000;">
+  <div class="video-top-banner-box">
     <video
       id="topBannerVideo"
+      class="video-top-banner-video"
       autoplay
       muted
       loop
       playsinline
-      style="width:100%;height:100%;object-fit:cover;display:block;"
       title="Video ShopVIP"
     >
       <source id="topBannerVideoSource" src="" type="video/mp4">
     </video>
     <button
       id="topBannerSoundBtn"
+      class="video-top-banner-sound"
       onclick="toggleTopBannerSound()"
       title="Bật/tắt âm thanh video"
-      style="position:absolute;bottom:4px;right:4px;z-index:2;width:24px;height:24px;border-radius:50%;border:1px solid rgba(255,255,255,0.4);background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;"
     >🔇</button>
   </div>
   <!-- NỘI DUNG BÊN PHẢI VIDEO -->
-  <div style="flex:1;min-width:0;">
-    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;color:#fff;letter-spacing:0.05em;margin-bottom:3px;">🔥 SHOPVIP.COM — Gaming Gear Chính Hãng</div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--teal);">Ưu đãi mỗi ngày · Giao hàng tự động · Bảo hành chính hãng</div>
+  <div class="video-top-banner-text">
+    <div class="video-top-banner-title">🔥 SHOPVIP.COM — Gaming Gear Chính Hãng</div>
+    <div class="video-top-banner-sub">Ưu đãi mỗi ngày · Giao hàng tự động · Bảo hành chính hãng</div>
   </div>
-  <button onclick="closeTopBanner()" style="flex-shrink:0;background:none;border:1px solid rgba(255,255,255,0.2);color:#aaa;padding:0.3rem 0.7rem;border-radius:4px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:0.78rem;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--crimson)';this.style.color='var(--crimson)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.2)';this.style.color='#aaa';">✕</button>
+  <button class="video-top-banner-close" onclick="closeTopBanner()">✕</button>
 </div>
 
 <!-- ═══ HAMBURGER MOBILE MENU ═══ -->
@@ -1073,7 +1112,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       <button class="admin-nav-item" onclick="adminTab('wallets')">💰 Quản Lý Ví</button>
       <button class="admin-nav-item" onclick="adminTab('deposits')">🏦 Yêu Cầu Nạp Tiền</button>
       <button class="admin-nav-item" onclick="adminTab('products')">🛒 Sản Phẩm</button>
-      <button class="admin-nav-item" onclick="adminTab('orders')">📦 Đơn Hàng</button>
+      <button class="admin-nav-item" onclick="adminTab('orders')" style="position:relative">📦 Đơn Hàng<span id="orderNotifyBadge" style="display:none;position:absolute;top:6px;right:10px;background:var(--crimson);color:#fff;font-size:0.65rem;font-family:'Share Tech Mono',monospace;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 4px;"></span></button>
       <button class="admin-nav-item" onclick="adminTab('spin')">🎡 Vòng Quay</button>
       <button class="admin-nav-item" onclick="adminTab('vouchers')">🎟️ Voucher</button>
       <button class="admin-nav-item" id="navAdmins" style="display:none" onclick="adminTab('admins')">🔑 Quản Trị Viên</button>
@@ -1498,12 +1537,16 @@ const firebaseConfig = {
 // trình duyệt/app chặn gstatic.com...) trang sẽ TỰ ĐỘNG chuyển sang chế độ
 // lưu cục bộ (localStorage) thay vì treo mãi ở màn hình loading.
 let db = null;
+let storage = null;
 let firebaseReady = false;
+let storageReady = false;
 try {
   if (typeof firebase === 'undefined') throw new Error('Firebase SDK chưa tải được (bị chặn mạng hoặc CDN lỗi).');
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   firebaseReady = true;
+  try { storage = firebase.storage(); storageReady = true; }
+  catch (e2) { console.error('Firebase Storage init failed (video lớn sẽ không tải lên được):', e2); }
 } catch (e) {
   console.error('Firebase init failed, fallback to localStorage mode:', e);
 }
@@ -1515,32 +1558,6 @@ function fsSave(name, dataObj) {
     console.error('Firestore save error (' + name + '):', err);
     showToast('⚠️ Lỗi đồng bộ dữ liệu lên máy chủ — kiểm tra kết nối mạng', 'error');
   });
-}
-
-// ─── TELEGRAM BOT NOTIFICATIONS ───
-// Cách lấy TOKEN và CHAT_ID (làm 1 lần):
-// 1) Trong Telegram, chat với @BotFather → gõ /newbot → đặt tên → nhận về TOKEN
-//    dạng "123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-// 2) Tạo 1 group riêng (hoặc dùng chat cá nhân), thêm bot vào group đó,
-//    rồi gửi thử 1 tin nhắn bất kỳ trong group (hoặc bấm Start nếu chat riêng)
-// 3) Mở trình duyệt vào: https://api.telegram.org/bot<TOKEN>/getUpdates
-//    (thay <TOKEN> bằng token thật) → tìm số ở "chat":{"id":-100xxxxxxxxxx}
-//    → đó là CHAT_ID (group thường có id âm, bắt đầu bằng -100)
-// 4) Dán TOKEN và CHAT_ID vào 2 dòng bên dưới rồi lưu lại file.
-const TELEGRAM_BOT_TOKEN = '8665912079:AAF40ASx3CvRSSgrPagKVML_txyWInOkb6g';
-const TELEGRAM_CHAT_ID   = '8618983578';
-
-function notifyTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes('DÁN_') ||
-      !TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID.includes('DÁN_')) {
-    console.warn('[Telegram] Chưa cấu hình TOKEN/CHAT_ID — bỏ qua thông báo:', text);
-    return;
-  }
-  fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' })
-  }).catch(err => console.error('[Telegram] Gửi thông báo thất bại:', err));
 }
 // Đăng ký lắng nghe 1 collection nếu có Firebase, nếu không thì dùng ngay
 // dữ liệu đã lưu trong localStorage (không chờ mạng).
@@ -1592,6 +1609,8 @@ let _spinsCache = [];
 let _settingsCache = null;
 let _appInitialized = false;
 let _usersFirstLoad = true;
+let _ordersFirstLoad = true;
+let _unseenOrderCount = 0;
 const _loadedFlags = { users:false, products:false, orders:false, deposits:false, spins:false, settings:false };
 
 function markLoaded(key) {
@@ -1691,11 +1710,14 @@ watchCollection('users', async snap => {
 });
 
 watchCollection('orders', snap => {
-  _ordersCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
+  const newList = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
+  detectAndNotifyNewOrders(_ordersCache, newList);
+  _ordersCache = newList;
   localStorage.setItem('svip_orders', JSON.stringify(_ordersCache));
   markLoaded('orders');
 }, () => {
   try { _ordersCache = JSON.parse(localStorage.getItem('svip_orders') || '[]'); } catch { _ordersCache = []; }
+  _ordersFirstLoad = false;
   markLoaded('orders');
 });
 
@@ -1896,7 +1918,7 @@ function restoreSession() {
     const sid = localStorage.getItem('svip_session');
     if (!sid) return;
     const user = getUsers().find(u => u.id === sid);
-    if (user) currentUser = user;
+    if (user) { currentUser = user; if (isCurrentUserAdmin()) requestOrderNotifyPermission(); }
     else clearSession();
   } catch {}
 }
@@ -1916,6 +1938,7 @@ async function doLogin() {
   saveSession(user);
   closeAuth();
   updateNavAuth();
+  if (isCurrentUserAdmin()) requestOrderNotifyPermission();
   showToast(`✅ Chào mừng, ${user.name}!`);
 }
 
@@ -1951,7 +1974,6 @@ async function doRegister() {
   saveSession(newUser);
   closeAuth();
   updateNavAuth();
-  notifyTelegram(`👤 <b>KHÁCH HÀNG MỚI ĐĂNG KÝ</b>\nTên: ${name}\nEmail: ${email}\nSĐT: ${phone}`);
   showToast(`🎉 Đăng ký thành công! Chào mừng ${name} đến ShopVIP!`);
 }
 
@@ -2085,6 +2107,7 @@ function openAdmin() {
   if (!isCurrentUserAdmin()) {
     showToast('❌ Chỉ Admin mới có quyền truy cập', 'error'); return;
   }
+  requestOrderNotifyPermission();
   renderAdminDashboard();
   if (isSuperAdmin()) renderAdminUsers();
   renderAdminWallets();
@@ -2163,6 +2186,7 @@ function adminTab(tab) {
   if (tab === 'vouchers') renderAdminVouchers();
   if (tab === 'admins') { if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền truy cập', 'error'); return; } renderAdminAdmins(); }
   if (tab === 'users') { if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền xem danh sách khách hàng', 'error'); return; } renderAdminUsers(); }
+  if (tab === 'orders') { _unseenOrderCount = 0; updateOrderNotifyBadge(); }
   document.getElementById('adminPageTitle').textContent = titles[tab] || tab;
 }
 
@@ -2371,12 +2395,6 @@ function submitDepositRequest() {
     date: new Date().toISOString()
   });
   saveDeposits(deposits);
-  notifyTelegram(
-    `💰 <b>YÊU CẦU NẠP TIỀN</b>\n` +
-    `Khách: ${currentUser.name}\n` +
-    `Số tiền: ${fmt(amount)}\n` +
-    `Nội dung CK: ${code}`
-  );
   closeDepositModal();
   showToast('🕓 Đã gửi yêu cầu nạp tiền. Admin sẽ xác nhận sau khi kiểm tra chuyển khoản.');
 }
@@ -2585,14 +2603,14 @@ function renderAdminSettings() {
         <label class="form-label">Video của bạn (tự quay/tự tải lên)</label>
         <div class="img-upload-area" onclick="document.getElementById('stVideoFile').click()">
           <input type="file" id="stVideoFile" accept="video/mp4,video/webm" onchange="handleVideoBannerUpload(this)" style="display:none">
-          <div class="img-upload-label" id="stVideoUploadLabel">🎬 <span>Nhấn để chọn video</span><br><small style="color:var(--muted);font-size:0.7rem">MP4/WebM — tối đa 8MB, nên quay đoạn ngắn vài giây</small></div>
+          <div class="img-upload-label" id="stVideoUploadLabel">🎬 <span>Nhấn để chọn video</span><br><small style="color:var(--muted);font-size:0.7rem">MP4/WebM — tối đa 50MB, nên quay đoạn ngắn vài giây</small></div>
           <video id="stVideoPreview" muted loop playsinline style="display:none;width:100%;max-height:160px;border-radius:6px;margin-top:0.5rem"></video>
           <div id="stVideoClearWrap" style="display:none;margin-top:0.4rem">
             <button type="button" onclick="event.stopPropagation();clearVideoBanner()" style="background:none;border:1px solid var(--crimson);color:var(--crimson);border-radius:4px;padding:0.25rem 0.6rem;cursor:pointer;font-size:0.75rem;font-family:'Rajdhani',sans-serif">🗑 Xoá Video</button>
           </div>
         </div>
         <input type="hidden" id="stVideoBanner" value="${s.videoBanner||''}">
-        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">Video tự phát ở chế độ tắt tiếng — người xem bấm biểu tượng loa 🔇 trên video để bật âm thanh (trình duyệt không cho tự phát có tiếng). Video được lưu trực tiếp trên hệ thống, không cần link ngoài. Để trống (xoá video) để ẩn banner.</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">Video tự phát ở chế độ tắt tiếng — người xem bấm biểu tượng loa 🔇 trên video để bật âm thanh (trình duyệt không cho tự phát có tiếng). Video được tải lên máy chủ lưu trữ, không cần link ngoài. Để trống (xoá video) để ẩn banner.</p>
       </div>
     </div>
     <div class="form-group"><label class="form-label">Tên Cửa Hàng</label><input class="form-input" id="stSiteName" value="${s.siteName}"></div>
@@ -3070,14 +3088,6 @@ function checkout() {
   };
   orders.push(order);
   saveOrders(orders);
-  notifyTelegram(
-    `🛒 <b>ĐƠN HÀNG MỚI</b>\n` +
-    `Mã đơn: ${order.id}\n` +
-    `Khách: ${order.userName}\n` +
-    `Sản phẩm: ${order.items.map(i => i.name + ' x' + i.qty).join(', ')}\n` +
-    `Tổng tiền: ${fmt(order.total)}` +
-    (order.couponCode ? `\nMã giảm giá: ${order.couponCode}` : '')
-  );
   // Clear cart
   cart = [];
   appliedCoupon = null;
@@ -3455,22 +3465,63 @@ function clearProductImage() {
 }
 
 // ─── VIDEO BANNER UPLOAD (video tự quay của admin, giống cách tải ảnh sản phẩm) ───
+// Video được tải thẳng lên Firebase Storage (không nhét base64 vào Firestore/localStorage
+// nữa) vì Firestore giới hạn cứng 1MB/tài liệu và localStorage chỉ ~5-10MB mỗi trình duyệt —
+// cả hai đều sẽ vỡ với video 50MB. Storage không có giới hạn đó, chỉ lưu lại đường link (URL)
+// gọn nhẹ vào settings.
+const VIDEO_BANNER_MAX_MB = 50;
 function handleVideoBannerUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 8 * 1024 * 1024) { showToast('❌ Video quá lớn — tối đa 8MB, hãy quay đoạn ngắn hơn hoặc nén video lại', 'error'); input.value = ''; return; }
-  const reader = new FileReader();
-  reader.onload = e => {
-    const data = e.target.result;
-    document.getElementById('stVideoBanner').value = data;
-    const preview = document.getElementById('stVideoPreview');
-    preview.src = data;
-    preview.style.display = 'block';
-    document.getElementById('stVideoClearWrap').style.display = 'block';
-    document.getElementById('stVideoUploadLabel').style.display = 'none';
-  };
-  reader.onerror = () => { showToast('❌ Không đọc được file video, thử lại', 'error'); };
-  reader.readAsDataURL(file);
+  const maxBytes = VIDEO_BANNER_MAX_MB * 1024 * 1024;
+  if (file.size > maxBytes) {
+    showToast(`❌ Video quá lớn — tối đa ${VIDEO_BANNER_MAX_MB}MB, hãy quay đoạn ngắn hơn hoặc nén video lại`, 'error');
+    input.value = ''; return;
+  }
+  const preview = document.getElementById('stVideoPreview');
+  const label = document.getElementById('stVideoUploadLabel');
+
+  // Xem trước ngay lập tức bằng blob URL cục bộ (không cần chờ tải lên xong)
+  const localUrl = URL.createObjectURL(file);
+  preview.src = localUrl;
+  preview.style.display = 'block';
+  document.getElementById('stVideoClearWrap').style.display = 'block';
+  label.style.display = 'none';
+
+  if (!storageReady) {
+    // Không có Firebase Storage (mất mạng / CDN chặn) — video lớn không thể lưu an toàn
+    // trong localStorage/Firestore, nên báo rõ cho Admin thay vì lưu dữ liệu dễ vỡ.
+    showToast('❌ Không kết nối được máy chủ lưu trữ — cần internet để tải video lên. Video sẽ không được lưu.', 'error');
+    return;
+  }
+
+  const progressId = 'stVideoUploadProgress';
+  let progressEl = document.getElementById(progressId);
+  if (!progressEl) {
+    progressEl = document.createElement('div');
+    progressEl.id = progressId;
+    progressEl.style.cssText = 'font-size:0.72rem;color:var(--teal);margin-top:0.35rem;font-family:\'Share Tech Mono\',monospace';
+    preview.insertAdjacentElement('afterend', progressEl);
+  }
+  progressEl.textContent = '⏳ Đang tải video lên... 0%';
+
+  const path = 'video-banners/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+  const task = storage.ref(path).put(file);
+  task.on('state_changed', snap => {
+    const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+    progressEl.textContent = `⏳ Đang tải video lên... ${pct}%`;
+  }, err => {
+    console.error('Video upload error:', err);
+    progressEl.textContent = '';
+    showToast('❌ Tải video lên thất bại, thử lại', 'error');
+  }, async () => {
+    const url = await task.snapshot.ref.getDownloadURL();
+    document.getElementById('stVideoBanner').value = url;
+    document.getElementById('stVideoBanner').dataset.storagePath = path;
+    progressEl.textContent = '✅ Tải lên hoàn tất';
+    setTimeout(() => { progressEl.textContent = ''; }, 2000);
+    showToast('✅ Đã tải video lên — nhớ bấm "Lưu Cài Đặt" để áp dụng');
+  });
 }
 function clearVideoBanner() {
   document.getElementById('stVideoBanner').value = '';
@@ -3480,6 +3531,8 @@ function clearVideoBanner() {
   document.getElementById('stVideoClearWrap').style.display = 'none';
   document.getElementById('stVideoUploadLabel').style.display = '';
   document.getElementById('stVideoFile').value = '';
+  const progressEl = document.getElementById('stVideoUploadProgress');
+  if (progressEl) progressEl.textContent = '';
 }
 
 // ─── TOAST ───
@@ -3491,6 +3544,74 @@ function showToast(msg, type='success') {
   toast.textContent = msg;
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
+}
+
+// ═══ THÔNG BÁO CÓ ĐƠN HÀNG MỚI (dành cho Admin) ═══
+// So sánh danh sách đơn cũ/mới từ Firestore realtime listener để tìm đơn vừa
+// phát sinh, rồi báo cho Admin đang mở trang bằng: toast + tiếng bíp + thông
+// báo trình duyệt (nếu đã cấp quyền) + số đỏ trên tab "Đơn Hàng".
+function detectAndNotifyNewOrders(oldList, newList) {
+  if (_ordersFirstLoad) {
+    _ordersFirstLoad = false;
+    return; // Bỏ qua lần tải đầu tiên (đó là đơn cũ có sẵn, không phải đơn mới)
+  }
+  if (!Array.isArray(newList) || newList.length <= (oldList ? oldList.length : 0)) return;
+  const oldIds = new Set((oldList || []).map(o => o.id));
+  const freshOrders = newList.filter(o => !oldIds.has(o.id));
+  if (!freshOrders.length) return;
+  freshOrders.forEach(order => notifyNewOrder(order));
+}
+
+function playOrderNotifySound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1175].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + i*0.16);
+      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + i*0.16 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i*0.16 + 0.28);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + i*0.16);
+      osc.stop(ctx.currentTime + i*0.16 + 0.3);
+    });
+  } catch (e) { /* Web Audio không khả dụng — bỏ qua tiếng bíp, vẫn còn toast + badge */ }
+}
+
+function notifyNewOrder(order) {
+  // Chỉ làm phiền Admin — khách hàng thường không cần thấy thông báo đơn của người khác
+  if (!isCurrentUserAdmin()) return;
+  _unseenOrderCount++;
+  updateOrderNotifyBadge();
+  playOrderNotifySound();
+  const amountTxt = typeof order.total === 'number' ? fmt(order.total) : '';
+  showToast(`📦 Đơn hàng mới từ ${order.userName || 'khách hàng'}${amountTxt ? ' — ' + amountTxt : ''}`);
+  if (window.Notification && Notification.permission === 'granted') {
+    try {
+      new Notification('📦 Đơn hàng mới — ShopVIP', {
+        body: `${order.userName || 'Khách hàng'} vừa đặt đơn${amountTxt ? ' trị giá ' + amountTxt : ''}`,
+        tag: 'shopvip-order-' + order.id
+      });
+    } catch (e) { /* một số trình duyệt/app chặn Notification — bỏ qua, vẫn còn toast */ }
+  }
+}
+
+function updateOrderNotifyBadge() {
+  const badge = document.getElementById('orderNotifyBadge');
+  if (!badge) return;
+  if (_unseenOrderCount > 0) {
+    badge.textContent = _unseenOrderCount > 99 ? '99+' : String(_unseenOrderCount);
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Xin quyền gửi thông báo trình duyệt cho Admin (chỉ hỏi 1 lần, không làm phiền khách thường)
+function requestOrderNotifyPermission() {
+  if (!window.Notification || Notification.permission !== 'default') return;
+  Notification.requestPermission().catch(() => {});
 }
 
 // ═══ VIDEO AD BANNER — không cần countdown vì không chặn cuộn ═══
@@ -3656,14 +3777,6 @@ function confirmBuyNow() {
   };
   orders.push(order);
   saveOrders(orders);
-  notifyTelegram(
-    `⚡ <b>MUA NGAY</b>\n` +
-    `Mã đơn: ${order.id}\n` +
-    `Khách: ${order.userName}\n` +
-    `Sản phẩm: ${p.name}\n` +
-    `Tổng tiền: ${fmt(order.total)}` +
-    (order.couponCode ? `\nMã giảm giá: ${order.couponCode}` : '')
-  );
 
   // Cập nhật voucher usage nếu cần
   if (_buyNowAppliedVoucher) {
