@@ -1447,6 +1447,13 @@ user2:pass2
 KEY-XXXX-XXXX" style="resize:vertical;font-family:'Share Tech Mono',monospace" oninput="updateStockCount()"></textarea>
         <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem" id="pfStockCountWrap">Còn lại: <span id="pfStockCount">0</span> mã</p>
       </div>
+      <div class="form-group" style="border-top:1px solid var(--border);padding-top:1rem">
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:0.9rem">
+          <input type="checkbox" id="pfAllowBypass" style="width:18px;height:18px;accent-color:var(--plasma);cursor:pointer">
+          🔗 Cho Phép Mua Bằng Vượt Link (miễn phí, thay vì trừ ví)
+        </label>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">Nếu bật: khách sẽ thấy thêm lựa chọn "Vượt Link" bên cạnh "Mua bằng Ví" khi mua sản phẩm này. Cấu hình số lần vượt link ở mục Cài Đặt.</p>
+      </div>
       <button class="auth-submit" onclick="submitProductForm()">💾 Lưu Sản Phẩm</button>
     </div>
   </div>
@@ -1466,33 +1473,68 @@ KEY-XXXX-XXXX" style="resize:vertical;font-family:'Share Tech Mono',monospace" o
         <span style="font-family:'Rajdhani',sans-serif;font-size:0.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Giá sản phẩm</span>
         <span class="mono" id="buyNowPrice" style="font-family:'Share Tech Mono',monospace;color:var(--teal);font-size:1.1rem;"></span>
       </div>
-      <!-- VOUCHER -->
-      <div class="form-group">
-        <label class="form-label">🎟️ Mã Voucher (nếu có)</label>
-        <div style="display:flex;gap:0.5rem;">
-          <input class="form-input" type="text" id="buyNowVoucherInput" placeholder="Nhập mã giảm giá..." style="flex:1;">
-          <button onclick="applyBuyNowVoucher()" style="background:rgba(0,255,209,0.1);border:1px solid rgba(0,255,209,0.3);color:var(--teal);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:0.05em;padding:0 1rem;border-radius:4px;cursor:pointer;white-space:nowrap;">Áp dụng</button>
+      <!-- CHỌN PHƯƠNG THỨC MUA -->
+      <div id="buyNowMethodTabs" style="display:none;gap:0.5rem;">
+        <button type="button" id="buyNowMethodWalletBtn" onclick="setBuyNowMethod('wallet')" style="flex:1;padding:0.6rem;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.05em;cursor:pointer;background:rgba(0,255,209,0.12);border:1px solid var(--teal);color:var(--teal);">💰 Mua Bằng Ví</button>
+        <button type="button" id="buyNowMethodBypassBtn" onclick="setBuyNowMethod('bypass')" style="flex:1;padding:0.6rem;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;letter-spacing:0.05em;cursor:pointer;background:none;border:1px solid var(--border);color:var(--muted);">🔗 Vượt Link (Miễn Phí)</button>
+      </div>
+
+      <!-- KHỐI MUA BẰNG VÍ -->
+      <div id="buyNowWalletSection">
+        <!-- VOUCHER -->
+        <div class="form-group">
+          <label class="form-label">🎟️ Mã Voucher (nếu có)</label>
+          <div style="display:flex;gap:0.5rem;">
+            <input class="form-input" type="text" id="buyNowVoucherInput" placeholder="Nhập mã giảm giá..." style="flex:1;">
+            <button onclick="applyBuyNowVoucher()" style="background:rgba(0,255,209,0.1);border:1px solid rgba(0,255,209,0.3);color:var(--teal);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:0.05em;padding:0 1rem;border-radius:4px;cursor:pointer;white-space:nowrap;">Áp dụng</button>
+          </div>
+          <div id="buyNowVoucherMsg" style="font-size:0.75rem;margin-top:0.3rem;display:none;"></div>
         </div>
-        <div id="buyNowVoucherMsg" style="font-size:0.75rem;margin-top:0.3rem;display:none;"></div>
+        <!-- TỔNG TIỀN -->
+        <div id="buyNowDiscountRow" style="display:none;background:rgba(255,46,99,0.08);border:1px solid rgba(255,46,99,0.2);border-radius:6px;padding:0.65rem 1rem;justify-content:space-between;align-items:center;">
+          <span style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;color:var(--muted);">Giảm giá</span>
+          <span id="buyNowDiscountAmt" style="font-family:'Share Tech Mono',monospace;color:var(--crimson);font-size:0.9rem;"></span>
+        </div>
+        <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:8px;padding:1rem;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.9rem;letter-spacing:0.05em;text-transform:uppercase;">Tổng Thanh Toán</span>
+          <span id="buyNowTotal" style="font-family:'Share Tech Mono',monospace;color:var(--gold);font-size:1.25rem;font-weight:700;"></span>
+        </div>
+        <div id="buyNowWalletInfo" style="font-size:0.78rem;color:var(--muted);text-align:center;"></div>
+        <div id="buyNowActionBtns">
+          <button class="auth-submit" onclick="confirmBuyNow()" id="buyNowConfirmBtn">✅ Xác Nhận Mua — Trừ Ví Ngay</button>
+        </div>
       </div>
-      <!-- TỔNG TIỀN -->
-      <div id="buyNowDiscountRow" style="display:none;background:rgba(255,46,99,0.08);border:1px solid rgba(255,46,99,0.2);border-radius:6px;padding:0.65rem 1rem;display:none;justify-content:space-between;align-items:center;">
-        <span style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;color:var(--muted);">Giảm giá</span>
-        <span id="buyNowDiscountAmt" style="font-family:'Share Tech Mono',monospace;color:var(--crimson);font-size:0.9rem;"></span>
+
+      <!-- KHỐI VƯỢT LINK -->
+      <div id="buyNowBypassSection" style="display:none;">
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem;">Hoàn thành đủ <b id="bypassRequiredCountLabel" style="color:var(--plasma)"></b> lượt vượt link bên dưới để nhận sản phẩm này <b style="color:var(--teal)">miễn phí</b>, không trừ ví.</p>
+        <div id="bypassRowsWrap"></div>
+        <div id="buyNowBypassActionBtns" style="margin-top:0.75rem;">
+          <button class="auth-submit" id="buyNowBypassClaimBtn" onclick="confirmBypassClaim()" disabled style="opacity:0.5;cursor:not-allowed;">🎁 Hoàn Thành Đủ Lượt Trên Để Nhận Hàng</button>
+        </div>
       </div>
-      <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:8px;padding:1rem;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.9rem;letter-spacing:0.05em;text-transform:uppercase;">Tổng Thanh Toán</span>
-        <span id="buyNowTotal" style="font-family:'Share Tech Mono',monospace;color:var(--gold);font-size:1.25rem;font-weight:700;"></span>
-      </div>
-      <div id="buyNowWalletInfo" style="font-size:0.78rem;color:var(--muted);text-align:center;"></div>
+
       <!-- NỘI DUNG GIAO HÀNG (hiện sau khi mua) -->
       <div id="buyNowDeliveryResult" style="display:none;background:rgba(0,255,209,0.06);border:1px solid rgba(0,255,209,0.25);border-radius:8px;padding:1rem;">
         <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;color:var(--teal);margin-bottom:0.5rem;">✅ Mua Thành Công! Nội Dung Giao Hàng:</div>
         <pre id="buyNowDeliveryContent" style="font-family:'Share Tech Mono',monospace;font-size:0.82rem;color:var(--text);white-space:pre-wrap;word-break:break-all;margin:0;line-height:1.6;"></pre>
       </div>
-      <div id="buyNowActionBtns">
-        <button class="auth-submit" onclick="confirmBuyNow()" id="buyNowConfirmBtn">✅ Xác Nhận Mua — Trừ Ví Ngay</button>
-      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MÀN HÌNH HIỆN MÃ XÁC NHẬN SAU KHI VƯỢT LINK XONG -->
+<div class="auth-overlay" id="bypassCodeRevealOverlay" style="z-index:9500;">
+  <div class="auth-box" style="max-width:420px;text-align:center;">
+    <button class="auth-close" onclick="closeBypassCodeReveal()">✕</button>
+    <div class="auth-header">
+      <div class="auth-logo">SHOP<span>VIP</span>.COM</div>
+      <div class="auth-title">✅ Vượt Link Thành Công!</div>
+      <p class="auth-sub">Copy mã bên dưới, quay lại tab mua hàng và dán vào để xác nhận.</p>
+    </div>
+    <div class="auth-form">
+      <div style="background:rgba(0,255,209,0.08);border:1px solid var(--teal);border-radius:8px;padding:1.25rem;font-family:'Share Tech Mono',monospace;font-size:1.4rem;letter-spacing:0.15em;color:var(--teal);word-break:break-all;" id="bypassRevealCode"></div>
+      <button class="auth-submit" onclick="copyBypassCode()">📋 Copy Mã</button>
     </div>
   </div>
 </div>
@@ -1582,6 +1624,8 @@ const DEFAULT_SETTINGS = {
   bankAccount: '0123456789',
   bankHolder: 'CONG TY TNHH SHOPVIP',
   bankBranch: 'Chi nhánh TP.HCM',
+  link4mApiToken: '',
+  linkBypassCount: 3,
   categories: [
     { key:'mouse', icon:'🖱️', label:'Chuột' },
     { key:'keyboard', icon:'⌨️', label:'Bàn Phím' },
@@ -2621,6 +2665,19 @@ function renderAdminSettings() {
     <div class="form-group"><label class="form-label">Số Tài Khoản</label><input class="form-input" id="stBankAccount" value="${s.bankAccount}"></div>
     <div class="form-group"><label class="form-label">Chủ Tài Khoản</label><input class="form-input" id="stBankHolder" value="${s.bankHolder}"></div>
     <div class="form-group"><label class="form-label">Chi Nhánh</label><input class="form-input" id="stBankBranch" value="${s.bankBranch}"></div>
+    <div style="background:rgba(168,85,247,0.05);border:1px solid rgba(168,85,247,0.25);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;color:var(--plasma);margin-bottom:0.5rem">🔗 VƯỢT LINK (LINK4M) — MUA MIỄN PHÍ THAY VÍ</div>
+      <div class="form-group">
+        <label class="form-label">API Token Link4m</label>
+        <input class="form-input" id="stLink4mToken" value="${s.link4mApiToken||''}" placeholder="VD: 6a41f075234afd17497b7953">
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Lấy tại my.link4m.com → Tools → Quick Link. ⚠️ Token này sẽ nằm trong mã nguồn trang (ai xem mã nguồn cũng thấy được).</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Số Lần Vượt Link Yêu Cầu (mỗi đơn)</label>
+        <input class="form-input" type="number" id="stLinkBypassCount" min="1" max="20" value="${s.linkBypassCount||3}">
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Áp dụng cho mọi sản phẩm có bật "Cho phép Vượt Link". Khách phải vượt đủ số lần này mới nhận được hàng miễn phí.</p>
+      </div>
+    </div>
     <div style="border-top:1px solid var(--border);margin-top:0.5rem;padding-top:1.25rem">
       <label class="form-label" style="display:block;margin-bottom:0.75rem">Danh Mục Sản Phẩm</label>
       <div id="catRows">${s.categories.map((c,i) => catRowHtml(c, i)).join('')}</div>
@@ -2688,6 +2745,8 @@ function saveAdminSettingsForm() {
     bankAccount: document.getElementById('stBankAccount').value.trim(),
     bankHolder: document.getElementById('stBankHolder').value.trim(),
     bankBranch: document.getElementById('stBankBranch').value.trim(),
+    link4mApiToken: document.getElementById('stLink4mToken').value.trim(),
+    linkBypassCount: Math.max(1, parseInt(document.getElementById('stLinkBypassCount').value) || 3),
     categories,
     spinPrizes: getSettings().spinPrizes,
     vouchers: getSettings().vouchers || [],
@@ -2743,6 +2802,7 @@ function openProductModal(id) {
     document.getElementById('pfSpecs').value = (p.specs||[]).map(([k,v])=>`${k}: ${v}`).join('\n');
     document.getElementById('pfDeliveryCodes').value = (p.deliveryCodes||[]).join('\n');
     document.getElementById('pfDeliveryMode').value = p.deliveryMode === 'fixed' ? 'fixed' : 'stock';
+    document.getElementById('pfAllowBypass').checked = !!p.allowLinkBypass;
     // Load ảnh nếu có
     const pfPrev = document.getElementById('pfImgPreview');
     const pfImgData = document.getElementById('pfImgData');
@@ -2767,6 +2827,7 @@ function openProductModal(id) {
     document.getElementById('pfSpecs').value = '';
     document.getElementById('pfDeliveryCodes').value = '';
     document.getElementById('pfDeliveryMode').value = 'stock';
+    document.getElementById('pfAllowBypass').checked = false;
     clearProductImage();
   }
   document.getElementById('pfNameErr').classList.remove('show');
@@ -2817,7 +2878,8 @@ function submitProductForm() {
     desc: document.getElementById('pfDesc').value.trim(),
     specs,
     deliveryCodes,
-    deliveryMode
+    deliveryMode,
+    allowLinkBypass: document.getElementById('pfAllowBypass').checked
   };
   if (editId) {
     const idx = products.findIndex(p => p.id === parseInt(editId));
@@ -3690,6 +3752,17 @@ function openBuyNow(productId) {
   document.getElementById('buyNowActionBtns').style.display = 'block';
   document.getElementById('buyNowConfirmBtn').disabled = false;
   document.getElementById('buyNowConfirmBtn').textContent = '✅ Xác Nhận Mua — Trừ Ví Ngay';
+
+  // Toggle phương thức mua (Ví / Vượt Link) tuỳ theo sản phẩm
+  const tabs = document.getElementById('buyNowMethodTabs');
+  if (p.allowLinkBypass) {
+    tabs.style.display = 'flex';
+    buildBypassRows(p);
+  } else {
+    tabs.style.display = 'none';
+  }
+  setBuyNowMethod('wallet');
+
   document.getElementById('buyNowOverlay').classList.add('open');
 }
 
@@ -3697,7 +3770,153 @@ function closeBuyNow() {
   document.getElementById('buyNowOverlay').classList.remove('open');
   _buyNowProductId = null;
   _buyNowAppliedVoucher = null;
+  _bypassProgress = [];
 }
+
+// ═══ VƯỢT LINK (LINK4M) ═══
+let _buyNowMethod = 'wallet';
+let _bypassProgress = []; // [{code, done}]
+
+function setBuyNowMethod(method) {
+  _buyNowMethod = method;
+  const walletBtn = document.getElementById('buyNowMethodWalletBtn');
+  const bypassBtn = document.getElementById('buyNowMethodBypassBtn');
+  const walletSec = document.getElementById('buyNowWalletSection');
+  const bypassSec = document.getElementById('buyNowBypassSection');
+  if (method === 'wallet') {
+    walletSec.style.display = 'block'; bypassSec.style.display = 'none';
+    walletBtn.style.background = 'rgba(0,255,209,0.12)'; walletBtn.style.borderColor = 'var(--teal)'; walletBtn.style.color = 'var(--teal)';
+    bypassBtn.style.background = 'none'; bypassBtn.style.borderColor = 'var(--border)'; bypassBtn.style.color = 'var(--muted)';
+  } else {
+    walletSec.style.display = 'none'; bypassSec.style.display = 'block';
+    bypassBtn.style.background = 'rgba(168,85,247,0.12)'; bypassBtn.style.borderColor = 'var(--plasma)'; bypassBtn.style.color = 'var(--plasma)';
+    walletBtn.style.background = 'none'; walletBtn.style.borderColor = 'var(--border)'; walletBtn.style.color = 'var(--muted)';
+  }
+  document.getElementById('buyNowDeliveryResult').style.display = 'none';
+}
+
+function buildBypassRows(p) {
+  const count = Math.max(1, getSettings().linkBypassCount || 3);
+  document.getElementById('bypassRequiredCountLabel').textContent = count;
+  _bypassProgress = Array.from({length: count}, () => ({ code: null, done: false }));
+  const wrap = document.getElementById('bypassRowsWrap');
+  wrap.innerHTML = _bypassProgress.map((_, i) => `
+    <div class="form-group" id="bypassRow${i}" style="flex-direction:row;align-items:center;gap:0.5rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.75rem;margin-bottom:0.5rem;">
+      <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:var(--muted);white-space:nowrap;">Lượt ${i+1}</span>
+      <button type="button" onclick="startBypassRound(${i})" id="bypassGetBtn${i}" style="background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.35);color:var(--plasma);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;padding:0.4rem 0.7rem;border-radius:4px;cursor:pointer;white-space:nowrap;">🔗 Lấy Link</button>
+      <input class="form-input" type="text" id="bypassCodeInput${i}" placeholder="Dán mã xác nhận..." style="flex:1;min-width:0;font-size:0.8rem;" disabled>
+      <button type="button" onclick="confirmBypassCode(${i})" id="bypassCheckBtn${i}" style="background:rgba(0,255,209,0.1);border:1px solid rgba(0,255,209,0.35);color:var(--teal);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;padding:0.4rem 0.7rem;border-radius:4px;cursor:pointer;white-space:nowrap;" disabled>✓</button>
+    </div>`).join('');
+  updateBypassClaimBtn();
+}
+
+function genBypassCode() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase();
+}
+
+function startBypassRound(i) {
+  const token = (getSettings().link4mApiToken || '').trim();
+  if (!token) { showToast('⚠️ Admin chưa cấu hình API Link4m — không thể vượt link lúc này', 'error'); return; }
+  const code = genBypassCode();
+  _bypassProgress[i].code = code;
+  const destination = `${location.origin}${location.pathname}?bypass=${code}`;
+  const quickLink = `https://link4m.co/st?api=${encodeURIComponent(token)}&url=${encodeURIComponent(destination)}`;
+  window.open(quickLink, '_blank');
+  document.getElementById('bypassCodeInput' + i).disabled = false;
+  document.getElementById('bypassCheckBtn' + i).disabled = false;
+  document.getElementById('bypassGetBtn' + i).textContent = '↻ Lấy Lại Link';
+  showToast(`🔗 Đã mở link vượt — hoàn thành xong dán mã xác nhận vào ô Lượt ${i+1}`);
+}
+
+function confirmBypassCode(i) {
+  const row = _bypassProgress[i];
+  if (!row || !row.code) return;
+  const input = document.getElementById('bypassCodeInput' + i);
+  const entered = input.value.trim().toUpperCase();
+  if (entered && entered === row.code) {
+    row.done = true;
+    input.disabled = true;
+    document.getElementById('bypassCheckBtn' + i).disabled = true;
+    document.getElementById('bypassGetBtn' + i).disabled = true;
+    document.getElementById('bypassGetBtn' + i).style.opacity = '0.5';
+    document.getElementById('bypassRow' + i).style.borderColor = 'var(--teal)';
+    document.getElementById('bypassRow' + i).style.background = 'rgba(0,255,209,0.06)';
+    showToast(`✅ Đã xác nhận Lượt ${i+1}`);
+  } else {
+    showToast('❌ Mã xác nhận không đúng — vượt link lại và thử lại', 'error');
+  }
+  updateBypassClaimBtn();
+}
+
+function updateBypassClaimBtn() {
+  const allDone = _bypassProgress.length > 0 && _bypassProgress.every(r => r.done);
+  const btn = document.getElementById('buyNowBypassClaimBtn');
+  btn.disabled = !allDone;
+  btn.style.opacity = allDone ? '1' : '0.5';
+  btn.style.cursor = allDone ? 'pointer' : 'not-allowed';
+  btn.textContent = allDone ? '🎁 Nhận Sản Phẩm Miễn Phí Ngay' : '🎁 Hoàn Thành Đủ Lượt Trên Để Nhận Hàng';
+}
+
+function confirmBypassClaim() {
+  if (!currentUser) { showToast('⚠️ Vui lòng đăng nhập', 'error'); return; }
+  const p = products.find(x => x.id === _buyNowProductId);
+  if (!p || !p.allowLinkBypass) return;
+  if (!_bypassProgress.length || !_bypassProgress.every(r => r.done)) { showToast('⚠️ Chưa hoàn thành đủ lượt vượt link', 'error'); return; }
+
+  const outOfStock = p.deliveryMode !== 'fixed' && Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
+  if (outOfStock) { showToast('❌ Sản phẩm đã hết hàng', 'error'); return; }
+
+  // Lấy nội dung giao hàng (không trừ ví)
+  let deliveryContent = '';
+  if (p.deliveryMode === 'fixed' && p.deliveryCodes && p.deliveryCodes.length) {
+    deliveryContent = p.deliveryCodes.join('\n');
+  } else if ((!p.deliveryMode || p.deliveryMode === 'stock') && p.deliveryCodes && p.deliveryCodes.length) {
+    deliveryContent = p.deliveryCodes.shift();
+    saveProducts(products);
+  } else {
+    deliveryContent = '[Đang chờ Admin giao thủ công — Admin sẽ liên hệ sớm]';
+  }
+
+  const orders = getOrders();
+  const order = {
+    id: 'SVP' + Date.now(),
+    userId: currentUser.id,
+    userName: currentUser.name,
+    items: [{ id: p.id, name: p.name, qty: 1, price: p.price }],
+    subtotal: p.price, discount: p.price, couponCode: null,
+    total: 0, status: 'completed',
+    delivery: deliveryContent,
+    method: 'link_bypass',
+    date: new Date().toISOString()
+  };
+  orders.push(order);
+  saveOrders(orders);
+
+  document.getElementById('buyNowDeliveryContent').textContent = deliveryContent;
+  document.getElementById('buyNowDeliveryResult').style.display = 'block';
+  document.getElementById('buyNowBypassActionBtns').innerHTML = '<button class="auth-submit" onclick="closeBuyNow()" style="background:linear-gradient(135deg,#00FFD1,#A855F7)">✓ Đã Nhận — Đóng</button>';
+  showToast(`🎉 Nhận hàng thành công qua Vượt Link! ${p.name}`);
+}
+
+function copyBypassCode() {
+  const text = document.getElementById('bypassRevealCode').textContent;
+  navigator.clipboard?.writeText(text).then(() => showToast('📋 Đã copy mã')).catch(() => {});
+}
+
+function checkBypassRedirect() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get('bypass');
+  if (code) {
+    document.getElementById('bypassRevealCode').textContent = code;
+    document.getElementById('bypassCodeRevealOverlay').classList.add('open');
+  }
+}
+function closeBypassCodeReveal() {
+  document.getElementById('bypassCodeRevealOverlay').classList.remove('open');
+}
+// Kiểm tra ngay khi trang tải xong (không cần chờ Firebase) — vì đây là
+// trang đích sau khi khách vượt link xong, cần hiện mã ngay lập tức.
+checkBypassRedirect();
 
 function applyBuyNowVoucher() {
   const code = document.getElementById('buyNowVoucherInput').value.toUpperCase().trim();
@@ -3846,7 +4065,7 @@ function scrollTo(id) { document.getElementById(id)?.scrollIntoView({behavior:'s
 // ─── KEYBOARD ESC ───
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
-    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); closeCustomOrderModal(); closeProductModal(); closeOrderDeliveryModal(); closeSpinModal(); closeBuyNow();
+    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); closeCustomOrderModal(); closeProductModal(); closeOrderDeliveryModal(); closeSpinModal(); closeBuyNow(); closeBypassCodeReveal();
     document.getElementById('modalOverlay').classList.remove('open');
   }
 });
