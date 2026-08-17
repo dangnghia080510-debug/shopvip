@@ -637,6 +637,19 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
   /* Chat cộng đồng */
   .chat-fab { bottom:5.7rem; right:1rem; width:50px; height:50px; font-size:1.3rem; }
   .chat-panel { bottom:5.7rem; right:0.75rem; width:calc(100vw - 1.5rem); height:min(480px,72vh); }
+
+  /* Bảng trong trang Admin — cho cuộn ngang thay vì tràn/vỡ layout */
+  .admin-table { display:block; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap; }
+
+  /* Logo gọn lại để không đụng các nút bên phải */
+  .logo { font-size:1.2rem; letter-spacing:0.1em; }
+
+  /* Toast không quá rộng trên màn nhỏ */
+  .toast { min-width:0; max-width:calc(100vw - 2rem); font-size:0.82rem; }
+
+  /* Bớt các hiệu ứng nền trang trí không cần thiết trên di động để nhẹ máy, tránh giật/lag */
+  body::before { display:none; }
+  .hero-grid { display:none; }
 }
 
 @media(max-width:480px){
@@ -692,6 +705,40 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
   .countdown { gap:0.6rem; }
   .countdown-unit { min-width:50px; padding:0.4rem 0.6rem; }
   .countdown-num { font-size:1.2rem; }
+}
+
+/* ─── MÀN HÌNH RẤT NHỎ (iPhone SE, Android nhỏ...) ─── */
+@media(max-width:380px){
+  nav { padding:0 0.6rem; }
+  .logo { font-size:1.05rem; }
+  .nav-actions { gap:0.35rem; }
+  .cart-btn { padding:0.45rem 0.55rem; }
+  .cart-btn span:not(.cart-count) { display:none; }
+  .auth-btn { font-size:0.7rem; padding:0.4rem 0.6rem; }
+  .user-avatar { width:32px; height:32px; font-size:0.8rem; }
+
+  .video-top-banner-box { width:80px; height:46px; }
+  .video-top-banner-title { font-size:0.68rem; }
+
+  .hero-title { font-size:clamp(2rem,11vw,2.8rem); }
+  .hero-badge { font-size:0.62rem; padding:0.25rem 0.6rem; }
+  .hero-stats { gap:0.9rem; }
+  .stat-num { font-size:1.1rem; }
+  .stat-label { font-size:0.65rem; }
+
+  .product-grid { gap:0.6rem; }
+  .product-name { font-size:0.78rem; }
+
+  .categories-grid { grid-template-columns:repeat(2,1fr); }
+
+  .spin-wrap { width:220px; height:220px; }
+
+  .admin-table { font-size:0.72rem; }
+  .admin-nav-item { padding:0.6rem 0.75rem; font-size:0.72rem; }
+
+  .zalo-fab-label { font-size:0.9em; }
+  .chat-fab { width:44px; height:44px; font-size:1.15rem; bottom:5.2rem; }
+  .scroll-top-btn { width:38px; height:38px; }
 }
 
 /* ─── ZALO SUPPORT BUTTONS ─── */
@@ -846,7 +893,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 </button>
 <div class="chat-panel" id="chatPanel">
   <div class="chat-panel-header">
-    <div class="chat-panel-title">💬 Cộng Đồng ShopVIP<small>Nhắn tin công khai — chỉ dành cho thành viên đã đăng ký</small></div>
+    <div class="chat-panel-title">💬 Cộng Đồng ShopVIP<small>Nhắn tin công khai — gõ @ai để hỏi Trợ Lý AI</small></div>
     <button class="chat-panel-close" onclick="toggleChatPanel()">✕</button>
   </div>
   <div class="chat-messages" id="chatMessages"></div>
@@ -860,7 +907,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         🖼️
         <input type="file" accept="image/*" style="display:none" id="chatImgFile" onchange="handleChatImageSelect(this)">
       </label>
-      <input type="text" class="chat-text-input" id="chatTextInput" placeholder="Nhập tin nhắn..." maxlength="1000" onkeydown="if(event.key==='Enter'){sendChatMessage()}">
+      <input type="text" class="chat-text-input" id="chatTextInput" placeholder="Nhập tin nhắn... (gõ @ai để hỏi Trợ Lý AI)" maxlength="1000" onkeydown="if(event.key==='Enter'){sendChatMessage()}">
       <button class="chat-send-btn" onclick="sendChatMessage()" title="Gửi">➤</button>
     </div>
   </div>
@@ -1646,11 +1693,13 @@ KEY-XXXX-XXXX" style="resize:vertical;font-family:'Share Tech Mono',monospace" o
         <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem" id="pfStockCountWrap">Còn lại: <span id="pfStockCount">0</span> mã</p>
       </div>
       <div class="form-group" style="border-top:1px solid var(--border);padding-top:1rem">
-        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:0.9rem">
-          <input type="checkbox" id="pfAllowBypass" style="width:18px;height:18px;accent-color:var(--plasma);cursor:pointer">
-          🔗 Cho Phép Mua Bằng Vượt Link (miễn phí, thay vì trừ ví)
-        </label>
-        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">Nếu bật: khách sẽ thấy thêm lựa chọn "Vượt Link" bên cạnh "Mua bằng Ví" khi mua sản phẩm này. Cấu hình số lần vượt link ở mục Cài Đặt.</p>
+        <label class="form-label">💳 Phương Thức Thanh Toán Cho Phép</label>
+        <select class="form-input" id="pfPaymentMode">
+          <option value="wallet">💰 Chỉ Mua Bằng Ví</option>
+          <option value="link">🔗 Chỉ Vượt Link (miễn phí, không có mua bằng ví)</option>
+          <option value="both">💰🔗 Cả Hai — Khách Tự Chọn</option>
+        </select>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.3rem">"Chỉ Vượt Link": khách chỉ thấy lựa chọn vượt link để nhận hàng miễn phí, không có nút mua bằng ví. "Cả Hai": khách được chọn mua bằng ví hoặc vượt link. Cấu hình số lần vượt link yêu cầu ở mục Cài Đặt.</p>
       </div>
       <button class="auth-submit" onclick="submitProductForm()">💾 Lưu Sản Phẩm</button>
     </div>
@@ -1837,6 +1886,8 @@ const DEFAULT_SETTINGS = {
   bankBranch: 'Chi nhánh TP.HCM',
   link4mApiToken: '',
   linkBypassCount: 3,
+  geminiApiKey: '',
+  geminiEnabled: true,
   categories: [
     { key:'mouse', icon:'🖱️', label:'Chuột' },
     { key:'keyboard', icon:'⌨️', label:'Bàn Phím' },
@@ -1902,15 +1953,23 @@ function refreshUI() {
 }
 
 function runAppInit() {
-  restoreSession();
-  renderCategoryCards();
-  renderFilterButtons();
-  renderProducts();
-  startCountdown();
-  updateNavAuth();
-  updateZaloButtons();
-  applyVideoBanner();
-  document.getElementById('loadingOverlay').style.display = 'none';
+  // Luôn ẩn màn hình loading TRƯỚC TIÊN, trong khối try/finally — nếu một
+  // trong các hàm render bên dưới bị lỗi vì lý do gì đó, trang sẽ KHÔNG bao
+  // giờ bị kẹt lại ở màn hình đen chờ tải nữa.
+  try {
+    restoreSession();
+    renderCategoryCards();
+    renderFilterButtons();
+    renderProducts();
+    startCountdown();
+    updateNavAuth();
+    updateZaloButtons();
+    applyVideoBanner();
+  } catch (e) {
+    console.error('Lỗi khi khởi tạo giao diện:', e);
+  } finally {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
   if (!firebaseReady) {
     showToast('⚠️ Không kết nối được máy chủ — dữ liệu chỉ lưu trên máy này (không đồng bộ nhiều thiết bị)', 'error');
   }
@@ -1921,7 +1980,11 @@ function runAppInit() {
 
 // ─── REALTIME LISTENERS (đồng bộ dữ liệu giữa mọi thiết bị) ───
 watchCollection('products', snap => {
-  if (snap.exists && Array.isArray(snap.data().list) && snap.data().list.length) {
+  if (snap.exists && Array.isArray(snap.data().list)) {
+    // Chỉ dùng sản phẩm mặc định khi CHƯA từng có dữ liệu (list chưa tồn tại).
+    // Nếu admin đã xóa hết sản phẩm (list rỗng []) thì phải tôn trọng điều đó,
+    // không được tự ý khôi phục lại sản phẩm mặc định — đây chính là lỗi khiến
+    // sản phẩm đã xóa vẫn hiện lại với mọi người.
     products = snap.data().list;
   } else {
     products = defaultProducts;
@@ -3142,6 +3205,21 @@ function renderAdminSettings() {
         <p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Áp dụng cho mọi sản phẩm có bật "Cho phép Vượt Link". Khách phải vượt đủ số lần này mới nhận được hàng miễn phí.</p>
       </div>
     </div>
+    <div style="background:rgba(0,255,209,0.05);border:1px solid rgba(0,255,209,0.25);border-radius:8px;padding:1rem 1.25rem;margin:1.25rem 0">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;color:var(--teal);margin-bottom:0.5rem">🤖 TRỢ LÝ AI (GEMINI) — CHAT CỘNG ĐỒNG</div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:0.9rem">
+          <input type="checkbox" id="stGeminiEnabled" ${s.geminiEnabled !== false ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--teal);cursor:pointer">
+          Bật Trợ Lý AI trong khung chat cộng đồng
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Gemini API Key</label>
+        <input class="form-input" id="stGeminiKey" value="${s.geminiApiKey||''}" placeholder="Dán API key lấy từ Google AI Studio">
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Lấy miễn phí tại aistudio.google.com → Get API Key. ⚠️ Key này nằm trong mã nguồn trang, ai xem mã nguồn cũng thấy được — chỉ dùng key giới hạn/miễn phí, không dùng key có quyền thanh toán quan trọng.</p>
+      </div>
+      <p style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem">Thành viên gõ <b style="color:var(--teal)">@ai</b> hoặc <b style="color:var(--teal)">/ai</b> trước câu hỏi trong chat cộng đồng để nhờ Trợ Lý AI trả lời tự động, ví dụ: <span style="font-family:'Share Tech Mono',monospace">@ai chuột nào tốt cho FPS?</span></p>
+    </div>
     <div style="border-top:1px solid var(--border);margin-top:0.5rem;padding-top:1.25rem">
       <label class="form-label" style="display:block;margin-bottom:0.75rem">Danh Mục Sản Phẩm</label>
       <div id="catRows">${s.categories.map((c,i) => catRowHtml(c, i)).join('')}</div>
@@ -3211,6 +3289,8 @@ function saveAdminSettingsForm() {
     bankBranch: document.getElementById('stBankBranch').value.trim(),
     link4mApiToken: document.getElementById('stLink4mToken').value.trim(),
     linkBypassCount: Math.max(1, parseInt(document.getElementById('stLinkBypassCount').value) || 3),
+    geminiApiKey: document.getElementById('stGeminiKey').value.trim(),
+    geminiEnabled: document.getElementById('stGeminiEnabled').checked,
     categories,
     spinPrizes: getSettings().spinPrizes,
     vouchers: getSettings().vouchers || [],
@@ -3266,7 +3346,7 @@ function openProductModal(id) {
     document.getElementById('pfSpecs').value = (p.specs||[]).map(([k,v])=>`${k}: ${v}`).join('\n');
     document.getElementById('pfDeliveryCodes').value = (p.deliveryCodes||[]).join('\n');
     document.getElementById('pfDeliveryMode').value = p.deliveryMode === 'fixed' ? 'fixed' : 'stock';
-    document.getElementById('pfAllowBypass').checked = !!p.allowLinkBypass;
+    document.getElementById('pfPaymentMode').value = p.paymentMode || (p.allowLinkBypass ? 'both' : 'wallet');
     // Load ảnh nếu có
     const pfPrev = document.getElementById('pfImgPreview');
     const pfImgData = document.getElementById('pfImgData');
@@ -3291,7 +3371,7 @@ function openProductModal(id) {
     document.getElementById('pfSpecs').value = '';
     document.getElementById('pfDeliveryCodes').value = '';
     document.getElementById('pfDeliveryMode').value = 'stock';
-    document.getElementById('pfAllowBypass').checked = false;
+    document.getElementById('pfPaymentMode').value = 'wallet';
     clearProductImage();
   }
   document.getElementById('pfNameErr').classList.remove('show');
@@ -3343,7 +3423,8 @@ function submitProductForm() {
     specs,
     deliveryCodes,
     deliveryMode,
-    allowLinkBypass: document.getElementById('pfAllowBypass').checked
+    paymentMode: document.getElementById('pfPaymentMode').value,
+    allowLinkBypass: document.getElementById('pfPaymentMode').value !== 'wallet'
   };
   if (editId) {
     const idx = products.findIndex(p => p.id === parseInt(editId));
@@ -4217,15 +4298,23 @@ function openBuyNow(productId) {
   document.getElementById('buyNowConfirmBtn').disabled = false;
   document.getElementById('buyNowConfirmBtn').textContent = '✅ Xác Nhận Mua — Trừ Ví Ngay';
 
-  // Toggle phương thức mua (Ví / Vượt Link) tuỳ theo sản phẩm
+  // Toggle phương thức mua (Ví / Vượt Link) tuỳ theo cấu hình sản phẩm
+  const payMode = p.paymentMode || (p.allowLinkBypass ? 'both' : 'wallet');
   const tabs = document.getElementById('buyNowMethodTabs');
-  if (p.allowLinkBypass) {
+  if (payMode === 'both') {
     tabs.style.display = 'flex';
     buildBypassRows(p);
-  } else {
+    setBuyNowMethod('wallet');
+  } else if (payMode === 'link') {
+    // Chỉ vượt link — ẩn hẳn tab chọn, ẩn luôn lựa chọn mua bằng ví
     tabs.style.display = 'none';
+    buildBypassRows(p);
+    setBuyNowMethod('bypass');
+  } else {
+    // Chỉ ví — giữ hành vi mặc định như trước
+    tabs.style.display = 'none';
+    setBuyNowMethod('wallet');
   }
-  setBuyNowMethod('wallet');
 
   document.getElementById('buyNowOverlay').classList.add('open');
 }
@@ -4324,7 +4413,8 @@ function updateBypassClaimBtn() {
 function confirmBypassClaim() {
   if (!currentUser) { showToast('⚠️ Vui lòng đăng nhập', 'error'); return; }
   const p = products.find(x => x.id === _buyNowProductId);
-  if (!p || !p.allowLinkBypass) return;
+  const payMode = p ? (p.paymentMode || (p.allowLinkBypass ? 'both' : 'wallet')) : 'wallet';
+  if (!p || payMode === 'wallet') return;
   if (!_bypassProgress.length || !_bypassProgress.every(r => r.done)) { showToast('⚠️ Chưa hoàn thành đủ lượt vượt link', 'error'); return; }
 
   const outOfStock = p.deliveryMode !== 'fixed' && Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
@@ -4416,6 +4506,8 @@ function confirmBuyNow() {
   if (!currentUser) { showToast('⚠️ Vui lòng đăng nhập', 'error'); return; }
   const p = products.find(x => x.id === _buyNowProductId);
   if (!p) return;
+  const payModeGuard = p.paymentMode || (p.allowLinkBypass ? 'both' : 'wallet');
+  if (payModeGuard === 'link') { showToast('❌ Sản phẩm này chỉ hỗ trợ mua bằng Vượt Link', 'error'); return; }
 
   const outOfStock = p.deliveryMode !== 'fixed' && Array.isArray(p.deliveryCodes) && p.deliveryCodes.length === 0;
   if (outOfStock) { showToast('❌ Sản phẩm đã hết hàng', 'error'); return; }
@@ -4491,6 +4583,60 @@ function confirmBuyNow() {
 // giới hạn cứng 1MB/tài liệu — nhét base64 ảnh vào sẽ sớm vỡ khi tin nhắn nhiều.
 let _chatImageData = null; // { uploading, url } của ảnh đang chuẩn bị gửi
 
+// ═══ TRỢ LÝ AI (GEMINI) TRONG CHAT CỘNG ĐỒNG ═══
+const AI_BOT_ID = 'ai_bot_shopvip';
+const AI_BOT_NAME = '🤖 Trợ Lý AI ShopVIP';
+
+function isAiTrigger(text) {
+  return /^(@ai|\/ai)\b/i.test(text.trim());
+}
+
+function postChatBotMessage(text) {
+  const msg = {
+    id: 'm_ai_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    userId: AI_BOT_ID,
+    userName: AI_BOT_NAME,
+    text: (text || '').substring(0, 1500),
+    imageUrl: null,
+    date: new Date().toISOString()
+  };
+  saveMessages([...getMessages(), msg]);
+  renderChatMessages();
+}
+
+async function askGeminiAI(question) {
+  const settings = getSettings();
+  if (!settings.geminiEnabled || !settings.geminiApiKey) {
+    postChatBotMessage('⚠️ Trợ Lý AI hiện chưa được Admin bật hoặc chưa cấu hình API Key. Vui lòng liên hệ Admin ShopVIP để được hỗ trợ.');
+    return;
+  }
+  try {
+    const prodSummary = products.slice(0, 12).map(p => `${p.name} (${getCatLabel(p.category)}, ${fmt(p.price)})`).join('; ');
+    const prompt = `Bạn là "Trợ Lý AI ShopVIP", trợ lý ảo hỗ trợ khách hàng trong khung chat cộng đồng của cửa hàng gaming gear "${settings.siteName}". `
+      + `Trả lời thân thiện, ngắn gọn (tối đa 4-5 câu), bằng tiếng Việt, đúng trọng tâm câu hỏi. `
+      + `Nếu câu hỏi liên quan sản phẩm, có thể tham khảo danh sách sản phẩm đang bán sau (không bắt buộc phải nhắc hết): ${prodSummary}. `
+      + `Nếu không chắc chắn hoặc câu hỏi ngoài phạm vi cửa hàng, hãy trả lời trung thực và gợi ý khách liên hệ Admin qua nút Zalo. `
+      + `Câu hỏi của khách: "${question}"`;
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(settings.geminiApiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const data = await resp.json();
+    if (data.error) {
+      console.error('Gemini API error:', data.error);
+      postChatBotMessage('❌ Trợ lý AI gặp lỗi khi trả lời. Admin vui lòng kiểm tra lại API Key trong Cài Đặt.');
+      return;
+    }
+    const answer = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts || [])
+      .map(part => part.text || '').join('').trim();
+    postChatBotMessage(answer || 'Xin lỗi, tôi chưa có câu trả lời phù hợp cho câu hỏi này 🙏');
+  } catch (err) {
+    console.error('Gemini AI fetch error:', err);
+    postChatBotMessage('❌ Không kết nối được với Trợ Lý AI lúc này, vui lòng thử lại sau.');
+  }
+}
+
 function onMessagesUpdated() {
   if (_chatPanelOpen) {
     renderChatMessages();
@@ -4542,18 +4688,21 @@ function renderChatMessages() {
   }
   let lastSender = null;
   wrap.innerHTML = msgs.map(m => {
-    const own = m.userId === currentUser.id;
+    const isBot = m.userId === AI_BOT_ID;
+    const own = !isBot && m.userId === currentUser.id;
     const showName = m.userId !== lastSender;
     lastSender = m.userId;
     const initials = (m.userName || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
     const time = new Date(m.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const msgUser = getUsers().find(u => u.id === m.userId);
-    const avatarInner = msgUser && msgUser.avatarUrl ? `<img src="${msgUser.avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : escapeHtml(initials);
+    const avatarInner = isBot ? '🤖' : (msgUser && msgUser.avatarUrl ? `<img src="${msgUser.avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : escapeHtml(initials));
+    const avatarClick = isBot ? '' : `onclick="openPublicProfile('${m.userId}')"`;
+    const avatarStyle = isBot ? 'background:linear-gradient(135deg,#00FFD1,#FFD93D);' : '';
     return `<div class="chat-msg-row ${own ? 'own' : ''}">
-      <div class="chat-msg-avatar clickable-user" onclick="openPublicProfile('${m.userId}')">${avatarInner}</div>
+      <div class="chat-msg-avatar clickable-user" style="${avatarStyle}" ${avatarClick}>${avatarInner}</div>
       <div class="chat-msg-body">
-        ${showName && !own ? `<div class="chat-msg-name clickable-user" onclick="openPublicProfile('${m.userId}')">${escapeHtml(m.userName)}</div>` : ''}
-        <div class="chat-msg-bubble">
+        ${showName && !own ? `<div class="chat-msg-name clickable-user" style="${isBot?'color:var(--teal);cursor:default;':''}" ${avatarClick}>${escapeHtml(m.userName)}</div>` : ''}
+        <div class="chat-msg-bubble" style="${isBot?'border-color:rgba(0,255,209,0.4);background:rgba(0,255,209,0.06);':''}">
           ${m.text ? `<div>${escapeHtml(m.text)}</div>` : ''}
           ${m.imageUrl ? `<img class="chat-msg-img" src="${m.imageUrl}" alt="Ảnh gửi trong chat" onclick="window.open('${m.imageUrl}','_blank')">` : ''}
         </div>
@@ -4617,6 +4766,12 @@ function sendChatMessage() {
   clearChatImage();
   _chatSeenCount = getMessages().length;
   renderChatMessages();
+
+  // Nếu khách gõ @ai hoặc /ai — nhờ Trợ Lý AI (Gemini) trả lời trong chat
+  if (text && isAiTrigger(text)) {
+    const question = text.replace(/^(@ai|\/ai)\b\s*/i, '').trim();
+    if (question) askGeminiAI(question);
+  }
 }
 
 // ═══ HAMBURGER / MOBILE NAV ═══
