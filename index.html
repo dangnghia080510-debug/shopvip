@@ -1803,7 +1803,20 @@ function fsSave(name, dataObj) {
 // dữ liệu đã lưu trong localStorage (không chờ mạng).
 function watchCollection(name, onData, onFallback) {
   if (firebaseReady) {
-    fsDoc(name).onSnapshot(onData, err => {
+    let responded = false;
+    // Timeout 5s mỗi collection — nếu Firestore không phản hồi thì dùng localStorage
+    const timer = setTimeout(() => {
+      if (!responded) {
+        console.warn('watchCollection timeout:', name, '— fallback to localStorage');
+        responded = true;
+        onFallback();
+      }
+    }, 5000);
+    fsDoc(name).onSnapshot(snap => {
+      if (!responded) { responded = true; clearTimeout(timer); }
+      onData(snap);
+    }, err => {
+      if (!responded) { responded = true; clearTimeout(timer); }
       console.error(name, err);
       showToast('⚠️ Mất kết nối máy chủ dữ liệu (' + name + '), đang dùng bản lưu tạm trên máy', 'error');
       onFallback();
@@ -2048,7 +2061,7 @@ setTimeout(() => {
   if (_appInitialized) return;
   console.warn('Watchdog: dữ liệu tải quá lâu, buộc khởi tạo bằng dữ liệu cục bộ.');
   Object.keys(_loadedFlags).forEach(forceInitFallback);
-}, 10000);
+}, 6000);
 
 // ─── USER STORAGE ───
 function getUsers() { return _usersCache; }
