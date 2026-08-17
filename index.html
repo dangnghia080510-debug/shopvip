@@ -385,6 +385,47 @@ section { padding:5rem 2rem; max-width:1200px; margin:0 auto; }
 .profile-close:hover { border-color:var(--crimson);color:var(--crimson); }
 .profile-box { position:relative; }
 
+/* ─── PROFILE: COVER / AVATAR UPLOAD / ACCOUNT NUMBER / CUSTOMIZE ─── */
+.profile-cover { height:110px; width:100%; position:relative; background:linear-gradient(135deg,var(--plasma),var(--teal)); flex-shrink:0; }
+.profile-cover.cover-1 { background:linear-gradient(135deg,#FF2E63,#FFD93D); }
+.profile-cover.cover-2 { background:linear-gradient(135deg,#0068FF,#00FFD1); }
+.profile-cover.cover-3 { background:linear-gradient(135deg,#1A1540,#A855F7); }
+.profile-cover.cover-4 { background:linear-gradient(135deg,#FFA733,#FF2E63); }
+.profile-header { position:relative; margin-top:-38px; padding-top:0; }
+.avatar-wrap { position:relative; width:64px; height:64px; flex-shrink:0; }
+.avatar-wrap .profile-avatar-lg { width:100%; height:100%; border:3px solid var(--deep); overflow:hidden; }
+.avatar-wrap .profile-avatar-lg img { width:100%; height:100%; object-fit:cover; display:block; }
+.avatar-edit-btn { position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-radius:50%; background:var(--teal); border:2px solid var(--deep); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.65rem; color:var(--void); }
+.avatar-edit-btn:hover { background:var(--gold); }
+.acc-number-row { display:flex; align-items:center; gap:0.4rem; margin-top:0.3rem; flex-wrap:wrap; }
+.acc-number-val { font-family:'Share Tech Mono',monospace; font-size:0.78rem; color:var(--gold); letter-spacing:0.05em; word-break:break-all; }
+.profile-bio-text { font-size:0.82rem; color:var(--muted); line-height:1.5; margin-top:0.4rem; white-space:pre-wrap; }
+.cover-picker { display:flex; gap:0.5rem; margin-top:0.5rem; }
+.cover-swatch { width:28px; height:28px; border-radius:50%; cursor:pointer; border:2px solid transparent; flex-shrink:0; }
+.cover-swatch.c0 { background:linear-gradient(135deg,var(--plasma),var(--teal)); }
+.cover-swatch.c1 { background:linear-gradient(135deg,#FF2E63,#FFD93D); }
+.cover-swatch.c2 { background:linear-gradient(135deg,#0068FF,#00FFD1); }
+.cover-swatch.c3 { background:linear-gradient(135deg,#1A1540,#A855F7); }
+.cover-swatch.c4 { background:linear-gradient(135deg,#FFA733,#FF2E63); }
+.cover-swatch.selected { border-color:var(--text); }
+.wallet-card-amount { word-break:break-all; }
+.profile-stat-val { word-break:break-all; font-size:1.1rem; }
+@media(max-width:480px){ .wallet-card-amount { font-size:1.5rem; } }
+
+/* ─── PUBLIC PROFILE MODAL ─── */
+.public-profile-box { background:var(--deep);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.6);position:relative; }
+.public-profile-body { padding:1.75rem 2rem 2rem; }
+.public-info-row { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid var(--border); font-size:0.85rem; gap:1rem; }
+.public-info-row:last-child { border-bottom:none; }
+.public-info-key { color:var(--muted); font-family:'Rajdhani',sans-serif; font-weight:600; text-transform:uppercase; font-size:0.72rem; letter-spacing:0.04em; flex-shrink:0; }
+.public-info-val { font-family:'Share Tech Mono',monospace; color:var(--gold); text-align:right; word-break:break-all; }
+.clickable-user { cursor:pointer; transition:color 0.15s; }
+.clickable-user:hover { color:var(--teal); text-decoration:underline; }
+
+/* ─── TRANSFER MODAL ─── */
+.transfer-box { background:var(--deep);border:1px solid var(--border);border-radius:16px;width:100%;max-width:420px;padding:2rem;position:relative; }
+.transfer-box h3 { font-family:'Rajdhani',sans-serif; font-size:1.2rem; margin-bottom:1.25rem; color:var(--teal); }
+
 /* ─── FOOTER ─── */
 footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:1200px;margin:0 auto; }
 .footer-top { display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:3rem;margin-bottom:3rem; }
@@ -634,7 +675,13 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 
   /* Profile */
   .profile-stats { grid-template-columns:1fr 1fr; }
-  .profile-header { flex-direction:column; gap:1rem; }
+  .profile-header { flex-direction:column; gap:0.75rem; padding:0 1.25rem 1.25rem; text-align:center; align-items:center; }
+  .profile-body { padding:1.25rem; }
+  .profile-info h2 { font-size:1.15rem; }
+  .cover-picker { justify-content:center; }
+  .acc-number-row { justify-content:center; }
+  .public-profile-body { padding:1.25rem; }
+  .transfer-box { padding:1.5rem; }
 
   /* Auth */
   .auth-form { padding:1.25rem 1.5rem 2rem; }
@@ -1132,12 +1179,23 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
 <div class="profile-overlay" id="profileOverlay">
   <div class="profile-box">
     <button class="profile-close" onclick="closeProfile()">✕</button>
+    <div class="profile-cover" id="profileCover"></div>
+    <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="onAvatarFileChange(event)">
     <div class="profile-header">
-      <div class="profile-avatar-lg" id="profileAvatarLg">?</div>
+      <div class="avatar-wrap">
+        <div class="profile-avatar-lg" id="profileAvatarLg">?</div>
+        <div class="avatar-edit-btn" title="Đổi ảnh đại diện" onclick="document.getElementById('avatarFileInput').click()">📷</div>
+      </div>
       <div class="profile-info">
         <h2 id="profileName">—</h2>
         <p id="profileEmail">—</p>
         <p id="profilePhone" style="font-size:0.78rem;color:var(--muted);margin-top:0.15rem"></p>
+        <div class="acc-number-row">
+          <span class="public-info-key" style="font-size:0.68rem">Số TK ShopVIP:</span>
+          <span class="acc-number-val" id="profileAccNumber">—</span>
+          <button class="copy-mini-btn" onclick="copyMyAccountNumber()">Copy</button>
+        </div>
+        <div class="profile-bio-text" id="profileBioDisplay"></div>
       </div>
     </div>
     <div class="profile-body">
@@ -1145,7 +1203,10 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <div class="wallet-card-label">💰 Số Dư Ví ShopVIP</div>
         <div class="wallet-card-amount" id="profileWalletAmt">0₫</div>
         <div class="wallet-card-note">Dùng để thanh toán đơn hàng tại ShopVIP.com</div>
-        <button class="auth-submit" style="margin-top:1rem;padding:0.65rem" onclick="closeProfile();openDepositModal()">💳 Nạp Tiền Vào Ví</button>
+        <div style="display:flex;gap:0.6rem;margin-top:1rem;flex-wrap:wrap">
+          <button class="auth-submit" style="padding:0.65rem;flex:1;min-width:140px" onclick="closeProfile();openDepositModal()">💳 Nạp Tiền Vào Ví</button>
+          <button class="auth-submit" style="padding:0.65rem;flex:1;min-width:140px;background:linear-gradient(135deg,var(--admin),#FFB347)" onclick="openTransferModal()">💸 Chuyển Tiền</button>
+        </div>
       </div>
       <div class="profile-stats">
         <div class="profile-stat"><span class="profile-stat-val" id="profileOrders">0</span><span class="profile-stat-label">Đơn Hàng</span></div>
@@ -1161,6 +1222,22 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <div id="profileLedgerList"><div style="color:var(--muted);font-size:0.82rem">Chưa có giao dịch nào.</div></div>
       </div>
       <div class="profile-orders" style="margin-top:1.5rem">
+        <h4>🎨 Tùy Chỉnh Trang Cá Nhân</h4>
+        <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:0.75rem">
+          <label class="form-label" style="margin-bottom:-0.3rem">Giới Thiệu Bản Thân</label>
+          <textarea class="form-input" id="pfBioInput" rows="3" placeholder="Viết vài dòng giới thiệu về bạn..." style="resize:vertical;font-family:'Inter',sans-serif"></textarea>
+          <label class="form-label" style="margin-bottom:-0.3rem">Màu Ảnh Bìa</label>
+          <div class="cover-picker" id="coverPicker">
+            <div class="cover-swatch c0" onclick="selectCoverSwatch(0)"></div>
+            <div class="cover-swatch c1" onclick="selectCoverSwatch(1)"></div>
+            <div class="cover-swatch c2" onclick="selectCoverSwatch(2)"></div>
+            <div class="cover-swatch c3" onclick="selectCoverSwatch(3)"></div>
+            <div class="cover-swatch c4" onclick="selectCoverSwatch(4)"></div>
+          </div>
+          <button class="auth-submit" style="padding:0.65rem" onclick="saveProfileCustom()">💾 Lưu Trang Cá Nhân</button>
+        </div>
+      </div>
+      <div class="profile-orders" style="margin-top:1.5rem">
         <h4>🔒 Đổi Mật Khẩu</h4>
         <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:0.75rem">
           <input class="form-input" type="password" id="pwCurrent" placeholder="Mật khẩu hiện tại">
@@ -1169,6 +1246,53 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
           <button class="auth-submit" style="padding:0.65rem" onclick="changeMyPassword()">🔒 Cập Nhật Mật Khẩu</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSFER MODAL -->
+<div class="auth-overlay" id="transferOverlay">
+  <div class="transfer-box">
+    <button class="auth-close" onclick="closeTransferModal()">✕</button>
+    <h3>💸 Chuyển Tiền Qua Ví</h3>
+    <div style="display:flex;flex-direction:column;gap:0.9rem">
+      <div class="form-group">
+        <label class="form-label">Số Tài Khoản Người Nhận</label>
+        <input class="form-input" type="text" id="transferAccInput" placeholder="Nhập 12 số tài khoản" maxlength="12" inputmode="numeric">
+      </div>
+      <div id="transferRecipientPreview" style="font-size:0.8rem;color:var(--teal);min-height:1.1rem"></div>
+      <div class="form-group">
+        <label class="form-label">Số Tiền (VND)</label>
+        <input class="form-input" type="number" id="transferAmountInput" placeholder="VD: 100000" min="1000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lời Nhắn (không bắt buộc)</label>
+        <input class="form-input" type="text" id="transferNoteInput" placeholder="Nội dung chuyển tiền">
+      </div>
+      <button class="auth-submit" onclick="doTransfer()">Xác Nhận Chuyển Tiền →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PUBLIC PROFILE MODAL -->
+<div class="profile-overlay" id="publicProfileOverlay">
+  <div class="public-profile-box">
+    <button class="profile-close" onclick="closePublicProfile()">✕</button>
+    <div class="profile-cover" id="pubCover"></div>
+    <div class="profile-header">
+      <div class="avatar-wrap">
+        <div class="profile-avatar-lg" id="pubAvatarLg">?</div>
+      </div>
+      <div class="profile-info">
+        <h2 id="pubName">—</h2>
+        <div class="profile-bio-text" id="pubBio"></div>
+      </div>
+    </div>
+    <div class="public-profile-body">
+      <div class="public-info-row"><span class="public-info-key">Số TK ShopVIP</span><span class="public-info-val" id="pubAccNumber">—</span></div>
+      <div class="public-info-row"><span class="public-info-key">Ngày Tham Gia</span><span class="public-info-val" id="pubJoined">—</span></div>
+      <div class="public-info-row"><span class="public-info-key">Đơn Hàng</span><span class="public-info-val" id="pubOrderCount">0</span></div>
+      <button class="auth-submit" style="margin-top:1.25rem;padding:0.65rem" onclick="startTransferTo()">💸 Chuyển Tiền Cho Người Này</button>
     </div>
   </div>
 </div>
@@ -1210,7 +1334,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       <div class="admin-section" id="sec-users">
         <div class="section-subtitle">Danh Sách Khách Hàng</div>
         <table class="admin-table">
-          <thead><tr><th>#</th><th>Tên</th><th>Email</th><th>SĐT</th><th>Vai Trò</th><th>Ví</th><th>Ngày Đăng Ký</th><th>Hành Động</th></tr></thead>
+          <thead><tr><th>#</th><th>Tên</th><th>Email</th><th>SĐT</th><th>Vai Trò</th><th>Ví</th><th>Số TK</th><th>Ngày Đăng Ký</th><th>Hành Động</th></tr></thead>
           <tbody id="adminUserList"></tbody>
         </table>
       </div>
@@ -1928,6 +2052,13 @@ setTimeout(() => {
 
 // ─── USER STORAGE ───
 function getUsers() { return _usersCache; }
+function genAccountNumber(users) {
+  let acc;
+  do {
+    acc = String(Math.floor(100000000000 + Math.random() * 900000000000));
+  } while (users.some(u => u.accountNumber === acc));
+  return acc;
+}
 function addLedgerEntry(users, idx, amount, note) {
   if (!users[idx].ledger) users[idx].ledger = [];
   users[idx].ledger.push({ amount, note, date: new Date().toISOString() });
@@ -2135,7 +2266,11 @@ async function doRegister() {
     wallet: 0,
     joined: new Date().toISOString(),
     orders: [],
-    ledger: []
+    ledger: [],
+    accountNumber: genAccountNumber(users),
+    avatarUrl: null,
+    bio: '',
+    cover: 0
   };
   await setUserPassword(newUser, pass);
   users.push(newUser);
@@ -2165,9 +2300,10 @@ function updateNavAuth() {
   if (currentUser) {
     const initials = currentUser.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
     const isAdmin = isCurrentUserAdmin();
+    const avatarInner = currentUser.avatarUrl ? `<img src="${currentUser.avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : initials;
     navAuth.innerHTML = `
       <div class="user-menu">
-        <button class="user-avatar" onclick="toggleUserMenu()" title="${currentUser.name}">${initials}</button>
+        <button class="user-avatar" onclick="toggleUserMenu()" title="${currentUser.name}">${avatarInner}</button>
         <div class="user-dropdown" id="userDropdown">
           <div class="user-info">
             <div class="user-name">${currentUser.name}</div>
@@ -2204,11 +2340,18 @@ document.addEventListener('click', e => {
 // ─── PROFILE ───
 function openProfile() {
   if (!currentUser) { openAuth('login'); return; }
+  ensureUserExtras(currentUser.id);
   const orders = getOrders().filter(o => o.userId === currentUser.id);
-  document.getElementById('profileAvatarLg').textContent = currentUser.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  const avatarEl = document.getElementById('profileAvatarLg');
+  avatarEl.innerHTML = currentUser.avatarUrl ? `<img src="${currentUser.avatarUrl}" alt="avatar">` : currentUser.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
   document.getElementById('profileName').textContent = currentUser.name;
   document.getElementById('profileEmail').textContent = currentUser.email;
   document.getElementById('profilePhone').textContent = currentUser.phone || '';
+  document.getElementById('profileAccNumber').textContent = currentUser.accountNumber || '—';
+  document.getElementById('profileBioDisplay').textContent = currentUser.bio || '';
+  document.getElementById('profileCover').className = 'profile-cover cover-' + (currentUser.cover || 0);
+  document.getElementById('pfBioInput').value = currentUser.bio || '';
+  selectCoverSwatch(currentUser.cover || 0, true);
   document.getElementById('profileWalletAmt').textContent = fmt(currentUser.wallet);
   document.getElementById('profileOrders').textContent = orders.length;
   document.getElementById('profileWishlistCount').textContent = wishlist.length;
@@ -2278,6 +2421,161 @@ function copyDelivery(boxId) {
 }
 function closeProfile() {
   document.getElementById('profileOverlay').classList.remove('open');
+}
+
+function copyMyAccountNumber() {
+  if (!currentUser || !currentUser.accountNumber) return;
+  navigator.clipboard?.writeText(currentUser.accountNumber).then(() => showToast('📋 Đã copy số tài khoản'))
+    .catch(() => showToast('❌ Không thể copy'));
+}
+
+let _selectedCover = 0;
+function selectCoverSwatch(idx, silent) {
+  _selectedCover = idx;
+  document.querySelectorAll('#coverPicker .cover-swatch').forEach((el,i) => el.classList.toggle('selected', i === idx));
+  if (!silent) document.getElementById('profileCover').className = 'profile-cover cover-' + idx;
+}
+
+async function saveProfileCustom() {
+  if (!currentUser) return;
+  const bio = document.getElementById('pfBioInput').value.trim().substring(0, 300);
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === currentUser.id);
+  if (idx < 0) return;
+  users[idx].bio = bio;
+  users[idx].cover = _selectedCover;
+  saveUsers(users);
+  currentUser = users[idx];
+  document.getElementById('profileBioDisplay').textContent = bio;
+  document.getElementById('profileCover').className = 'profile-cover cover-' + _selectedCover;
+  showToast('✅ Đã lưu trang cá nhân');
+}
+
+// ─── AVATAR UPLOAD ───
+function onAvatarFileChange(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if (!file || !currentUser) return;
+  if (!file.type.startsWith('image/')) { showToast('❌ Vui lòng chọn một tệp ảnh', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = async () => {
+      const size = 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const users = getUsers();
+      const idx = users.findIndex(u => u.id === currentUser.id);
+      if (idx < 0) return;
+      users[idx].avatarUrl = dataUrl;
+      saveUsers(users);
+      currentUser = users[idx];
+      updateNavAuth();
+      openProfile();
+      showToast('✅ Đã cập nhật ảnh đại diện');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── TRANSFER TIỀN GIỮA CÁC VÍ ───
+function openTransferModal() {
+  if (!currentUser) { openAuth('login'); return; }
+  document.getElementById('transferAccInput').value = '';
+  document.getElementById('transferAmountInput').value = '';
+  document.getElementById('transferNoteInput').value = '';
+  document.getElementById('transferRecipientPreview').textContent = '';
+  document.getElementById('transferOverlay').classList.add('open');
+  document.getElementById('profileOverlay').classList.remove('open');
+  document.getElementById('publicProfileOverlay').classList.remove('open');
+}
+function closeTransferModal() {
+  document.getElementById('transferOverlay').classList.remove('open');
+}
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'transferAccInput') {
+    const acc = e.target.value.trim();
+    const preview = document.getElementById('transferRecipientPreview');
+    if (!preview) return;
+    if (acc.length === 12 && currentUser) {
+      const target = getUsers().find(u => u.accountNumber === acc);
+      if (!target) preview.innerHTML = '<span style="color:var(--crimson)">❌ Không tìm thấy tài khoản</span>';
+      else if (target.id === currentUser.id) preview.innerHTML = '<span style="color:var(--crimson)">❌ Không thể chuyển cho chính mình</span>';
+      else preview.innerHTML = `✅ Người nhận: <b>${escapeHtml(target.name)}</b>`;
+    } else {
+      preview.textContent = '';
+    }
+  }
+});
+async function doTransfer() {
+  if (!currentUser) { openAuth('login'); return; }
+  const acc = document.getElementById('transferAccInput').value.trim();
+  const amount = parseInt(document.getElementById('transferAmountInput').value);
+  const note = document.getElementById('transferNoteInput').value.trim().substring(0, 100);
+  if (!/^\d{12}$/.test(acc)) { showToast('❌ Số tài khoản phải gồm đúng 12 chữ số', 'error'); return; }
+  if (!amount || amount < 1000) { showToast('❌ Nhập số tiền hợp lệ (tối thiểu 1.000đ)', 'error'); return; }
+  const users = getUsers();
+  const fromIdx = users.findIndex(u => u.id === currentUser.id);
+  const toIdx = users.findIndex(u => u.accountNumber === acc);
+  if (toIdx < 0) { showToast('❌ Không tìm thấy tài khoản người nhận', 'error'); return; }
+  if (users[toIdx].id === currentUser.id) { showToast('❌ Không thể chuyển tiền cho chính mình', 'error'); return; }
+  if (users[fromIdx].wallet < amount) { showToast(`❌ Số dư ví không đủ. Cần ${fmt(amount)}, có ${fmt(users[fromIdx].wallet)}`, 'error'); return; }
+  if (!confirm(`Xác nhận chuyển ${fmt(amount)} tới ${users[toIdx].name} (STK: ${acc})?`)) return;
+  users[fromIdx].wallet -= amount;
+  users[toIdx].wallet += amount;
+  addLedgerEntry(users, fromIdx, -amount, `Chuyển tiền tới ${users[toIdx].name} (STK ${acc})${note ? ' — ' + note : ''}`);
+  addLedgerEntry(users, toIdx, amount, `Nhận tiền từ ${users[fromIdx].name} (STK ${users[fromIdx].accountNumber})${note ? ' — ' + note : ''}`);
+  saveUsers(users);
+  currentUser = users[fromIdx];
+  updateNavAuth();
+  closeTransferModal();
+  showToast(`✅ Đã chuyển ${fmt(amount)} tới ${users[toIdx].name}`);
+}
+function startTransferTo() {
+  const acc = document.getElementById('pubAccNumber').textContent;
+  closePublicProfile();
+  openTransferModal();
+  if (acc && acc !== '—') document.getElementById('transferAccInput').value = acc;
+  document.getElementById('transferAccInput').dispatchEvent(new Event('input'));
+}
+
+// ─── XEM TRANG CÁ NHÂN NGƯỜI KHÁC ───
+function ensureUserExtras(userId) {
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx < 0) return;
+  let changed = false;
+  if (!users[idx].accountNumber) { users[idx].accountNumber = genAccountNumber(users); changed = true; }
+  if (users[idx].avatarUrl === undefined) { users[idx].avatarUrl = null; changed = true; }
+  if (users[idx].bio === undefined) { users[idx].bio = ''; changed = true; }
+  if (users[idx].cover === undefined) { users[idx].cover = 0; changed = true; }
+  if (changed) {
+    saveUsers(users);
+    if (currentUser && currentUser.id === userId) currentUser = users[idx];
+  }
+}
+function openPublicProfile(userId) {
+  if (!currentUser) { openAuth('login'); return; }
+  ensureUserExtras(userId);
+  const u = getUsers().find(x => x.id === userId);
+  if (!u) { showToast('❌ Không tìm thấy người dùng', 'error'); return; }
+  document.getElementById('pubCover').className = 'profile-cover cover-' + (u.cover || 0);
+  document.getElementById('pubAvatarLg').innerHTML = u.avatarUrl ? `<img src="${u.avatarUrl}" alt="avatar">` : u.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('pubName').textContent = u.name;
+  document.getElementById('pubBio').textContent = u.bio || 'Chưa có giới thiệu.';
+  document.getElementById('pubAccNumber').textContent = u.accountNumber || '—';
+  document.getElementById('pubJoined').textContent = u.joined ? new Date(u.joined).toLocaleDateString('vi-VN') : '—';
+  document.getElementById('pubOrderCount').textContent = getOrders().filter(o => o.userId === u.id).length;
+  document.getElementById('publicProfileOverlay').classList.add('open');
+}
+function closePublicProfile() {
+  document.getElementById('publicProfileOverlay').classList.remove('open');
 }
 
 // ─── ADMIN ───
@@ -2390,7 +2688,7 @@ function renderAdminDashboard() {
 
 function renderAdminUsers() {
   if (!isSuperAdmin()) {
-    document.getElementById('adminUserList').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">🔒 Chỉ Admin gốc mới có quyền xem danh sách khách hàng</td></tr>';
+    document.getElementById('adminUserList').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">🔒 Chỉ Admin gốc mới có quyền xem danh sách khách hàng</td></tr>';
     return;
   }
   const users = getUsers();
@@ -2404,12 +2702,31 @@ function renderAdminUsers() {
       <td>${u.phone||'—'}</td>
       <td><span class="${u.role==='admin'?'badge-admin':'badge-active'}">${u.role==='admin'?'ADMIN':'KHÁCH HÀNG'}</span></td>
       <td class="mono" style="color:var(--gold)">${fmt(u.wallet)}</td>
+      <td class="mono" style="font-size:0.75rem;color:var(--teal)">${escapeHtml(u.accountNumber||'—')}</td>
       <td style="color:var(--muted);font-size:0.78rem">${new Date(u.joined).toLocaleDateString('vi-VN')}</td>
       <td style="white-space:nowrap">
         <button class="dropdown-item" style="width:auto;display:inline-flex;padding:0.4rem 0.6rem;font-size:0.78rem" onclick="adminResetPassword('${u.id}')">🔒 Đặt Lại MK</button>
+        <button class="dropdown-item" style="width:auto;display:inline-flex;padding:0.4rem 0.6rem;font-size:0.78rem" onclick="adminChangeAccountNumber('${u.id}')">🔢 Sửa STK</button>
         ${isSuper ? '' : `<button class="dropdown-item danger" style="width:auto;display:inline-flex;padding:0.4rem 0.6rem;font-size:0.78rem" onclick="adminDeleteUser('${u.id}')">🗑️ Xoá</button>`}
       </td>
     </tr>`; }).join('');
+}
+function adminChangeAccountNumber(userId) {
+  if (!isCurrentUserAdmin()) return;
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx < 0) return;
+  const cur = users[idx].accountNumber || '';
+  const input = prompt('Nhập số tài khoản mới (đúng 12 chữ số) cho ' + users[idx].name + ':', cur);
+  if (input === null) return;
+  const clean = input.trim();
+  if (!/^\d{12}$/.test(clean)) { showToast('❌ Số tài khoản phải gồm đúng 12 chữ số', 'error'); return; }
+  if (users.some((u,i) => i !== idx && u.accountNumber === clean)) { showToast('❌ Số tài khoản này đã được sử dụng', 'error'); return; }
+  users[idx].accountNumber = clean;
+  saveUsers(users);
+  if (currentUser && currentUser.id === userId) currentUser.accountNumber = clean;
+  showToast('✅ Đã cập nhật số tài khoản cho ' + users[idx].name);
+  renderAdminUsers();
 }
 async function adminResetPassword(userId) {
   if (!isCurrentUserAdmin()) return;
@@ -3593,7 +3910,7 @@ function renderReviews(productId) {
     <div class="review-item">
       <div class="review-header">
         <div>
-          <span class="review-author">${escapeHtml(r.name)}</span>
+          <span class="review-author clickable-user" onclick="openPublicProfile('${r.userId}')">${escapeHtml(r.name)}</span>
           <span class="review-stars" style="margin-left:0.4rem">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</span>
         </div>
         <span class="review-date">${new Date(r.date).toLocaleDateString('vi-VN')}</span>
@@ -4217,10 +4534,12 @@ function renderChatMessages() {
     lastSender = m.userId;
     const initials = (m.userName || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
     const time = new Date(m.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const msgUser = getUsers().find(u => u.id === m.userId);
+    const avatarInner = msgUser && msgUser.avatarUrl ? `<img src="${msgUser.avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : escapeHtml(initials);
     return `<div class="chat-msg-row ${own ? 'own' : ''}">
-      <div class="chat-msg-avatar">${escapeHtml(initials)}</div>
+      <div class="chat-msg-avatar clickable-user" onclick="openPublicProfile('${m.userId}')">${avatarInner}</div>
       <div class="chat-msg-body">
-        ${showName && !own ? `<div class="chat-msg-name">${escapeHtml(m.userName)}</div>` : ''}
+        ${showName && !own ? `<div class="chat-msg-name clickable-user" onclick="openPublicProfile('${m.userId}')">${escapeHtml(m.userName)}</div>` : ''}
         <div class="chat-msg-bubble">
           ${m.text ? `<div>${escapeHtml(m.text)}</div>` : ''}
           ${m.imageUrl ? `<img class="chat-msg-img" src="${m.imageUrl}" alt="Ảnh gửi trong chat" onclick="window.open('${m.imageUrl}','_blank')">` : ''}
