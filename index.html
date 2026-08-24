@@ -245,7 +245,7 @@ section { padding:5rem 2rem; max-width:1200px; margin:0 auto; }
 /* ─── AUTH MODAL ─── */
 .auth-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);z-index:4000;opacity:0;pointer-events:none;transition:opacity 0.3s;display:flex;align-items:center;justify-content:center;padding:1.5rem; }
 /* Các modal admin mở TRÊN admin panel (admin-overlay z-index 4500) nên cần z-index cao hơn, nếu không sẽ bị che khuất và không bấm được */
-#depositOverlay, #customOrderOverlay, #productFormOverlay, #spinOverlay, #orderDeliveryOverlay { z-index:4600; }
+#depositOverlay, #cardExchangeOverlay, #customOrderOverlay, #productFormOverlay, #spinOverlay, #orderDeliveryOverlay { z-index:4600; }
 .auth-overlay.open { opacity:1;pointer-events:all; }
 .auth-box { background:var(--deep);border:1px solid var(--border);border-radius:16px;width:100%;max-width:440px;overflow:hidden;transform:scale(0.92);transition:transform 0.3s;box-shadow:0 24px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(0,255,209,0.1); }
 .auth-overlay.open .auth-box { transform:scale(1); }
@@ -1356,6 +1356,7 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
       <button class="admin-nav-item" id="navUsers" onclick="adminTab('users')">👥 Khách Hàng</button>
       <button class="admin-nav-item" onclick="adminTab('wallets')">💰 Quản Lý Ví</button>
       <button class="admin-nav-item" onclick="adminTab('deposits')">🏦 Yêu Cầu Nạp Tiền</button>
+      <button class="admin-nav-item" onclick="adminTab('cards')">📱 Đổi Thẻ Cào</button>
       <button class="admin-nav-item" onclick="adminTab('products')">🛒 Sản Phẩm</button>
       <button class="admin-nav-item" onclick="adminTab('orders')" style="position:relative">📦 Đơn Hàng<span id="orderNotifyBadge" style="display:none;position:absolute;top:6px;right:10px;background:var(--crimson);color:#fff;font-size:0.65rem;font-family:'Share Tech Mono',monospace;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 4px;"></span></button>
       <button class="admin-nav-item" onclick="adminTab('spin')">🎡 Vòng Quay</button>
@@ -1401,6 +1402,15 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <table class="admin-table">
           <thead><tr><th>Mã YC</th><th>Khách Hàng</th><th>Số Tiền</th><th>Nội Dung CK</th><th>Ngày Gửi</th><th>Trạng Thái</th><th>Thao Tác</th></tr></thead>
           <tbody id="adminDepositList"></tbody>
+        </table>
+      </div>
+      <!-- CARD EXCHANGES (đổi thẻ cào / Garena) -->
+      <div class="admin-section" id="sec-cards">
+        <div class="section-subtitle">Yêu Cầu Đổi Thẻ Cào / Garena</div>
+        <div style="font-size:0.82rem;color:var(--muted);margin-bottom:1.25rem">Khách gửi seri + mã thẻ. Kiểm tra thẻ thật trên hệ thống nạp thẻ của bạn trong lúc khách đợi 15s, rồi duyệt để cộng tiền vào ví.</div>
+        <table class="admin-table">
+          <thead><tr><th>Mã YC</th><th>Khách</th><th>Loại thẻ</th><th>Mệnh giá</th><th>Seri / Mã</th><th>Ngày</th><th>Trạng Thái</th><th>Thao Tác</th></tr></thead>
+          <tbody id="adminCardList"></tbody>
         </table>
       </div>
       <!-- PRODUCTS -->
@@ -1526,6 +1536,64 @@ footer { border-top:1px solid var(--border);padding:4rem 2rem 2rem;max-width:120
         <span class="form-error" id="depositAmountErr">Vui lòng nhập số tiền hợp lệ</span>
       </div>
       <button class="auth-submit" onclick="submitDepositRequest()">Tôi Đã Chuyển Khoản — Gửi Yêu Cầu →</button>
+    </div>
+  </div>
+</div>
+
+<!-- CARD EXCHANGE MODAL (đổi thẻ cào / Garena) -->
+<div class="auth-overlay" id="cardExchangeOverlay">
+  <div class="auth-box" style="max-width:460px">
+    <button class="auth-close" onclick="closeCardExchangeModal()">✕</button>
+    <div class="auth-header">
+      <div class="auth-logo">SHOP<span>VIP</span></div>
+      <h2 class="auth-title">Đổi Thẻ Cào / Garena</h2>
+      <p class="auth-sub">Nhập seri + mã thẻ. Hệ thống xử lý 15 giây — Admin kiểm tra thẻ và cộng tiền vào ví.</p>
+    </div>
+    <div class="auth-form" id="cardExchangeForm">
+      <div class="form-group">
+        <label class="form-label">Loại thẻ / Nhà mạng</label>
+        <select class="form-input" id="cardNetwork">
+          <option value="garena">🎮 Garena</option>
+          <option value="viettel">Viettel</option>
+          <option value="mobifone">Mobifone</option>
+          <option value="vinaphone">Vinaphone</option>
+          <option value="vietnamobile">Vietnamobile</option>
+          <option value="zing">Zing</option>
+          <option value="other">Khác</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mệnh giá thẻ (VND)</label>
+        <select class="form-input" id="cardAmount">
+          <option value="10000">10.000đ</option>
+          <option value="20000">20.000đ</option>
+          <option value="30000">30.000đ</option>
+          <option value="50000">50.000đ</option>
+          <option value="100000">100.000đ</option>
+          <option value="200000">200.000đ</option>
+          <option value="300000">300.000đ</option>
+          <option value="500000">500.000đ</option>
+          <option value="1000000">1.000.000đ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Số seri (Serial)</label>
+        <input class="form-input" type="text" id="cardSerial" placeholder="Nhập số seri thẻ" autocomplete="off">
+        <span class="form-error" id="cardSerialErr">Vui lòng nhập seri hợp lệ</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mã thẻ (PIN / Code)</label>
+        <input class="form-input" type="text" id="cardPin" placeholder="Nhập mã thẻ / PIN" autocomplete="off">
+        <span class="form-error" id="cardPinErr">Vui lòng nhập mã thẻ hợp lệ</span>
+      </div>
+      <div id="cardWaitBox" style="display:none;text-align:center;padding:1.25rem;background:var(--card);border:1px solid rgba(0,255,209,0.3);border-radius:10px;margin-bottom:0.5rem">
+        <div style="font-size:1.8rem;margin-bottom:0.4rem">⏳</div>
+        <div id="cardWaitMsg" style="color:var(--teal);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem">Đang xử lý thẻ...</div>
+        <div id="cardWaitSec" style="font-family:'Share Tech Mono',monospace;font-size:2rem;color:var(--gold);margin:0.4rem 0">15</div>
+        <div style="font-size:0.75rem;color:var(--muted)">Vui lòng không tắt trang</div>
+      </div>
+      <button class="auth-submit" id="cardSubmitBtn" onclick="submitCardExchange()">📱 Gửi Thẻ Đổi Tiền →</button>
+      <p style="font-size:0.72rem;color:var(--muted);line-height:1.5;margin-top:0.25rem">Tỷ lệ mặc định 1:1 (1đ thẻ = 1đ ví). Tiền chỉ cộng sau khi Admin duyệt thẻ hợp lệ.</p>
     </div>
   </div>
 </div>
@@ -1911,13 +1979,14 @@ const DEFAULT_SETTINGS = {
 let _usersCache = [];
 let _ordersCache = [];
 let _depositsCache = [];
+let _cardExchangesCache = [];
 let _spinsCache = [];
 let _settingsCache = null;
 let _appInitialized = false;
 let _usersFirstLoad = true;
 let _ordersFirstLoad = true;
 let _unseenOrderCount = 0;
-const _loadedFlags = { users:false, products:false, orders:false, deposits:false, spins:false, settings:false };
+const _loadedFlags = { users:false, products:false, orders:false, deposits:false, cards:false, spins:false, settings:false };
 
 function markLoaded(key) {
   _loadedFlags[key] = true;
@@ -1944,11 +2013,13 @@ function refreshUI() {
   if (document.getElementById('profileOverlay').classList.contains('open')) openProfile();
   if (document.getElementById('adminOverlay').classList.contains('open')) {
     renderAdminDashboard(); renderAdminUsers(); renderAdminWallets(); renderAdminDeposits();
+    if (typeof renderAdminCards === 'function') renderAdminCards();
     renderAdminProducts(); renderAdminOrders();
     if (isSuperAdmin()) renderAdminAdmins();
     const activeSec = document.querySelector('.admin-section.active');
     if (activeSec && activeSec.id === 'sec-spin') renderAdminSpins();
     if (activeSec && activeSec.id === 'sec-settings') renderAdminSettings();
+    if (activeSec && activeSec.id === 'sec-cards' && typeof renderAdminCards === 'function') renderAdminCards();
   }
 }
 
@@ -2051,6 +2122,15 @@ watchCollection('deposits', snap => {
   markLoaded('deposits');
 });
 
+watchCollection('cardExchanges', snap => {
+  _cardExchangesCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
+  localStorage.setItem('svip_cards', JSON.stringify(_cardExchangesCache));
+  markLoaded('cards');
+}, () => {
+  try { _cardExchangesCache = JSON.parse(localStorage.getItem('svip_cards') || '[]'); } catch { _cardExchangesCache = []; }
+  markLoaded('cards');
+});
+
 watchCollection('spins', snap => {
   _spinsCache = (snap.exists && Array.isArray(snap.data().list)) ? snap.data().list : [];
   localStorage.setItem('svip_spins', JSON.stringify(_spinsCache));
@@ -2107,6 +2187,7 @@ function forceInitFallback(key) {
       case 'users': _usersCache = JSON.parse(localStorage.getItem('svip_users') || '[]'); break;
       case 'orders': _ordersCache = JSON.parse(localStorage.getItem('svip_orders') || '[]'); break;
       case 'deposits': _depositsCache = JSON.parse(localStorage.getItem('svip_deposits') || '[]'); break;
+      case 'cards': _cardExchangesCache = JSON.parse(localStorage.getItem('svip_cards') || '[]'); break;
       case 'spins': _spinsCache = JSON.parse(localStorage.getItem('svip_spins') || '[]'); break;
       case 'settings': _settingsCache = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('svip_settings') || '{}') }; break;
     }
@@ -2115,6 +2196,7 @@ function forceInitFallback(key) {
     if (key === 'users') _usersCache = [];
     if (key === 'orders') _ordersCache = [];
     if (key === 'deposits') _depositsCache = [];
+    if (key === 'cards') _cardExchangesCache = [];
     if (key === 'spins') _spinsCache = [];
     if (key === 'settings') _settingsCache = DEFAULT_SETTINGS;
   }
@@ -2155,6 +2237,12 @@ function saveDeposits(deposits) {
   _depositsCache = deposits;
   localStorage.setItem('svip_deposits', JSON.stringify(deposits));
   fsSave('deposits', { list: deposits });
+}
+function getCardExchanges() { return _cardExchangesCache; }
+function saveCardExchanges(list) {
+  _cardExchangesCache = list;
+  localStorage.setItem('svip_cards', JSON.stringify(list));
+  fsSave('cardExchanges', { list: list });
 }
 function getSettings() { return _settingsCache || DEFAULT_SETTINGS; }
 function saveSettings(settings) {
@@ -2390,6 +2478,7 @@ function updateNavAuth() {
             <span class="wallet-amount" id="navWalletAmt">${fmt(currentUser.wallet)}</span>
           </div>
           <button class="dropdown-item" onclick="openDepositModal();closeUserMenu()">💳 Nạp Tiền Vào Ví</button>
+          <button class="dropdown-item" onclick="openCardExchangeModal();closeUserMenu()">📱 Đổi Thẻ Cào / Garena</button>
           <button class="dropdown-item" onclick="openProfile();closeUserMenu()">👤 Hồ Sơ Của Tôi</button>
           ${isAdmin ? `<button class="dropdown-item admin-item" onclick="openAdmin();closeUserMenu()">⚙️ Quản Trị Admin</button>` : ''}
           <button class="dropdown-item danger" onclick="doLogout()">🚪 Đăng Xuất</button>
@@ -2733,9 +2822,10 @@ function adminTab(tab) {
   document.querySelectorAll('.admin-nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   event.target.classList.add('active');
-  const titles = {dashboard:'📊 Dashboard',users:'👥 Khách Hàng',wallets:'💰 Quản Lý Ví',deposits:'🏦 Yêu Cầu Nạp Tiền',products:'🛒 Sản Phẩm',orders:'📦 Đơn Hàng',spin:'🎡 Vòng Quay',vouchers:'🎟️ Voucher',admins:'🔑 Quản Trị Viên',settings:'⚙️ Cài Đặt'};
+  const titles = {dashboard:'📊 Dashboard',users:'👥 Khách Hàng',wallets:'💰 Quản Lý Ví',deposits:'🏦 Yêu Cầu Nạp Tiền',cards:'📱 Đổi Thẻ Cào',products:'🛒 Sản Phẩm',orders:'📦 Đơn Hàng',spin:'🎡 Vòng Quay',vouchers:'🎟️ Voucher',admins:'🔑 Quản Trị Viên',settings:'⚙️ Cài Đặt'};
   if (tab === 'spin') renderAdminSpins();
   if (tab === 'vouchers') renderAdminVouchers();
+  if (tab === 'cards') renderAdminCards();
   if (tab === 'admins') { if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền truy cập', 'error'); return; } renderAdminAdmins(); }
   if (tab === 'users') { if (!isSuperAdmin()) { showToast('❌ Chỉ Admin gốc mới có quyền xem danh sách khách hàng', 'error'); return; } renderAdminUsers(); }
   if (tab === 'orders') { _unseenOrderCount = 0; updateOrderNotifyBadge(); }
@@ -2748,12 +2838,14 @@ function renderAdminDashboard() {
   const totalRevenue = orders.reduce((s,o) => s+o.total, 0);
   const totalWallet = users.reduce((s,u) => s+u.wallet, 0);
   const pendingDeposits = getDeposits().filter(d => d.status === 'pending').length;
+  const pendingCards = getCardExchanges().filter(c => c.status === 'pending' || c.status === 'waiting').length;
   document.getElementById('adminDashCards').innerHTML = `
     <div class="admin-card"><div class="admin-card-val">${users.length}</div><div class="admin-card-label">Khách Hàng</div></div>
     <div class="admin-card"><div class="admin-card-val">${orders.length}</div><div class="admin-card-label">Đơn Hàng</div></div>
     <div class="admin-card"><div class="admin-card-val">${fmt(totalRevenue)}</div><div class="admin-card-label">Doanh Thu</div></div>
     <div class="admin-card"><div class="admin-card-val">${fmt(totalWallet)}</div><div class="admin-card-label">Tổng Số Dư Ví</div></div>
-    <div class="admin-card"><div class="admin-card-val" style="color:${pendingDeposits>0?'var(--crimson)':'var(--admin)'}">${pendingDeposits}</div><div class="admin-card-label">Yêu Cầu Nạp Chờ Duyệt</div></div>`;
+    <div class="admin-card"><div class="admin-card-val" style="color:${pendingDeposits>0?'var(--crimson)':'var(--admin)'}">${pendingDeposits}</div><div class="admin-card-label">Yêu Cầu Nạp Chờ Duyệt</div></div>
+    <div class="admin-card"><div class="admin-card-val" style="color:${pendingCards>0?'var(--crimson)':'var(--admin)'}">${pendingCards}</div><div class="admin-card-label">Thẻ Cào Chờ Duyệt</div></div>`;
   const activity = orders.slice(-5).reverse();
   document.getElementById('adminActivity').innerHTML = activity.length === 0
     ? '<div style="color:var(--muted);font-size:0.85rem">Chưa có hoạt động nào.</div>'
@@ -3013,6 +3105,159 @@ function adminRejectDeposit(id) {
   saveDeposits(deposits);
   showToast('🚫 Đã từ chối yêu cầu nạp tiền', 'error');
   renderAdminDeposits();
+}
+
+// ─── ĐỔI THẺ CÀO / GARENA ───
+const CARD_NETWORK_LABELS = {
+  garena: '🎮 Garena',
+  viettel: 'Viettel',
+  mobifone: 'Mobifone',
+  vinaphone: 'Vinaphone',
+  vietnamobile: 'Vietnamobile',
+  zing: 'Zing',
+  other: 'Khác'
+};
+const CARD_RATE = 1; // 1đ thẻ = 1đ ví — đổi nếu muốn chiết khấu
+let _cardWaitTimer = null;
+
+function openCardExchangeModal() {
+  if (!currentUser) { openAuth('login'); return; }
+  document.getElementById('cardSerial').value = '';
+  document.getElementById('cardPin').value = '';
+  document.getElementById('cardSerialErr').classList.remove('show');
+  document.getElementById('cardPinErr').classList.remove('show');
+  document.getElementById('cardWaitBox').style.display = 'none';
+  document.getElementById('cardSubmitBtn').style.display = 'block';
+  document.getElementById('cardSubmitBtn').disabled = false;
+  document.getElementById('cardNetwork').value = 'garena';
+  document.getElementById('cardAmount').value = '100000';
+  document.getElementById('cardExchangeOverlay').classList.add('open');
+}
+function closeCardExchangeModal() {
+  if (_cardWaitTimer) { clearInterval(_cardWaitTimer); _cardWaitTimer = null; }
+  document.getElementById('cardExchangeOverlay').classList.remove('open');
+}
+function submitCardExchange() {
+  if (!currentUser) { openAuth('login'); return; }
+  const network = document.getElementById('cardNetwork').value || 'garena';
+  const amount = parseInt(document.getElementById('cardAmount').value) || 0;
+  const serial = (document.getElementById('cardSerial').value || '').trim();
+  const pin = (document.getElementById('cardPin').value || '').trim();
+  let ok = true;
+  if (!serial || serial.length < 4) { document.getElementById('cardSerialErr').classList.add('show'); ok = false; }
+  else document.getElementById('cardSerialErr').classList.remove('show');
+  if (!pin || pin.length < 4) { document.getElementById('cardPinErr').classList.add('show'); ok = false; }
+  else document.getElementById('cardPinErr').classList.remove('show');
+  if (!amount || amount < 1000) { showToast('❌ Chọn mệnh giá hợp lệ', 'error'); ok = false; }
+  if (!ok) return;
+
+  const reward = Math.floor(amount * CARD_RATE);
+  const req = {
+    id: 'CARD' + Date.now(),
+    userId: currentUser.id,
+    userName: currentUser.name,
+    network,
+    amount,
+    serial,
+    pin,
+    reward,
+    status: 'waiting',
+    date: new Date().toISOString()
+  };
+  const list = getCardExchanges();
+  list.push(req);
+  saveCardExchanges(list);
+
+  // Hiện đếm ngược 15s — admin có thời gian kiểm tra thẻ trên server nạp thẻ
+  document.getElementById('cardSubmitBtn').style.display = 'none';
+  document.getElementById('cardWaitBox').style.display = 'block';
+  let sec = 15;
+  document.getElementById('cardWaitSec').textContent = String(sec);
+  document.getElementById('cardWaitMsg').textContent = 'Đang xử lý thẻ...';
+  if (_cardWaitTimer) clearInterval(_cardWaitTimer);
+  _cardWaitTimer = setInterval(() => {
+    sec--;
+    document.getElementById('cardWaitSec').textContent = String(Math.max(0, sec));
+    if (sec <= 0) {
+      clearInterval(_cardWaitTimer);
+      _cardWaitTimer = null;
+      const cards = getCardExchanges();
+      const item = cards.find(c => c.id === req.id);
+      if (item && item.status === 'waiting') {
+        item.status = 'pending';
+        saveCardExchanges(cards);
+      }
+      document.getElementById('cardWaitMsg').textContent = '✅ Đã gửi yêu cầu!';
+      setTimeout(() => {
+        closeCardExchangeModal();
+        showToast('🕓 Đã gửi thẻ. Chờ Admin duyệt & cộng tiền vào ví.');
+      }, 1000);
+    }
+  }, 1000);
+}
+
+function renderAdminCards() {
+  const list = getCardExchanges().slice().reverse();
+  const el = document.getElementById('adminCardList');
+  if (!el) return;
+  el.innerHTML = list.length === 0
+    ? '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Chưa có yêu cầu đổi thẻ nào</td></tr>'
+    : list.map(c => {
+      const net = CARD_NETWORK_LABELS[c.network] || c.network;
+      const st = c.status === 'pending' || c.status === 'waiting'
+        ? '<span class="badge-pending">Chờ Duyệt</span>'
+        : c.status === 'approved'
+          ? '<span class="badge-active">Đã Duyệt</span>'
+          : '<span class="badge-rejected">Từ Chối</span>';
+      const actions = (c.status === 'pending' || c.status === 'waiting')
+        ? `<button class="deposit-approve-btn" onclick="adminApproveCard('${c.id}')">✓ Duyệt</button><button class="deposit-reject-btn" onclick="adminRejectCard('${c.id}')">✕ Từ Chối</button>`
+        : '—';
+      return `<tr>
+        <td class="mono" style="font-size:0.78rem">${c.id}</td>
+        <td>${c.userName || '—'}</td>
+        <td>${net}</td>
+        <td class="mono" style="color:var(--gold)">${fmt(c.amount)} → ${fmt(c.reward)}</td>
+        <td class="mono" style="font-size:0.75rem;word-break:break-all"><b>S:</b> ${c.serial}<br><b>P:</b> ${c.pin}</td>
+        <td style="color:var(--muted);font-size:0.78rem">${new Date(c.date).toLocaleString('vi-VN')}</td>
+        <td>${st}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
+}
+
+function adminApproveCard(id) {
+  if (!isCurrentUserAdmin()) return;
+  const cards = getCardExchanges();
+  const item = cards.find(c => c.id === id);
+  if (!item || (item.status !== 'pending' && item.status !== 'waiting')) return;
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === item.userId);
+  if (idx < 0) { showToast('❌ Không tìm thấy khách hàng', 'error'); return; }
+  const reward = Number(item.reward) || Math.floor((item.amount || 0) * CARD_RATE);
+  users[idx].wallet = (users[idx].wallet || 0) + reward;
+  addLedgerEntry(users, idx, reward, `Đổi thẻ ${CARD_NETWORK_LABELS[item.network] || item.network} ${fmt(item.amount)}`);
+  saveUsers(users);
+  item.status = 'approved';
+  item.approvedAt = new Date().toISOString();
+  saveCardExchanges(cards);
+  if (currentUser && currentUser.id === item.userId) {
+    currentUser.wallet = users[idx].wallet;
+    updateNavAuth();
+  }
+  showToast(`✅ Đã duyệt & cộng ${fmt(reward)} vào ví ${item.userName}`);
+  renderAdminCards(); renderAdminDashboard(); renderAdminUsers(); renderAdminWallets();
+}
+
+function adminRejectCard(id) {
+  if (!isCurrentUserAdmin()) return;
+  const cards = getCardExchanges();
+  const item = cards.find(c => c.id === id);
+  if (!item || (item.status !== 'pending' && item.status !== 'waiting')) return;
+  item.status = 'rejected';
+  item.rejectedAt = new Date().toISOString();
+  saveCardExchanges(cards);
+  showToast('🚫 Đã từ chối yêu cầu đổi thẻ', 'error');
+  renderAdminCards();
 }
 
 // ─── CUSTOM ORDER (admin tạo đơn giá tùy chỉnh) ───
@@ -4819,7 +5064,7 @@ function scrollTo(id) { document.getElementById(id)?.scrollIntoView({behavior:'s
 // ─── KEYBOARD ESC ───
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
-    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); closeCustomOrderModal(); closeProductModal(); closeOrderDeliveryModal(); closeSpinModal(); closeBuyNow(); closeBypassCodeReveal(); closeChatPanel();
+    closeAuth(); closeCart(); closeProfile(); closeAdmin(); closeDepositModal(); if (typeof closeCardExchangeModal==='function') closeCardExchangeModal(); closeCustomOrderModal(); closeProductModal(); closeOrderDeliveryModal(); closeSpinModal(); closeBuyNow(); closeBypassCodeReveal(); closeChatPanel();
     document.getElementById('modalOverlay').classList.remove('open');
   }
 });
