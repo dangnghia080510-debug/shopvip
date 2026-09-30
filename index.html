@@ -14771,5 +14771,224 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.10.1 — Chat / Rank / Top nạp: VIP 1–8 + tích xanh
+// (bỏ chữ "VIP" cũ)
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.10.1 badges everywhere', 'color:#1d9bf0;font-weight:bold');
+
+  function uOf(username) {
+    return (localUsers || {})[username] || null;
+  }
+
+  function badgesForUser(username) {
+    var u = uOf(username);
+    if (!u) return '';
+    var html = '';
+    if (typeof userBadgesHtml === 'function') {
+      html = userBadgesHtml(u);
+    } else {
+      var lv = 0;
+      if (typeof getUserVipLevel === 'function') lv = getUserVipLevel(u);
+      else if (u.vipLevel) lv = parseInt(u.vipLevel, 10) || 0;
+      else if (u.vip) lv = 1;
+      if (lv >= 1) html += '<span class="vip-lv l' + lv + '">VIP ' + lv + '</span>';
+      if (u.verified || u.role === 'admin') {
+        html += '<span class="verified-tick" title="Xác minh">✓</span>';
+      }
+    }
+    return html;
+  }
+
+  // ---- RANK vượt link ----
+  window.renderRankList = function() {
+    var list = document.getElementById('rankList');
+    if (!list) return;
+    var excluded = typeof getRankExcluded === 'function' ? getRankExcluded() : {};
+    var weekOrders = (typeof getOrdersArr === 'function' ? getOrdersArr() : []).filter(function(o) {
+      return (typeof isWeek === 'function' ? isWeek(o.createdAt) : true) && o.status === 'success' && !excluded[o.user];
+    });
+    var map = {};
+    weekOrders.forEach(function(o) {
+      if (!map[o.user]) map[o.user] = { user: o.user, display: o.display || o.user, count: 0 };
+      map[o.user].count++;
+      map[o.user].display = o.display || map[o.user].display;
+    });
+    var ranked = Object.values(map).sort(function(a, b) { return b.count - a.count; }).slice(0, 20);
+    if (!ranked.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🏆</div><div>Chưa có dữ liệu tuần này</div></div>';
+      return;
+    }
+    var isAdmin = me && me.role === 'admin';
+    list.innerHTML = ranked.map(function(r, i) {
+      var posClass = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : 'ro';
+      var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+      var u = uOf(r.user);
+      var ava = (u && u.avatar) || '👤';
+      if (typeof ava === 'string' && ava.indexOf('data:image') === 0) {
+        ava = '<img src="' + ava.replace(/"/g, '') + '" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle"/>';
+      } else {
+        ava = esc(String(ava).slice(0, 4));
+      }
+      var badges = badgesForUser(r.user);
+      var rmBtn = isAdmin
+        ? '<button class="btn btn-xs btn-red" style="margin-left:6px" onclick="adminExcludeRank(\'' + r.user + '\')" title="Gỡ khỏi xếp hạng">✕</button>'
+        : '';
+      return '<div class="rank-row">' +
+        '<div class="rank-pos ' + posClass + '">' + medal + '</div>' +
+        '<div class="rank-info">' +
+        '<div class="rank-name">' + ava + ' ' + esc(r.display) + badges + '</div>' +
+        '<div class="rank-sub">@' + esc(r.user) + '</div>' +
+        '</div>' +
+        '<div class="rank-score">' + r.count + rmBtn + '</div>' +
+        '</div>';
+    }).join('');
+  };
+
+  // ---- CHAT ----
+  window.renderChatMsgs = function(msgs) {
+    var el = document.getElementById('chatMsgs');
+    if (!el) return;
+    var wasAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 60;
+    if (!msgs || !msgs.length) {
+      el.innerHTML = '<div class="chat-empty">🌿 Chưa có tin nhắn nào. Hãy là người đầu tiên!</div>';
+      return;
+    }
+    el.innerHTML = msgs.map(function(m) {
+      var isMine = me && m.user === me.username;
+      var timeStr = m.at ? new Date(m.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+      var imgHtml = m.img
+        ? '<img class="chat-img" src="' + m.img + '" alt="ảnh" onclick="openChatImgFull(this.src)" loading="lazy"/>'
+        : '';
+      var textHtml = m.text
+        ? '<div class="chat-text">' + esc(m.text).replace(/\n/g, '<br>') + '</div>'
+        : '';
+      if (m.type === 'system') {
+        return '<div class="chat-sys">' + esc(m.text || '') + '</div>';
+      }
+      var avaRaw = m.avatar || '👤';
+      var avaHtml;
+      if (typeof avaRaw === 'string' && avaRaw.indexOf('data:image') === 0) {
+        avaHtml = '<img src="' + avaRaw.replace(/"/g, '') + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>';
+      } else {
+        avaHtml = esc(String(avaRaw).slice(0, 4));
+      }
+      var badges = badgesForUser(m.user);
+      var adminActs = '';
+      if (me && (me.role === 'admin' || me.role === 'mod') && typeof adminDeleteChatMsg === 'function') {
+        adminActs = '<span class="chat-admin-acts">' +
+          '<button onclick="event.stopPropagation();adminDeleteChatMsg(\'' + String(m.at || '').replace(/'/g, '') + '\',\'' + String(m.user || '').replace(/'/g, '') + '\')" title="Xóa">🗑</button>' +
+          (!isMine && typeof adminMuteChatUser === 'function'
+            ? '<button onclick="event.stopPropagation();adminMuteChatUser(\'' + String(m.user || '').replace(/'/g, '') + '\')" title="Cấm chat">🔇</button>'
+            : '') +
+          '</span>';
+      }
+      return '<div class="chat-msg' + (isMine ? ' mine' : '') + '">' +
+        '<div class="chat-ava">' + avaHtml + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div class="chat-name">' + (isMine ? 'Bạn' : esc(m.display || m.user)) + badges + adminActs + '</div>' +
+        '<div class="chat-bubble">' + textHtml + imgHtml + '</div>' +
+        '<div class="chat-time">' + timeStr + '</div></div></div>';
+    }).join('');
+    if (wasAtBottom && typeof scrollChatToBottom === 'function') scrollChatToBottom();
+  };
+
+  // ---- TOP NẠP ----
+  window.renderTopNap = async function() {
+    var el = document.getElementById('v99TopPayList');
+    if (!el) return;
+    try {
+      var snap = await db.collection(COL).doc(typeof VIP_REQ_DOC !== 'undefined' ? VIP_REQ_DOC : 'vip_requests').get();
+      var list = (snap.exists && snap.data() && snap.data().list) || [];
+      var approved = list.filter(function(r) {
+        return r && (r.status === 'approved' || r.status === 'ok');
+      });
+      var map = {};
+      approved.forEach(function(r) {
+        var un = r.user || r.username;
+        if (!un) return;
+        var amt = Number(r.amount || r.price || 0) || 0;
+        if (!map[un]) map[un] = { user: un, display: r.display || un, total: 0 };
+        map[un].total += amt;
+        if (r.display) map[un].display = r.display;
+      });
+      Object.keys(map).forEach(function(un) {
+        var lu = uOf(un);
+        if (lu && lu.display) map[un].display = lu.display;
+      });
+      var arr = Object.values(map).sort(function(a, b) { return b.total - a.total; }).slice(0, 10);
+      if (!arr.length) {
+        el.innerHTML = '<div class="sec-note">Chưa có giao dịch nạp</div>';
+        return;
+      }
+      el.innerHTML = arr.map(function(x, i) {
+        var posCls = i === 0 ? 'p1' : (i === 1 ? 'p2' : (i === 2 ? 'p3' : ''));
+        var badges = badgesForUser(x.user);
+        return '<div class="tp-row">' +
+          '<div class="tp-pos ' + posCls + '">' + (i + 1) + '</div>' +
+          '<div style="flex:1;min-width:0"><b>' + esc(x.display) + '</b>' + badges +
+          ' <span style="color:var(--sub);font-size:11px">@' + esc(x.user) + '</span></div>' +
+          '<div style="font-weight:800;color:var(--gold)">' + Number(x.total).toLocaleString('vi-VN') + 'đ</div></div>';
+      }).join('');
+    } catch (e) {
+      el.innerHTML = '<div class="sec-note">Không tải được top nạp</div>';
+    }
+  };
+
+  // User bar: VIP level thay vì "VIP" cũ
+  function paintRoleBadge() {
+    if (!me) return;
+    var rb = document.getElementById('uRoleBadge');
+    if (!rb) return;
+    if (me.role === 'admin') {
+      rb.textContent = '⭐ ADMIN';
+      rb.className = 'role-badge rb-admin';
+      return;
+    }
+    var lv = typeof getUserVipLevel === 'function' ? getUserVipLevel(me) : (me.vipLevel || (me.vip ? 1 : 0));
+    if (lv >= 1) {
+      rb.textContent = 'VIP ' + lv;
+      rb.className = 'role-badge rb-vip';
+    } else {
+      rb.textContent = '👤 THÀNH VIÊN';
+      rb.className = 'role-badge rb-user';
+    }
+    var nameEl = document.getElementById('uName');
+    if (nameEl && nameEl.parentNode) {
+      nameEl.parentNode.querySelectorAll('.vip-lv, .verified-tick, .vip-inline').forEach(function(x) { x.remove(); });
+      nameEl.insertAdjacentHTML('afterend', badgesForUser(me.username));
+    }
+  }
+
+  // Khi đổi tab rank → render lại
+  if (typeof switchUserTab === 'function') {
+    var _swt = switchUserTab;
+    switchUserTab = function(t) {
+      var r = _swt.apply(this, arguments);
+      if (t === 'rank') setTimeout(function() { try { renderRankList(); } catch (e) {} }, 100);
+      if (t === 'items') setTimeout(function() { try { renderTopNap(); } catch (e) {} }, 150);
+      if (t === 'chat') setTimeout(function() {
+        try {
+          if (typeof loadChat === 'function') loadChat();
+        } catch (e) {}
+      }, 100);
+      return r;
+    };
+  }
+
+  setTimeout(paintRoleBadge, 600);
+  setTimeout(function() {
+    try { if (document.getElementById('rankList')) renderRankList(); } catch (e) {}
+    try { renderTopNap(); } catch (e) {}
+  }, 1200);
+
+  console.log('%c FIX v9.10.1 READY — no old VIP text in lists', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
