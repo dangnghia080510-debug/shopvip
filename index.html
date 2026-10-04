@@ -15850,5 +15850,875 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.12.1 — Admin cộng/trừ ví · Chuyển tiền bằng STK
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.12.1 wallet STK + admin +/-', 'color:#ffe066;font-weight:bold');
+
+  function findUserByAccountNo(stk) {
+    stk = String(stk || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!stk) return null;
+    var users = localUsers || {};
+    for (var k in users) {
+      var u = users[k];
+      if (!u) continue;
+      var no = String(u.accountNo || '').toUpperCase().replace(/\s+/g, '');
+      if (no && no === stk) return u;
+    }
+    return null;
+  }
+  window.findUserByAccountNo = findUserByAccountNo;
+
+  function ensureAllAccountNos() {
+    var users = localUsers || {};
+    Object.keys(users).forEach(function(k) {
+      var u = users[k];
+      if (!u) return;
+      if (u.accountNo) return;
+      if (typeof ensureAccountNo === 'function') {
+        ensureAccountNo(u);
+      } else {
+        var no = 'MW' + String(u.username || k).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+        if (no.length < 6) no = 'MW' + Date.now().toString(36).toUpperCase().slice(-8);
+        u.accountNo = no;
+      }
+    });
+  }
+
+  async function checkWalletPin(pin) {
+    if (!me || !me.walletPinHash) return false;
+    var stored = me.walletPinHash;
+    pin = String(pin || '');
+    try {
+      if (stored.indexOf(':') > 0 && typeof verifyPassword === 'function') {
+        var parts = stored.split(':');
+        return await verifyPassword(pin, parts[0], parts[1]);
+      }
+      return stored === btoa(pin + '_muop');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Admin cộng (dương) / trừ (âm)
+  window.walletAdjustAdmin = async function(username, amount, note) {
+    if (typeof requireStaff === 'function' && !requireStaff()) return;
+    amount = Math.floor(Number(amount) || 0);
+    if (!amount) { toast('Số tiền không hợp lệ', 'err'); return; }
+    var u = (localUsers || {})[username];
+    if (!u) { toast('Không thấy user', 'err'); return; }
+    var bal = Math.max(0, parseInt(u.walletBalance, 10) || 0);
+    var next = bal + amount;
+    if (next < 0) {
+      toast('Không đủ số dư để trừ (hiện ' + bal.toLocaleString('vi-VN') + 'đ)', 'err');
+      return;
+    }
+    await updateUser(username, Object.assign({}, u, { walletBalance: next }));
+    try {
+      if (typeof pushWalletTx === 'function') {
+        await pushWalletTx({
+          type: amount > 0 ? 'admin_deposit' : 'admin_deduct',
+          to: username,
+          amount: Math.abs(amount),
+          note: note || (amount > 0 ? 'Admin cộng ví' : 'Admin trừ ví'),
+          by: (me && me.username) || 'admin'
+        });
+      }
+    } catch (e) {}
+    var sign = amount > 0 ? '+' : '';
+    toast('✅ @' + username + ': ' + sign + amount.toLocaleString('vi-VN') + 'đ → còn ' + next.toLocaleString('vi-VN') + 'đ', 'ok');
+    try {
+      if (typeof notifyApp === 'function') {
+        notifyApp('wallet_admin', '💳 Admin ' + (amount > 0 ? 'cộng' : 'trừ') + ' ví @' + username + '\n' + sign + amount.toLocaleString('vi-VN') + 'đ', {});
+      }
+    } catch (e) {}
+    if (me && me.username === username) {
+      me.walletBalance = next;
+      try { renderWalletUI(); } catch (e) {}
+    }
+  };
+
+  window.walletDepositAdmin = function(username, amount, note) {
+    return walletAdjustAdmin(username, Math.abs(Number(amount) || 0), note || 'Admin nạp ví');
+  };
+  window.walletDeductAdmin = function(username, amount, note) {
+    return walletAdjustAdmin(username, -Math.abs(Number(amount) || 0), note || 'Admin trừ ví');
+  };
+
+  window.adminWalletPrompt = function(username) {
+    if (typeof requireStaff === 'function' && !requireStaff()) return;
+    var u = (localUsers || {})[username];
+    if (!u) { toast('Không thấy user', 'err'); return; }
+    var bal = Math.max(0, parseInt(u.walletBalance, 10) || 0);
+    var raw = prompt(
+      'Ví @' + username + '\nSTK: ' + (u.accountNo || '—') + '\nSố dư: ' + bal.toLocaleString('vi-VN') + 'đ\n\n' +
+      'Nhập số tiền:\n• Dương = CỘNG (vd 50000)\n• Âm = TRỪ (vd -20000)',
+      ''
+    );
+    if (raw == null || String(raw).trim() === '') return;
+    var amount = Math.floor(Number(String(raw).replace(/,/g, '').trim()) || 0);
+    if (!amount) { toast('Số tiền không hợp lệ', 'err'); return; }
+    var note = prompt('Ghi chú (không bắt buộc):', amount > 0 ? 'Admin cộng ví' : 'Admin trừ ví');
+    if (note === null) return;
+    walletAdjustAdmin(username, amount, note || '');
+  };
+
+  // Chuyển tiền bằng STK
+  window.walletTransfer = async function() {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    if (typeof checkVipExpiry === 'function') me = checkVipExpiry(me);
+    if (!me.walletPinHash) {
+      toast('Hãy đặt mã bảo mật ví trước', 'err');
+      if (typeof setWalletPin === 'function') setWalletPin();
+      return;
+    }
+    var stk = ((document.getElementById('wTxTo') || {}).value || '').trim().toUpperCase().replace(/\s+/g, '');
+    var amount = Math.floor(Number((document.getElementById('wTxAmount') || {}).value) || 0);
+    var note = ((document.getElementById('wTxNote') || {}).value || '').trim();
+    var pin = ((document.getElementById('wTxPin') || {}).value || '').trim();
+
+    if (!stk) { toast('Nhập số tài khoản (STK) người nhận', 'err'); return; }
+    if (amount < 1000) { toast('Tối thiểu 1.000đ', 'err'); return; }
+    if (!(await checkWalletPin(pin))) { toast('❌ Mã bảo mật sai', 'err'); return; }
+
+    ensureAllAccountNos();
+    var recv = findUserByAccountNo(stk);
+    if (!recv) { toast('Không tìm thấy STK: ' + stk, 'err'); return; }
+    if (recv.username === me.username) { toast('Không chuyển cho chính mình', 'err'); return; }
+
+    var sender = (localUsers || {})[me.username] || me;
+    var sBal = Math.max(0, parseInt(sender.walletBalance, 10) || 0);
+    if (sBal < amount) { toast('Số dư không đủ', 'err'); return; }
+    var rBal = Math.max(0, parseInt(recv.walletBalance, 10) || 0) + amount;
+
+    await updateUser(sender.username, Object.assign({}, sender, { walletBalance: sBal - amount }));
+    await updateUser(recv.username, Object.assign({}, recv, { walletBalance: rBal }));
+    me = (localUsers || {})[me.username] || me;
+
+    try {
+      if (typeof pushWalletTx === 'function') {
+        await pushWalletTx({
+          type: 'transfer',
+          from: me.username,
+          to: recv.username,
+          toStk: recv.accountNo,
+          amount: amount,
+          note: note || ''
+        });
+      }
+    } catch (e) {}
+    try {
+      if (typeof notifyApp === 'function') {
+        notifyApp('wallet_tx', '💸 @' + me.username + ' → STK ' + recv.accountNo + '\n' + amount.toLocaleString('vi-VN') + 'đ', {});
+      }
+    } catch (e) {}
+
+    toast('✅ Đã chuyển ' + amount.toLocaleString('vi-VN') + 'đ tới STK ' + recv.accountNo, 'ok');
+    try { renderWalletUI(); } catch (e) {}
+  };
+
+  window.previewRecipient = function() {
+    var stk = ((document.getElementById('wTxTo') || {}).value || '').trim().toUpperCase().replace(/\s+/g, '');
+    var el = document.getElementById('wTxPreview');
+    if (!el) return;
+    if (!stk) { el.innerHTML = ''; return; }
+    ensureAllAccountNos();
+    var u = findUserByAccountNo(stk);
+    if (!u) {
+      el.innerHTML = '⚠️ Không tìm thấy STK <b>' + esc(stk) + '</b>';
+      return;
+    }
+    var hideVip = u.vipPrivacy && u.username !== (me && me.username);
+    var lv = typeof getUserVipLevel === 'function' ? getUserVipLevel(u) : 0;
+    el.innerHTML = 'Người nhận: <b>' + esc(u.display || u.username) + '</b> · STK <b style="color:var(--cyan)">' +
+      esc(u.accountNo) + '</b>' +
+      (hideVip ? '' : (lv >= 1 ? ' · VIP ' + lv : '')) +
+      (u.verified ? ' <span class="verified-tick">✓</span>' : '');
+  };
+
+  // Cập nhật UI label STK
+  var _rw = typeof renderWalletUI === 'function' ? renderWalletUI : null;
+  if (_rw) {
+    window.renderWalletUI = function() {
+      _rw.apply(this, arguments);
+      setTimeout(function() {
+        var inp = document.getElementById('wTxTo');
+        if (inp) {
+          inp.placeholder = 'Số tài khoản STK (VD: MWADMIN)';
+          inp.onblur = previewRecipient;
+          inp.oninput = previewRecipient;
+        }
+        document.querySelectorAll('#wTxPanel .inp-label').forEach(function(lb) {
+          if (/Người nhận|username|@user/i.test(lb.textContent || '')) {
+            lb.textContent = 'Số tài khoản người nhận (STK)';
+          }
+        });
+      }, 40);
+    };
+  }
+
+  // Admin: nút ± Ví
+  if (typeof renderUsersAdminSplit === 'function') {
+    var _rus = renderUsersAdminSplit;
+    renderUsersAdminSplit = function(body) {
+      _rus(body);
+      setTimeout(function() {
+        try {
+          document.querySelectorAll('#userSplitList .item-manage-row').forEach(function(row) {
+            var sub = row.querySelector('.imr-name');
+            if (!sub) return;
+            var m = (sub.textContent || '').match(/@([a-zA-Z0-9_]+)/);
+            if (!m) return;
+            var acts = row.querySelector('.imr-acts');
+            if (!acts) return;
+            acts.querySelectorAll('.v911-wdep, .v912-wadj').forEach(function(b) { b.remove(); });
+            var u = (localUsers || {})[m[1]];
+            var bal = u ? (parseInt(u.walletBalance, 10) || 0) : 0;
+            var stk = (u && u.accountNo) ? u.accountNo : '';
+            acts.insertAdjacentHTML('beforeend',
+              '<span class="sec-note" style="margin:0 4px">Ví:' + Number(bal).toLocaleString('vi-VN') +
+              (stk ? ' · ' + stk : '') + '</span>' +
+              '<button class="btn btn-xs btn-gold v912-wadj" onclick="adminWalletPrompt(\'' + m[1] + '\')">± Ví</button>'
+            );
+          });
+        } catch (e) {}
+      }, 120);
+    };
+  }
+
+  setTimeout(ensureAllAccountNos, 800);
+  console.log('%c FIX v9.12.1 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
+
+<script>
+// ============================================================
+// PATCH v9.13 — STK 10 số (user random) · Admin sửa STK
+// · Bảo mật ví · Mua bằng ví · Nạp ví = CK · Bỏ share
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c PATCH v9.13 STK+wallet pay', 'color:#3dfff5;font-weight:bold');
+
+  // ----- CSS: ẩn share + form mua VIP bằng CK (đổi thành nạp ví) -----
+  var css = document.createElement('style');
+  css.textContent = `
+    [onclick*="shareItem"], .share-btn, .btn-share, #btnShareItem, .wish-btn[title*="Chia"],
+    .product-card [onclick*="share"] { display:none !important; }
+    #v913DepositBox .inp-label { margin-top: 8px; }
+  `;
+  document.head.appendChild(css);
+
+  // Tắt share
+  window.shareItemDeepLink = function() { toast('Đã tắt chia sẻ link', 'err'); };
+
+  // ----- STK: 10 chữ số, user tự random 1 lần, admin sửa -----
+  function genStk10() {
+    var s = '';
+    for (var i = 0; i < 10; i++) s += Math.floor(Math.random() * 10);
+    // không bắt đầu bằng 0
+    if (s[0] === '0') s = String(1 + Math.floor(Math.random() * 9)) + s.slice(1);
+    return s;
+  }
+
+  function stkExists(stk, exceptUser) {
+    stk = String(stk || '').replace(/\D/g, '');
+    var users = localUsers || {};
+    for (var k in users) {
+      if (exceptUser && k === exceptUser) continue;
+      var no = String((users[k] && users[k].accountNo) || '').replace(/\D/g, '');
+      if (no && no === stk) return true;
+    }
+    return false;
+  }
+
+  // Không auto tạo STK nữa
+  window.ensureAccountNo = function(u) { return u; };
+
+  window.userGenerateStk = async function() {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    if (me.accountNo && String(me.accountNo).replace(/\D/g, '').length === 10 && me.role !== 'admin') {
+      toast('Bạn đã có STK. Chỉ admin mới đổi được.', 'err');
+      return;
+    }
+    var stk, tries = 0;
+    do {
+      stk = genStk10();
+      tries++;
+    } while (stkExists(stk, me.username) && tries < 30);
+    if (stkExists(stk, me.username)) {
+      toast('Không tạo được STK — thử lại', 'err');
+      return;
+    }
+    if (!confirm('Tạo số tài khoản: ' + stk + ' ?\n(User thường không đổi được sau này)')) return;
+    await updateUser(me.username, Object.assign({}, me, { accountNo: stk, accountNoAt: new Date().toISOString() }));
+    me.accountNo = stk;
+    toast('✅ STK của bạn: ' + stk, 'ok');
+    try { renderWalletUI(); } catch(e) {}
+    try { renderV913WalletTab(); } catch(e) {}
+  };
+
+  window.adminSetAccountNo = async function(username) {
+    if (typeof requireStaff === 'function' && !requireStaff()) return;
+    var u = (localUsers || {})[username];
+    if (!u) { toast('Không thấy user', 'err'); return; }
+    var cur = u.accountNo || '';
+    var raw = prompt('Đặt STK 10 số cho @' + username + (cur ? '\nHiện tại: ' + cur : '') + '\nĐể trống = random mới:', cur || '');
+    if (raw === null) return;
+    var stk = String(raw).replace(/\D/g, '');
+    if (!stk) {
+      var tries = 0;
+      do { stk = genStk10(); tries++; } while (stkExists(stk, username) && tries < 30);
+    }
+    if (!/^\d{10}$/.test(stk)) {
+      toast('STK phải đúng 10 chữ số', 'err');
+      return;
+    }
+    if (stkExists(stk, username)) {
+      toast('STK đã có người dùng', 'err');
+      return;
+    }
+    await updateUser(username, Object.assign({}, u, { accountNo: stk, accountNoAt: new Date().toISOString() }));
+    toast('✅ @' + username + ' STK = ' + stk, 'ok');
+    try {
+      if (typeof renderUsersAdminSplit === 'function') renderUsersAdminSplit(document.getElementById('adminBody'));
+    } catch(e) {}
+  };
+
+  // findUserByAccountNo: chỉ số
+  window.findUserByAccountNo = function(stk) {
+    stk = String(stk || '').replace(/\D/g, '');
+    if (!stk) return null;
+    var users = localUsers || {};
+    for (var k in users) {
+      var no = String((users[k] && users[k].accountNo) || '').replace(/\D/g, '');
+      if (no && no === stk) return users[k];
+    }
+    return null;
+  };
+
+  // ----- Bảo mật ví nâng cấp -----
+  // - PIN 6 số
+  // - Sai PIN 5 lần → khóa chuyển 15 phút
+  // - Xác nhận 2 bước số tiền lớn
+  var PIN_FAIL_KEY = 'vlp_wpin_fail';
+  function pinFailState() {
+    try { return JSON.parse(localStorage.getItem(PIN_FAIL_KEY) || '{}'); } catch(e) { return {}; }
+  }
+  function savePinFail(s) {
+    try { localStorage.setItem(PIN_FAIL_KEY, JSON.stringify(s)); } catch(e) {}
+  }
+
+  window.setWalletPin = async function() {
+    if (!me) return;
+    var p1 = prompt('Đặt mã bảo mật ví (6 chữ số):');
+    if (p1 == null) return;
+    p1 = String(p1).trim();
+    if (!/^\d{6}$/.test(p1)) { toast('Mã phải đúng 6 chữ số', 'err'); return; }
+    var p2 = prompt('Nhập lại mã bảo mật:');
+    if (p2 !== p1) { toast('Hai mã không khớp', 'err'); return; }
+    var h;
+    if (typeof hashPassword === 'function') {
+      var r = await hashPassword(p1);
+      h = r.hash + ':' + r.salt;
+    } else {
+      h = btoa(p1 + '_muop_v13');
+    }
+    await updateUser(me.username, Object.assign({}, me, {
+      walletPinHash: h,
+      walletPinSetAt: new Date().toISOString()
+    }));
+    me.walletPinHash = h;
+    savePinFail({ n: 0, lockUntil: 0 });
+    toast('✅ Đã đặt mã bảo mật ví (6 số)', 'ok');
+  };
+
+  async function checkWalletPinStrict(pin) {
+    var st = pinFailState();
+    if (st.lockUntil && Date.now() < st.lockUntil) {
+      var left = Math.ceil((st.lockUntil - Date.now()) / 60000);
+      toast('🔒 Sai PIN nhiều lần — khóa chuyển ' + left + ' phút', 'err');
+      return false;
+    }
+    if (!me || !me.walletPinHash) {
+      toast('Chưa đặt mã bảo mật ví', 'err');
+      return false;
+    }
+    pin = String(pin || '');
+    if (!/^\d{6}$/.test(pin)) {
+      toast('Mã bảo mật phải 6 số', 'err');
+      return false;
+    }
+    var ok = false;
+    try {
+      var stored = me.walletPinHash;
+      if (stored.indexOf(':') > 0 && typeof verifyPassword === 'function') {
+        var parts = stored.split(':');
+        ok = await verifyPassword(pin, parts[0], parts[1]);
+      } else {
+        ok = stored === btoa(pin + '_muop') || stored === btoa(pin + '_muop_v13');
+      }
+    } catch(e) { ok = false; }
+    if (!ok) {
+      st.n = (st.n || 0) + 1;
+      if (st.n >= 5) {
+        st.lockUntil = Date.now() + 15 * 60 * 1000;
+        st.n = 0;
+        toast('🔒 Sai PIN 5 lần — khóa chuyển 15 phút', 'err');
+      } else {
+        toast('❌ Mã sai (' + st.n + '/5)', 'err');
+      }
+      savePinFail(st);
+      return false;
+    }
+    savePinFail({ n: 0, lockUntil: 0 });
+    return true;
+  }
+
+  // ----- Chuyển tiền bằng STK 10 số -----
+  window.walletTransfer = async function() {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    if (!me.accountNo) {
+      toast('Bạn chưa có STK — bấm tạo số tài khoản trước', 'err');
+      return;
+    }
+    var stk = ((document.getElementById('wTxTo') || {}).value || '').replace(/\D/g, '');
+    var amount = Math.floor(Number((document.getElementById('wTxAmount') || {}).value) || 0);
+    var note = ((document.getElementById('wTxNote') || {}).value || '').trim();
+    var pin = ((document.getElementById('wTxPin') || {}).value || '').trim();
+
+    if (!/^\d{10}$/.test(stk)) { toast('STK người nhận phải đủ 10 số', 'err'); return; }
+    if (amount < 1000) { toast('Tối thiểu 1.000đ', 'err'); return; }
+    if (amount >= 500000) {
+      if (!confirm('Xác nhận chuyển số tiền lớn: ' + amount.toLocaleString('vi-VN') + 'đ?')) return;
+    }
+    if (!(await checkWalletPinStrict(pin))) return;
+
+    var recv = findUserByAccountNo(stk);
+    if (!recv) { toast('Không tìm thấy STK ' + stk, 'err'); return; }
+    if (recv.username === me.username) { toast('Không chuyển cho chính mình', 'err'); return; }
+
+    var sender = (localUsers || {})[me.username] || me;
+    var sBal = Math.max(0, parseInt(sender.walletBalance, 10) || 0);
+    if (sBal < amount) { toast('Số dư không đủ', 'err'); return; }
+    var rBal = Math.max(0, parseInt(recv.walletBalance, 10) || 0) + amount;
+
+    await updateUser(sender.username, Object.assign({}, sender, { walletBalance: sBal - amount }));
+    await updateUser(recv.username, Object.assign({}, recv, { walletBalance: rBal }));
+    me = (localUsers || {})[me.username] || me;
+
+    try {
+      if (typeof pushWalletTx === 'function') {
+        await pushWalletTx({
+          type: 'transfer', from: me.username, to: recv.username,
+          toStk: stk, amount: amount, note: note || ''
+        });
+      }
+    } catch(e) {}
+    toast('✅ Đã chuyển ' + amount.toLocaleString('vi-VN') + 'đ → STK ' + stk, 'ok');
+    try { renderWalletUI(); } catch(e) {}
+    try { renderV913WalletTab(); } catch(e) {}
+  };
+
+  window.previewRecipient = function() {
+    var stk = ((document.getElementById('wTxTo') || {}).value || '').replace(/\D/g, '');
+    var el = document.getElementById('wTxPreview');
+    if (!el) return;
+    if (!stk) { el.innerHTML = ''; return; }
+    if (stk.length < 10) {
+      el.innerHTML = '<span style="color:var(--sub)">Nhập đủ 10 số… (' + stk.length + '/10)</span>';
+      return;
+    }
+    var u = findUserByAccountNo(stk);
+    if (!u) { el.innerHTML = '⚠️ Không có STK <b>' + esc(stk) + '</b>'; return; }
+    el.innerHTML = 'Người nhận: <b>' + esc(u.display || u.username) + '</b> · STK <b style="color:var(--cyan)">' + esc(u.accountNo) + '</b>';
+  };
+
+  // ----- Nạp ví = chuyển khoản (thay form mua VIP CK) -----
+  function remodelVipTabToWalletDeposit() {
+    var tab = document.getElementById('userTabVip');
+    if (!tab || tab.dataset.v913 === '1') return;
+    tab.dataset.v913 = '1';
+
+    // Ẩn form chọn gói + CK mua VIP
+    var hideSelectors = ['#vipPackSelect', '#vipCoupon', '#vipCouponHint', '#vipTransferNote'];
+    // Rewrite section title and flow
+    var depositHtml =
+      '<div id="v913DepositBox">' +
+      '<div class="sec-title">💳 NẠP TIỀN VÀO VÍ (chuyển khoản)</div>' +
+      '<div class="sec-note" style="margin-bottom:10px">Mua VIP / nội dung chỉ dùng <b>số dư ví</b>. Chỉ bước nạp ví mới cần chuyển khoản ngân hàng.</div>' +
+      '<div class="settings-row"><div class="inp-label">Số tiền nạp (đ)</div>' +
+      '<input class="inp" id="vipAmount" type="number" placeholder="VD: 50000" oninput="v913UpdateDepositNote()"/></div>' +
+      '<div class="settings-row"><div class="inp-label">Nội dung CK (ghi đúng)</div>' +
+      '<input class="inp" id="vipTransferNote" readonly placeholder="Tự tạo khi nhập số tiền"/></div>' +
+      '<div class="settings-row"><div class="inp-label">Mã GD / ghi chú</div>' +
+      '<input class="inp" id="vipNote" placeholder="Mã giao dịch ngân hàng..."/></div>' +
+      '<div class="sec-note" id="vipBankInfo" style="margin-bottom:12px">Đang tải STK ngân hàng admin...</div>' +
+      '<button class="btn btn-gold btn-full" onclick="submitWalletDepositRequest()">📤 Gửi yêu cầu nạp ví</button>' +
+      '<div class="sec-title" style="margin-top:18px">📋 Lịch sử nạp ví</div>' +
+      '<div id="vipMyRequests"></div>' +
+      '</div>';
+
+    // Keep status + packages for buy with wallet
+    var statusCard = tab.querySelector('.glass-card');
+    var packGrid = document.getElementById('vipPackages');
+    tab.innerHTML =
+      '<div class="sec-title">👑 VIP & VÍ</div>' +
+      (statusCard ? statusCard.outerHTML : '<div class="glass-card" style="padding:14px;margin-bottom:14px"><b id="vipStatusTxt">—</b></div>') +
+      '<div class="sec-title">🛒 Mua gói bằng ví</div>' +
+      '<div id="vipPackages" class="product-grid" style="margin-top:10px"></div>' +
+      '<div id="v913WalletBuyPacks"></div>' +
+      depositHtml;
+
+    // Load bank info
+    setTimeout(function() {
+      try {
+        if (typeof renderVipStatus === 'function') renderVipStatus();
+      } catch(e) {}
+      try {
+        var s = getSettings() || {};
+        var bankEl = document.getElementById('vipBankInfo');
+        if (bankEl) {
+          var bank = s.bankName || s.bank || '';
+          var acc = s.bankAccount || s.bankAcc || s.stk || '';
+          var name = s.bankOwner || s.bankNameOwner || '';
+          bankEl.innerHTML = (bank || acc)
+            ? ('🏦 ' + esc(bank) + '<br>STK: <b>' + esc(acc) + '</b><br>Chủ TK: ' + esc(name) + '<br><span style="color:var(--gold)">Chỉ nạp ví — không ghi nội dung mua gói</span>')
+            : 'Admin chưa cấu hình STK ngân hàng trong Cài đặt.';
+        }
+        renderV913PackBuyButtons();
+        if (typeof loadMyVipRequests === 'function') loadMyVipRequests();
+      } catch(e) {}
+    }, 200);
+  }
+
+  window.v913UpdateDepositNote = function() {
+    if (!me) return;
+    var amt = Math.floor(Number((document.getElementById('vipAmount') || {}).value) || 0);
+    var note = document.getElementById('vipTransferNote');
+    if (!note) return;
+    note.value = amt > 0 ? ('NAPVI ' + me.username + ' ' + amt) : '';
+  };
+
+  window.submitWalletDepositRequest = async function() {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    var amount = Math.floor(Number((document.getElementById('vipAmount') || {}).value) || 0);
+    var note = ((document.getElementById('vipNote') || {}).value || '').trim();
+    var transferNote = ((document.getElementById('vipTransferNote') || {}).value || '').trim();
+    if (amount < 1000) { toast('Nạp tối thiểu 1.000đ', 'err'); return; }
+    if (!transferNote) {
+      transferNote = 'NAPVI ' + me.username + ' ' + amount;
+      var el = document.getElementById('vipTransferNote');
+      if (el) el.value = transferNote;
+    }
+    // Dùng hệ thống vip_requests với type wallet_deposit
+    try {
+      var snap = await db.collection(COL).doc(typeof VIP_REQ_DOC !== 'undefined' ? VIP_REQ_DOC : 'vip_requests').get();
+      var list = (snap.exists && snap.data() && snap.data().list) || [];
+      list.push({
+        id: 'WD' + Date.now(),
+        user: me.username,
+        display: me.display || me.username,
+        amount: amount,
+        status: 'pending',
+        packType: 'wallet_deposit',
+        packLabel: 'Nạp ví',
+        type: 'wallet_deposit',
+        transferNote: transferNote,
+        note: note,
+        at: new Date().toISOString()
+      });
+      await db.collection(COL).doc(typeof VIP_REQ_DOC !== 'undefined' ? VIP_REQ_DOC : 'vip_requests').set({ list: list.slice(-300) });
+      toast('✅ Đã gửi yêu cầu nạp ví — chờ admin duyệt', 'ok');
+      try {
+        if (typeof notifyApp === 'function') {
+          notifyApp('wallet_deposit_req', '💳 @' + me.username + ' nạp ví ' + amount.toLocaleString('vi-VN') + 'đ\nCK: ' + transferNote, {});
+        }
+      } catch(e) {}
+      if (typeof loadMyVipRequests === 'function') loadMyVipRequests();
+    } catch(e) {
+      toast('Lỗi gửi yêu cầu: ' + (e.message || ''), 'err');
+    }
+  };
+
+  // Admin duyệt nạp ví → cộng balance
+  if (typeof approveVipRequest === 'function') {
+    var _appr = approveVipRequest;
+    approveVipRequest = async function() {
+      // Try to detect wallet_deposit in args - wrap after
+      var args = arguments;
+      var r = await _appr.apply(this, args);
+      return r;
+    };
+  }
+
+  // Hook: khi admin duyệt, nếu type wallet_deposit thì cộng ví
+  // Patch common approve by watching list - provide explicit function
+  window.adminApproveWalletDeposit = async function(reqId) {
+    if (typeof requireStaff === 'function' && !requireStaff()) return;
+    var snap = await db.collection(COL).doc(typeof VIP_REQ_DOC !== 'undefined' ? VIP_REQ_DOC : 'vip_requests').get();
+    var list = (snap.exists && snap.data() && snap.data().list) || [];
+    var idx = list.findIndex(function(x){ return x && (x.id === reqId || String(x.at) === String(reqId)); });
+    if (idx < 0) { toast('Không thấy yêu cầu', 'err'); return; }
+    var req = list[idx];
+    if (req.status === 'approved' || req.status === 'ok') { toast('Đã duyệt rồi', 'err'); return; }
+    var u = (localUsers || {})[req.user];
+    if (!u) { toast('User không tồn tại', 'err'); return; }
+    var amount = Math.floor(Number(req.amount) || 0);
+    var bal = Math.max(0, parseInt(u.walletBalance, 10) || 0) + amount;
+    await updateUser(req.user, Object.assign({}, u, { walletBalance: bal }));
+    list[idx] = Object.assign({}, req, { status: 'approved', approvedAt: new Date().toISOString(), approvedBy: me.username });
+    await db.collection(COL).doc(typeof VIP_REQ_DOC !== 'undefined' ? VIP_REQ_DOC : 'vip_requests').set({ list: list });
+    toast('✅ Đã cộng ' + amount.toLocaleString('vi-VN') + 'đ vào ví @' + req.user, 'ok');
+    try {
+      if (typeof notifyApp === 'function') {
+        notifyApp('wallet_deposit_ok', '✅ Nạp ví @' + req.user + ' +' + amount.toLocaleString('vi-VN') + 'đ', {});
+      }
+    } catch(e) {}
+  };
+
+  // Override submitVipRequest → nạp ví only
+  window.submitVipRequest = function() {
+    return submitWalletDepositRequest();
+  };
+
+  // Mua gói chỉ bằng ví
+  function renderV913PackBuyButtons() {
+    var el = document.getElementById('v913WalletBuyPacks') || document.getElementById('vipPackages');
+    if (!el) return;
+    var packs = [];
+    try {
+      var s = getSettings() || {};
+      packs = (Array.isArray(s.shopPacks) ? s.shopPacks : []).filter(function(p) {
+        return p && (p.type === 'vip' || p.type === 'diamond' || !p.type);
+      });
+    } catch(e) {}
+    if (!packs.length) {
+      el.innerHTML = '<div class="sec-note">Chưa có gói — admin tạo shopPacks</div>';
+      return;
+    }
+    el.innerHTML = packs.map(function(p) {
+      var price = Math.floor(Number(p.price || p.amount || 0) || 0);
+      return '<div class="vip-user-card">' +
+        '<div style="font-weight:700">' + esc(p.label || p.name || p.id) + '</div>' +
+        '<div class="sec-note">' + (p.days || 30) + ' ngày · ' + price.toLocaleString('vi-VN') + 'đ</div>' +
+        '<button class="btn btn-gold btn-sm" style="margin-top:8px" onclick="buyPackWithWallet(\'' + String(p.id).replace(/'/g,'') + '\')">💳 Mua bằng ví</button>' +
+        '</div>';
+    }).join('');
+  }
+  window.renderV913PackBuyButtons = renderV913PackBuyButtons;
+
+  // ----- Mua nội dung / vượt bằng ví -----
+  window.buyItemWithWallet = async function(itemId) {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    if (!me.accountNo) { toast('Hãy tạo STK trước', 'err'); return; }
+    var item = (localItems || {})[itemId];
+    if (!item) { toast('Không thấy nội dung', 'err'); return; }
+    var price = Math.floor(Number(item.walletPrice || item.price || 0) || 0);
+    if (price <= 0) {
+      // Giá mặc định từ settings
+      var s = getSettings() || {};
+      price = Math.floor(Number(s.defaultItemWalletPrice || 0) || 0);
+    }
+    if (price <= 0) {
+      toast('Admin chưa đặt giá ví cho nội dung này (walletPrice)', 'err');
+      return;
+    }
+    var pin = prompt('Nhập mã bảo mật ví (6 số) để mua ' + price.toLocaleString('vi-VN') + 'đ:');
+    if (!(await checkWalletPinStrict(pin))) return;
+    if (!confirm('Mua «' + (item.name || '') + '» với ' + price.toLocaleString('vi-VN') + 'đ từ ví?')) return;
+
+    var bal = Math.max(0, parseInt(me.walletBalance, 10) || 0);
+    if (bal < price) { toast('Số dư không đủ — hãy nạp ví', 'err'); return; }
+    await updateUser(me.username, Object.assign({}, me, { walletBalance: bal - price }));
+    me.walletBalance = bal - price;
+    try {
+      if (typeof pushWalletTx === 'function') {
+        await pushWalletTx({ type: 'buy_item', from: me.username, amount: price, itemId: itemId, note: item.name || itemId });
+      }
+    } catch(e) {}
+    currentItem = item;
+    if (typeof deliverItemContent === 'function') {
+      await deliverItemContent(item, { info: '💳 Mua bằng ví · ' + price.toLocaleString('vi-VN') + 'đ' });
+    } else {
+      verifiedSteps = new Array(Math.max(1, parseInt(item.rounds, 10) || 1)).fill(true);
+      if (typeof showResult === 'function') showResult();
+    }
+    toast('✅ Đã mua nội dung', 'ok');
+  };
+
+  // Nút mua ví trên product card
+  var _rig = typeof renderItemGrid === 'function' ? renderItemGrid : null;
+  if (_rig) {
+    renderItemGrid = function() {
+      var r = _rig.apply(this, arguments);
+      setTimeout(function() {
+        document.querySelectorAll('.product-card').forEach(function(card) {
+          // Ẩn share
+          card.querySelectorAll('[onclick*="share"], .share-btn').forEach(function(x){ x.style.display = 'none'; });
+          if (card.querySelector('.v913-buy-w')) return;
+          var oc = card.getAttribute('onclick') || '';
+          var m = oc.match(/openBypass\('([^']+)'\)/);
+          var id = m && m[1];
+          if (!id) {
+            var btn = card.querySelector('[onclick*="openBypass"]');
+            if (btn) {
+              var om = (btn.getAttribute('onclick') || '').match(/openBypass\('([^']+)'\)/);
+              if (om) id = om[1];
+            }
+          }
+          if (!id) return;
+          var item = (localItems || {})[id];
+          if (!item) return;
+          var price = Math.floor(Number(item.walletPrice || item.price || 0) || 0);
+          var s = getSettings() || {};
+          if (price <= 0) price = Math.floor(Number(s.defaultItemWalletPrice || 0) || 0);
+          if (price <= 0) return;
+          var b = document.createElement('button');
+          b.className = 'btn btn-sm btn-gold v913-buy-w';
+          b.style.cssText = 'width:calc(100% - 16px);margin:0 8px 8px';
+          b.textContent = '💳 Mua ' + price.toLocaleString('vi-VN') + 'đ';
+          b.onclick = function(e) { e.stopPropagation(); buyItemWithWallet(id); };
+          card.appendChild(b);
+        });
+      }, 80);
+      return r;
+    };
+  }
+
+  // ----- UI ví: STK random -----
+  function renderV913WalletTab() {
+    // Inject into profile / wallet / vip
+    var hosts = [document.getElementById('v911WalletBox'), document.getElementById('walletStatusBox'), document.getElementById('userTabProfile')];
+    var host = document.getElementById('v911WalletBox');
+    if (!host) {
+      var prof = document.getElementById('userTabProfile');
+      if (prof) {
+        host = document.createElement('div');
+        host.id = 'v911WalletBox';
+        prof.insertBefore(host, prof.firstChild);
+      }
+    }
+    if (!host || !me) return;
+    var bal = Math.max(0, parseInt(me.walletBalance, 10) || 0);
+    var stk = me.accountNo || '';
+    var stkBlock = stk
+      ? ('<div style="font-size:12px;color:var(--sub)">Số tài khoản</div><div style="font-size:22px;font-weight:800;color:var(--cyan);letter-spacing:2px">' + esc(stk) + '</div>')
+      : ('<div class="sec-note" style="margin:8px 0">Bạn chưa có số tài khoản</div>' +
+         '<button class="btn btn-cyan btn-sm" onclick="userGenerateStk()">🎲 Tạo số tài khoản 10 số</button>');
+
+    host.innerHTML =
+      '<div class="sec-title">💳 VÍ</div>' +
+      '<div class="glass-card" style="padding:14px;margin-bottom:12px">' +
+      '<div style="font-size:12px;color:var(--sub)">Số dư</div>' +
+      '<div style="font-size:26px;font-weight:800;color:var(--gold)">' + bal.toLocaleString('vi-VN') + 'đ</div>' +
+      stkBlock +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+      '<button class="btn btn-sm btn-ghost" onclick="setWalletPin()">🔐 ' + (me.walletPinHash ? 'Đổi PIN 6 số' : 'Đặt PIN 6 số') + '</button>' +
+      '<button class="btn btn-sm btn-cyan" onclick="var p=document.getElementById(\'wTxPanel\');if(p)p.style.display=p.style.display===\'none\'?\'block\':\'block\'">💸 Chuyển tiền</button>' +
+      '</div></div>' +
+      '<div id="wTxPanel" style="display:none" class="glass-card"><div style="padding:12px">' +
+      '<div class="inp-label">STK người nhận (10 số)</div>' +
+      '<input class="inp" id="wTxTo" placeholder="0123456789" inputmode="numeric" maxlength="10" oninput="previewRecipient()"/>' +
+      '<div id="wTxPreview" class="sec-note" style="margin:8px 0"></div>' +
+      '<div class="inp-label">Số tiền</div><input class="inp" id="wTxAmount" type="number" min="1000"/>' +
+      '<div class="inp-label">Ghi chú</div><input class="inp" id="wTxNote"/>' +
+      '<div class="inp-label">Mã bảo mật ví (6 số)</div><input class="inp" id="wTxPin" type="password" inputmode="numeric" maxlength="6"/>' +
+      '<button class="btn btn-gold btn-full" style="margin-top:10px" onclick="walletTransfer()">Xác nhận chuyển</button>' +
+      '</div></div>';
+  }
+  window.renderV913WalletTab = renderV913WalletTab;
+
+  // Override renderWalletUI
+  window.renderWalletUI = function() { renderV913WalletTab(); };
+
+  // Admin: nút sửa STK + ± ví
+  if (typeof renderUsersAdminSplit === 'function') {
+    var _rus = renderUsersAdminSplit;
+    renderUsersAdminSplit = function(body) {
+      _rus(body);
+      setTimeout(function() {
+        document.querySelectorAll('#userSplitList .item-manage-row').forEach(function(row) {
+          var sub = row.querySelector('.imr-name');
+          if (!sub) return;
+          var m = (sub.textContent || '').match(/@([a-zA-Z0-9_]+)/);
+          if (!m) return;
+          var acts = row.querySelector('.imr-acts');
+          if (!acts || acts.querySelector('.v913-stk')) return;
+          acts.insertAdjacentHTML('beforeend',
+            '<button class="btn btn-xs btn-ghost v913-stk" onclick="adminSetAccountNo(\'' + m[1] + '\')">STK</button>' +
+            '<button class="btn btn-xs btn-gold" onclick="adminWalletPrompt(\'' + m[1] + '\')">± Ví</button>'
+          );
+        });
+      }, 100);
+    };
+  }
+
+  // Khi duyệt request: nếu wallet_deposit thì cộng ví
+  // Wrap aTab vipreq render if possible - add note in settings
+  var _rs = typeof renderSettings === 'function' ? renderSettings : null;
+  if (_rs) {
+    renderSettings = function(body) {
+      _rs(body);
+      body.insertAdjacentHTML('beforeend',
+        '<div class="settings-row">' +
+        '<div class="settings-label">💳 Giá mua nội dung bằng ví (mặc định)</div>' +
+        '<div class="sec-note">Item có walletPrice riêng sẽ ưu tiên. 0 = chỉ hiện nút mua nếu item có giá.</div>' +
+        '<input class="inp" id="v913DefPrice" type="number" value="' +
+        ((getSettings() || {}).defaultItemWalletPrice || 0) + '"/>' +
+        '<button class="btn btn-cyan btn-sm" style="margin-top:8px;width:100%" onclick="var s=Object.assign({},getSettings(),{defaultItemWalletPrice:parseInt(document.getElementById(\'v913DefPrice\').value,10)||0});saveSettings(s).then(function(){toast(\'Đã lưu\',\'ok\')})">💾 Lưu giá mặc định</button>' +
+        '</div>'
+      );
+    };
+  }
+
+  // Tab hooks
+  if (typeof switchUserTab === 'function') {
+    var _st = switchUserTab;
+    switchUserTab = function(t) {
+      var r = _st.apply(this, arguments);
+      if (t === 'vip') setTimeout(function() {
+        remodelVipTabToWalletDeposit();
+        renderV913PackBuyButtons();
+      }, 100);
+      if (t === 'profile' || t === 'vip') setTimeout(renderV913WalletTab, 120);
+      return r;
+    };
+  }
+  if (typeof enterMain === 'function') {
+    var _en = enterMain;
+    enterMain = function() {
+      var r = _en.apply(this, arguments);
+      setTimeout(function() {
+        renderV913WalletTab();
+      }, 500);
+      return r;
+    };
+  }
+
+  // Chặn chuyển / mua nếu chưa có STK
+  var _bpack = typeof buyPackWithWallet === 'function' ? buyPackWithWallet : null;
+  if (_bpack) {
+    buyPackWithWallet = async function(packId) {
+      if (!me || !me.accountNo) {
+        toast('Hãy tạo số tài khoản (STK) trước khi mua', 'err');
+        if (typeof switchUserTab === 'function') switchUserTab('profile');
+        return;
+      }
+      var pin = prompt('Mã bảo mật ví (6 số):');
+      if (!(await checkWalletPinStrict(pin))) return;
+      return _bpack.apply(this, arguments);
+    };
+  }
+
+  console.log('%c PATCH v9.13 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
