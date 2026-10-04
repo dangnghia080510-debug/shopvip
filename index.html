@@ -19,6 +19,7 @@
 <!-- Critical: Firebase App + Firestore only (blocking minimal) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <!-- Non-critical: defer -->
 <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
@@ -1041,6 +1042,16 @@ body::before{
         <label for="cbRemember">Ghi nhớ đăng nhập (7 ngày)</label>
       </div>
       <button class="btn btn-cyan btn-full" id="btnLogin" onclick="doLogin()">⚡ ĐĂNG NHẬP</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:11px;color:var(--sub)">hoặc</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <button type="button" class="btn btn-full" id="btnGoogleLogin" onclick="loginWithGoogle()"
+        style="background:#fff;color:#1f1f1f;border:1px solid #dadce0;font-weight:600;gap:10px">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Đăng nhập bằng Google
+      </button>
       <p style="text-align:center;font-size:11px;color:var(--sub);margin-top:12px">Quên mật khẩu? Liên hệ Admin</p>
     </div>
     <div id="formReg" style="display:none">
@@ -1071,6 +1082,9 @@ body::before{
         <input class="inp" id="riCaptcha" type="number" placeholder="Nhập kết quả..."/>
       </div>
       <button class="btn btn-green btn-full" id="btnReg" onclick="doRegister()">🚀 TẠO TÀI KHOẢN</button>
+      <button type="button" class="btn btn-full" style="margin-top:10px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;font-weight:600" onclick="loginWithGoogle()">
+        Tiếp tục với Google
+      </button>
     </div>
   </div>
 </div>
@@ -14987,6 +15001,852 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
   }, 1200);
 
   console.log('%c FIX v9.10.1 READY — no old VIP text in lists', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
+
+<script>
+// ============================================================
+// PATCH v9.11 — Ví tiền · Chuyển khoản · Hồ sơ · VIP hết hạn
+// · Fix avatar/mất VIP · Bỏ chia sẻ · Anti-bypass
+// ============================================================
+(function(){
+  'use strict';
+  window.APP_PATCH_V911 = '9.11.0';
+  console.log('%c PATCH v9.11 wallet+profile', 'color:#3dff9a;font-weight:bold');
+
+  // ===== 0. FIX updateUser: LUÔN MERGE (không xóa avatar/vip) =====
+  var _updateUser = typeof updateUser === 'function' ? updateUser : null;
+  if (_updateUser) {
+    updateUser = function(username, data) {
+      if (!username) return Promise.resolve();
+      try { data = typeof stripUndefined === 'function' ? stripUndefined(data) : data; } catch(e) {}
+      return db.collection(COL).doc('users').get().then(function(snap) {
+        var remote = (snap.exists && snap.data() && snap.data().data) || {};
+        var base = Object.assign({}, remote, localUsers || {});
+        var prev = base[username] || {};
+        // MERGE — không ghi đè mất field cũ
+        var merged = Object.assign({}, prev, data);
+        // Bảo vệ field quan trọng nếu data vô tình xóa
+        if (prev.avatar && !merged.avatar) merged.avatar = prev.avatar;
+        if (prev.vipUntil && data.vipUntil === undefined && data.vip !== false) {
+          merged.vipUntil = prev.vipUntil;
+        }
+        if (prev.vipLevel != null && data.vipLevel === undefined) merged.vipLevel = prev.vipLevel;
+        if (prev.walletBalance != null && data.walletBalance === undefined) merged.walletBalance = prev.walletBalance;
+        if (prev.walletPinHash && data.walletPinHash === undefined) merged.walletPinHash = prev.walletPinHash;
+        if (prev.verified && data.verified === undefined) merged.verified = prev.verified;
+        if (prev.accountNo && data.accountNo === undefined) merged.accountNo = prev.accountNo;
+        base[username] = merged;
+        localUsers = base;
+        try { lsSet(LS_USERS, { data: localUsers }); } catch(e) {}
+        return db.collection(COL).doc('users').set({ data: localUsers });
+      }).catch(function(e) {
+        if (!localUsers) localUsers = {};
+        var prev = localUsers[username] || {};
+        localUsers[username] = Object.assign({}, prev, data);
+        try { lsSet(LS_USERS, { data: localUsers }); } catch(e2) {}
+        return db.collection(COL).doc('users').set({ data: localUsers }).catch(function(err) {
+          if (typeof fbErr === 'function') fbErr(err || e, 'updateUser');
+        });
+      });
+    };
+  }
+
+  // ===== 1. Account number + VIP hết hạn =====
+  function ensureAccountNo(u) {
+    if (!u) return u;
+    if (u.accountNo) return u;
+    var no = 'MW' + String(u.username || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    if (no.length < 6) no = 'MW' + Date.now().toString(36).toUpperCase().slice(-8);
+    u.accountNo = no;
+    return u;
+  }
+
+  window.checkVipExpiry = function(u) {
+    if (!u || u.role === 'admin') return u;
+    var now = Date.now();
+    var changed = false;
+    if (u.vipUntil) {
+      var t = new Date(u.vipUntil).getTime();
+      if (!isNaN(t) && t <= now) {
+        u = Object.assign({}, u, {
+          vip: false,
+          vipUntil: null,
+          vipLevel: 0,
+          vipLevelManual: 0,
+          diamond: false,
+          diamondUntil: null
+        });
+        changed = true;
+      }
+    }
+    if (u.diamondUntil) {
+      var td = new Date(u.diamondUntil).getTime();
+      if (!isNaN(td) && td <= now) {
+        u = Object.assign({}, u, { diamond: false, diamondUntil: null });
+        changed = true;
+      }
+    }
+    if (changed && u.username) {
+      updateUser(u.username, u).catch(function(){});
+    }
+    return u;
+  };
+
+  // ===== 2. WALLET =====
+  function getBalance(u) {
+    u = u || me;
+    return Math.max(0, parseInt(u && u.walletBalance, 10) || 0);
+  }
+
+  window.walletDepositAdmin = async function(username, amount, note) {
+    if (typeof requireStaff === 'function' && !requireStaff()) return;
+    amount = Math.floor(Number(amount) || 0);
+    if (amount <= 0) { toast('Số tiền không hợp lệ', 'err'); return; }
+    var u = (localUsers || {})[username];
+    if (!u) { toast('Không thấy user', 'err'); return; }
+    var bal = getBalance(u) + amount;
+    await updateUser(username, Object.assign({}, u, { walletBalance: bal }));
+    await pushWalletTx({ type: 'admin_deposit', to: username, amount: amount, note: note || 'Admin nạp ví', by: me.username });
+    toast('✅ Nạp ví @' + username + ' +' + amount.toLocaleString('vi-VN') + 'đ', 'ok');
+  };
+
+  async function pushWalletTx(tx) {
+    tx = Object.assign({ id: 'WTX' + Date.now() + Math.random().toString(36).slice(2, 6), at: new Date().toISOString() }, tx);
+    try {
+      var snap = await db.collection(COL).doc('wallet_txs').get();
+      var list = (snap.exists && snap.data() && snap.data().list) || [];
+      list.push(tx);
+      if (list.length > 500) list = list.slice(-500);
+      await db.collection(COL).doc('wallet_txs').set({ list: list });
+    } catch(e) { console.warn(e); }
+    return tx;
+  }
+
+  // PIN ví (mã bảo mật)
+  async function hashPin(pin) {
+    if (typeof hashPassword === 'function') {
+      var r = await hashPassword(String(pin));
+      return r.hash + ':' + r.salt;
+    }
+    // fallback
+    return btoa(String(pin) + '_muop');
+  }
+  async function verifyPin(pin, stored) {
+    if (!stored) return false;
+    if (stored.indexOf(':') > 0 && typeof verifyPassword === 'function') {
+      var parts = stored.split(':');
+      return verifyPassword(String(pin), parts[0], parts[1]);
+    }
+    return stored === btoa(String(pin) + '_muop');
+  }
+
+  window.setWalletPin = async function() {
+    if (!me) return;
+    var p1 = prompt('Đặt mã bảo mật ví (4–8 số):');
+    if (p1 == null) return;
+    p1 = String(p1).trim();
+    if (!/^\d{4,8}$/.test(p1)) { toast('Mã phải 4–8 chữ số', 'err'); return; }
+    var p2 = prompt('Nhập lại mã bảo mật:');
+    if (p2 !== p1) { toast('Hai mã không khớp', 'err'); return; }
+    var h = await hashPin(p1);
+    await updateUser(me.username, Object.assign({}, me, { walletPinHash: h }));
+    me.walletPinHash = h;
+    toast('✅ Đã đặt mã bảo mật ví', 'ok');
+  };
+
+  window.walletTransfer = async function() {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    me = checkVipExpiry(me);
+    if (!me.walletPinHash) {
+      toast('Hãy đặt mã bảo mật ví trước', 'err');
+      setWalletPin();
+      return;
+    }
+    var toUser = ((document.getElementById('wTxTo') || {}).value || '').trim().replace(/^@/, '');
+    var amount = Math.floor(Number((document.getElementById('wTxAmount') || {}).value) || 0);
+    var note = ((document.getElementById('wTxNote') || {}).value || '').trim();
+    var pin = ((document.getElementById('wTxPin') || {}).value || '').trim();
+    if (!toUser) { toast('Nhập @user nhận', 'err'); return; }
+    if (toUser === me.username) { toast('Không chuyển cho chính mình', 'err'); return; }
+    if (amount < 1000) { toast('Tối thiểu 1.000đ', 'err'); return; }
+    if (!(await verifyPin(pin, me.walletPinHash))) { toast('❌ Mã bảo mật sai', 'err'); return; }
+
+    var sender = (localUsers || {})[me.username] || me;
+    var recv = (localUsers || {})[toUser];
+    if (!recv) { toast('Không tìm thấy người nhận', 'err'); return; }
+    if (getBalance(sender) < amount) { toast('Số dư không đủ', 'err'); return; }
+
+    var sBal = getBalance(sender) - amount;
+    var rBal = getBalance(recv) + amount;
+    await updateUser(sender.username, Object.assign({}, sender, { walletBalance: sBal }));
+    await updateUser(recv.username, Object.assign({}, recv, { walletBalance: rBal }));
+    me = (localUsers || {})[me.username] || me;
+    await pushWalletTx({
+      type: 'transfer', from: me.username, to: toUser, amount: amount, note: note || ''
+    });
+    try {
+      if (typeof notifyApp === 'function') {
+        notifyApp('wallet_tx', '💸 @' + me.username + ' → @' + toUser + '\n' + amount.toLocaleString('vi-VN') + 'đ', {});
+      }
+    } catch(e) {}
+    toast('✅ Đã chuyển ' + amount.toLocaleString('vi-VN') + 'đ cho @' + toUser, 'ok');
+    renderWalletUI();
+  };
+
+  // Mua gói VIP bằng ví
+  window.buyPackWithWallet = async function(packId) {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    me = checkVipExpiry(Object.assign({}, me));
+    var packs = [];
+    try {
+      var s = getSettings() || {};
+      packs = Array.isArray(s.shopPacks) ? s.shopPacks : [];
+    } catch(e) {}
+    var pack = packs.find(function(p){ return p && p.id === packId; });
+    if (!pack) { toast('Không tìm thấy gói', 'err'); return; }
+    var price = Math.floor(Number(pack.price || pack.amount || 0) || 0);
+    if (price <= 0) { toast('Gói không có giá', 'err'); return; }
+    if (getBalance(me) < price) { toast('Số dư ví không đủ — hãy nạp ví', 'err'); return; }
+
+    if (!confirm('Thanh toán ' + price.toLocaleString('vi-VN') + 'đ từ ví để mua «' + (pack.label || pack.name || packId) + '»?')) return;
+
+    var bal = getBalance(me) - price;
+    var days = Math.max(1, parseInt(pack.days || 30, 10));
+    var base = (me.vipUntil && new Date(me.vipUntil).getTime() > Date.now())
+      ? new Date(me.vipUntil).getTime() : Date.now();
+    var until = new Date(base + days * 86400000).toISOString();
+    var ptype = pack.type || 'vip';
+    var patch = {
+      walletBalance: bal,
+      vip: true,
+      vipUntil: until
+    };
+    if (ptype === 'diamond') {
+      patch.diamond = true;
+      var db0 = (me.diamondUntil && new Date(me.diamondUntil).getTime() > Date.now())
+        ? new Date(me.diamondUntil).getTime() : Date.now();
+      patch.diamondUntil = new Date(db0 + days * 86400000).toISOString();
+    }
+    var freeFromPack = Math.max(0, parseInt(pack.dailyFreeClaims || 0, 10) || 0);
+    if (freeFromPack > 0) {
+      patch.dailyFreeClaims = Math.max(parseInt(me.dailyFreeClaims, 10) || 0, freeFromPack);
+    }
+    // Cập nhật cấp VIP theo tổng nạp ảo (cộng price vào totalDeposit)
+    var totalDep = (parseInt(me.totalDeposit, 10) || 0) + price;
+    patch.totalDeposit = totalDep;
+    if (typeof calcVipLevelFromTotal === 'function') {
+      var lv = calcVipLevelFromTotal(totalDep);
+      if (me.vipLevelManual && parseInt(me.vipLevelManual, 10) > lv) lv = parseInt(me.vipLevelManual, 10);
+      patch.vipLevel = Math.max(1, lv);
+    } else {
+      patch.vipLevel = Math.max(1, parseInt(me.vipLevel, 10) || 1);
+    }
+
+    await updateUser(me.username, Object.assign({}, me, patch));
+    me = Object.assign({}, me, patch);
+    await pushWalletTx({
+      type: 'buy_pack', from: me.username, amount: price,
+      note: 'Mua gói ' + (pack.label || packId), packId: packId, vipUntil: until
+    });
+    try {
+      if (typeof notifyApp === 'function') {
+        notifyApp('wallet_buy', '👑 @' + me.username + ' mua gói bằng ví\n' + (pack.label || '') + ' · ' + price.toLocaleString('vi-VN') + 'đ\nHSD: ' + new Date(until).toLocaleString('vi-VN'), {});
+      }
+    } catch(e) {}
+    toast('✅ Đã mua gói — VIP đến ' + new Date(until).toLocaleString('vi-VN'), 'ok');
+    renderWalletUI();
+    try { if (typeof paintVipBar === 'function') paintVipBar(); } catch(e) {}
+    try { if (typeof renderVipStatus === 'function') renderVipStatus(); } catch(e) {}
+  };
+
+  // Mua nội dung bằng ví (không vượt)
+  window.buyItemWithWallet = async function(itemId) {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    var item = (localItems || {})[itemId];
+    if (!item) { toast('Không thấy nội dung', 'err'); return; }
+    var price = Math.floor(Number(item.walletPrice || item.price || 0) || 0);
+    if (price <= 0) {
+      toast('Nội dung này chưa đặt giá ví (admin đặt walletPrice)', 'err');
+      return;
+    }
+    if (getBalance(me) < price) { toast('Số dư không đủ', 'err'); return; }
+    if (!confirm('Mua «' + (item.name || '') + '» với ' + price.toLocaleString('vi-VN') + 'đ (không cần vượt)?')) return;
+
+    var bal = getBalance(me) - price;
+    await updateUser(me.username, Object.assign({}, me, { walletBalance: bal }));
+    me = Object.assign({}, me, { walletBalance: bal });
+    await pushWalletTx({
+      type: 'buy_item', from: me.username, amount: price,
+      note: item.name || itemId, itemId: itemId
+    });
+    // Giao nội dung
+    currentItem = item;
+    if (typeof deliverItemContent === 'function') {
+      await deliverItemContent(item, { info: '💳 Đã mua bằng ví · ' + price.toLocaleString('vi-VN') + 'đ' });
+    } else if (typeof showResult === 'function') {
+      verifiedSteps = new Array(Math.max(1, parseInt(item.rounds,10)||1)).fill(true);
+      showResult();
+    }
+    toast('✅ Đã mua nội dung', 'ok');
+    renderWalletUI();
+  };
+
+  // ===== 3. UI VÍ + chuyển khoản =====
+  function renderWalletUI() {
+    var box = document.getElementById('v911WalletBox');
+    if (!box) return;
+    if (!me) { box.innerHTML = ''; return; }
+    me = checkVipExpiry(Object.assign({}, me));
+    ensureAccountNo(me);
+    var bal = getBalance(me);
+    var until = me.vipUntil ? new Date(me.vipUntil).toLocaleString('vi-VN') : '';
+    var lv = typeof getUserVipLevel === 'function' ? getUserVipLevel(me) : (me.vipLevel || 0);
+    box.innerHTML =
+      '<div class="sec-title">💳 VÍ CỦA TÔI</div>' +
+      '<div class="glass-card" style="padding:14px;margin-bottom:12px">' +
+      '<div style="font-size:12px;color:var(--sub)">Số dư</div>' +
+      '<div style="font-size:26px;font-weight:800;color:var(--gold);margin:4px 0">' + bal.toLocaleString('vi-VN') + 'đ</div>' +
+      '<div style="font-size:12px;color:var(--sub)">STK: <b style="color:var(--cyan)">' + esc(me.accountNo || '—') + '</b>' +
+      (lv >= 1 ? ' · <span class="vip-lv l' + lv + '">VIP ' + lv + '</span>' : '') +
+      (until ? ' · HSD: ' + until : '') +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+      '<button class="btn btn-sm btn-ghost" onclick="setWalletPin()">🔐 ' + (me.walletPinHash ? 'Đổi mã' : 'Đặt mã bảo mật') + '</button>' +
+      '<button class="btn btn-sm btn-cyan" onclick="document.getElementById(\'wTxPanel\').style.display=\'block\'">💸 Chuyển tiền</button>' +
+      '</div></div>' +
+      '<div id="wTxPanel" style="display:none;margin-bottom:14px" class="glass-card">' +
+      '<div style="padding:12px">' +
+      '<div class="inp-label">Người nhận (@username)</div>' +
+      '<input class="inp" id="wTxTo" placeholder="username" onblur="previewRecipient()"/>' +
+      '<div id="wTxPreview" class="sec-note" style="margin:8px 0"></div>' +
+      '<div class="inp-label">Số tiền (đ)</div>' +
+      '<input class="inp" id="wTxAmount" type="number" min="1000" placeholder="1000"/>' +
+      '<div class="inp-label">Ghi chú</div>' +
+      '<input class="inp" id="wTxNote" placeholder="Không bắt buộc"/>' +
+      '<div class="inp-label">Mã bảo mật ví</div>' +
+      '<input class="inp" id="wTxPin" type="password" inputmode="numeric" placeholder="••••"/>' +
+      '<button class="btn btn-gold btn-full" style="margin-top:10px" onclick="walletTransfer()">Xác nhận chuyển</button>' +
+      '</div></div>' +
+      '<div class="sec-title">👑 MUA GÓI BẰNG VÍ</div>' +
+      '<div id="wPackList"></div>';
+
+    // packs
+    var packs = [];
+    try {
+      var s = getSettings() || {};
+      packs = (Array.isArray(s.shopPacks) ? s.shopPacks : []).filter(function(p){ return p && (p.type === 'vip' || p.type === 'diamond' || !p.type); });
+    } catch(e) {}
+    var pl = document.getElementById('wPackList');
+    if (pl) {
+      if (!packs.length) {
+        pl.innerHTML = '<div class="sec-note">Chưa có gói — admin tạo trong Cửa hàng / shopPacks</div>';
+      } else {
+        pl.innerHTML = packs.map(function(p) {
+          var price = Math.floor(Number(p.price || p.amount || 0) || 0);
+          return '<div class="vip-user-card">' +
+            '<div style="font-weight:700">' + esc(p.label || p.name || p.id) + '</div>' +
+            '<div class="sec-note">' + (p.days || 30) + ' ngày · ' + price.toLocaleString('vi-VN') + 'đ</div>' +
+            '<button class="btn btn-gold btn-sm" style="margin-top:8px" onclick="buyPackWithWallet(\'' + String(p.id).replace(/'/g, '') + '\')">Mua bằng ví</button>' +
+            '</div>';
+        }).join('');
+      }
+    }
+  }
+  window.renderWalletUI = renderWalletUI;
+
+  window.previewRecipient = function() {
+    var toUser = ((document.getElementById('wTxTo') || {}).value || '').trim().replace(/^@/, '');
+    var el = document.getElementById('wTxPreview');
+    if (!el) return;
+    var u = (localUsers || {})[toUser];
+    if (!u) { el.innerHTML = toUser ? '⚠️ Không tìm thấy @' + esc(toUser) : ''; return; }
+    ensureAccountNo(u);
+    var hideVip = u.vipPrivacy && u.username !== (me && me.username);
+    var lv = typeof getUserVipLevel === 'function' ? getUserVipLevel(u) : 0;
+    el.innerHTML = 'Người nhận: <b>' + esc(u.display || u.username) + '</b> · STK <b>' + esc(u.accountNo) + '</b>' +
+      (hideVip ? '' : (lv >= 1 ? ' · VIP ' + lv : '')) +
+      (u.verified ? ' <span class="verified-tick">✓</span>' : '');
+  };
+
+  // ===== 4. Xem trang cá nhân người khác =====
+  window.openUserProfile = function(username) {
+    username = (username || '').replace(/^@/, '');
+    var u = (localUsers || {})[username];
+    if (!u) { toast('Không tìm thấy user', 'err'); return; }
+    ensureAccountNo(u);
+    u = checkVipExpiry(Object.assign({}, u));
+    var lv = typeof getUserVipLevel === 'function' ? getUserVipLevel(u) : 0;
+    var hideDetail = !!(u.vipPrivacy && (!me || (me.username !== u.username && me.role !== 'admin')));
+    var ava = u.avatar || '👤';
+    var avaHtml = (typeof ava === 'string' && ava.indexOf('data:image') === 0)
+      ? '<img src="' + ava.replace(/"/g,'') + '" style="width:64px;height:64px;border-radius:50%;object-fit:cover"/>'
+      : '<div style="font-size:40px">' + esc(String(ava).slice(0,4)) + '</div>';
+
+    var modal = document.getElementById('v911ProfileModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'v911ProfileModal';
+      modal.className = 'modal-bg open';
+      modal.innerHTML = '<div class="modal-box" id="v911ProfileBody"></div>';
+      modal.onclick = function(e){ if (e.target === modal) modal.classList.remove('open'); };
+      document.body.appendChild(modal);
+    }
+    var body = document.getElementById('v911ProfileBody');
+    body.innerHTML =
+      '<div class="modal-hd"><div class="modal-title">Hồ sơ</div>' +
+      '<button class="modal-close" onclick="document.getElementById(\'v911ProfileModal\').classList.remove(\'open\')">×</button></div>' +
+      '<div style="text-align:center;margin-bottom:12px">' + avaHtml +
+      '<div style="font-weight:800;font-size:16px;margin-top:8px">' + esc(u.display || u.username) +
+      (u.verified || u.role==='admin' ? ' <span class="verified-tick">✓</span>' : '') + '</div>' +
+      '<div style="color:var(--sub);font-size:12px">@' + esc(u.username) + '</div></div>' +
+      '<div class="glass-card" style="padding:12px">' +
+      '<div class="sec-note">Số tài khoản (STK)</div>' +
+      '<div style="font-size:18px;font-weight:800;color:var(--cyan)">' + esc(u.accountNo) + '</div>' +
+      (hideDetail ? '<div class="sec-note" style="margin-top:8px">🔒 VIP đang ẩn thông tin chi tiết</div>' :
+        '<div style="margin-top:8px;font-size:13px">' +
+        (lv >= 1 ? '<span class="vip-lv l' + lv + '">VIP ' + lv + '</span> ' : 'Thành viên ') +
+        (u.vipUntil ? '· HSD ' + new Date(u.vipUntil).toLocaleDateString('vi-VN') : '') +
+        '</div>') +
+      '</div>' +
+      (me && me.username !== u.username ?
+        '<button class="btn btn-cyan btn-full" style="margin-top:12px" onclick="document.getElementById(\'v911ProfileModal\').classList.remove(\'open\');' +
+        'document.getElementById(\'wTxPanel\')&&(document.getElementById(\'wTxPanel\').style.display=\'block\');' +
+        'var i=document.getElementById(\'wTxTo\');if(i){i.value=\'' + u.username + '\';previewRecipient();}' +
+        'switchUserTab&&switchUserTab(\'profile\')">' +
+        '💸 Chuyển tiền cho người này</button>' : '');
+    modal.classList.add('open');
+  };
+
+  // Click tên trong chat → mở profile
+  document.addEventListener('click', function(e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.classList && t.classList.contains('chat-name') && t.textContent && t.textContent !== 'Bạn') {
+      // try find username from sibling
+    }
+  }, true);
+
+  // ===== 5. Bỏ chia sẻ link =====
+  var css = document.createElement('style');
+  css.textContent = `
+    [onclick*="shareItem"], .share-btn, .btn-share, #btnShareItem { display:none !important; }
+    .v911-wallet-buy { margin-top: 8px; }
+  `;
+  document.head.appendChild(css);
+  if (typeof shareItemDeepLink === 'function') {
+    window.shareItemDeepLink = function() { toast('Đã tắt chia sẻ link', 'err'); };
+  }
+
+  // ===== 6. Avatar: giữ khi save + khi sync =====
+  if (typeof saveProfile === 'function') {
+    var _sp = saveProfile;
+    saveProfile = async function() {
+      if (!me) return;
+      var name = (document.getElementById('profName') || {}).value || '';
+      name = String(name).trim();
+      var avaEl = document.getElementById('profAva');
+      var ava = (avaEl && avaEl.value) || me.avatar || '👤';
+      // Ảnh photo preview
+      var photo = document.getElementById('profAvaPhotoPreview');
+      if (photo && photo.src && photo.src.indexOf('data:image') === 0 && photo.style.display !== 'none') {
+        ava = photo.src;
+      }
+      if (!name) { toast('⚠️ Tên trống', 'err'); return; }
+      var updated = Object.assign({}, me, { display: name, avatar: ava });
+      ensureAccountNo(updated);
+      await updateUser(me.username, updated);
+      me = updated;
+      try {
+        var uName = document.getElementById('uName');
+        if (uName) uName.textContent = name;
+        var uAva = document.getElementById('uAva');
+        if (uAva) {
+          if (String(ava).indexOf('data:image') === 0) {
+            uAva.innerHTML = '<img src="'+ava.replace(/"/g,'')+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>';
+          } else {
+            uAva.textContent = ava;
+          }
+        }
+      } catch(e) {}
+      toast('✅ Đã lưu hồ sơ (avatar giữ nguyên)', 'ok');
+    };
+  }
+
+  // Toggle ẩn info VIP
+  window.toggleVipPrivacy = async function() {
+    if (!me) return;
+    var next = !me.vipPrivacy;
+    await updateUser(me.username, Object.assign({}, me, { vipPrivacy: next }));
+    me.vipPrivacy = next;
+    toast(next ? '🔒 Đã ẩn chi tiết VIP với người khác' : 'Đã hiện thông tin VIP', 'ok');
+    renderWalletUI();
+  };
+
+  // ===== 7. Gắn UI vào tab profile / VIP =====
+  function injectWalletSection() {
+    var tab = document.getElementById('userTabProfile') || document.getElementById('userTabVip');
+    if (!tab) return;
+    var box = document.getElementById('v911WalletBox');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'v911WalletBox';
+      tab.insertBefore(box, tab.firstChild);
+    }
+    renderWalletUI();
+    // Nút xem STK + privacy
+    if (!document.getElementById('v911PrivBtn') && tab) {
+      var b = document.createElement('button');
+      b.id = 'v911PrivBtn';
+      b.className = 'btn btn-ghost btn-sm';
+      b.style.marginTop = '8px';
+      b.textContent = '🔒 Ẩn/hiện info VIP';
+      b.onclick = toggleVipPrivacy;
+      box.appendChild(b);
+    }
+  }
+
+  // Nút mua bằng ví trên card item (nếu có walletPrice)
+  var _rig = typeof renderItemGrid === 'function' ? renderItemGrid : null;
+  if (_rig) {
+    renderItemGrid = function() {
+      var r = _rig.apply(this, arguments);
+      setTimeout(function() {
+        try {
+          document.querySelectorAll('.product-card[data-id], .product-card').forEach(function(card) {
+            if (card.querySelector('.v911-wallet-buy')) return;
+            var oc = card.getAttribute('onclick') || '';
+            var m = oc.match(/openBypass\('([^']+)'\)/);
+            if (!m) return;
+            var id = m[1];
+            var item = (localItems || {})[id];
+            if (!item) return;
+            var price = Math.floor(Number(item.walletPrice || item.price || 0) || 0);
+            if (price <= 0) return;
+            var btn = document.createElement('button');
+            btn.className = 'btn btn-sm btn-gold v911-wallet-buy';
+            btn.style.cssText = 'width:calc(100% - 16px);margin:0 8px 8px';
+            btn.textContent = '💳 Mua ' + price.toLocaleString('vi-VN') + 'đ';
+            btn.onclick = function(e) {
+              e.stopPropagation();
+              buyItemWithWallet(id);
+            };
+            card.appendChild(btn);
+          });
+        } catch(e) {}
+      }, 100);
+      return r;
+    };
+  }
+
+  // Admin: nạp ví nhanh
+  if (typeof renderUsersAdminSplit === 'function') {
+    var _rus = renderUsersAdminSplit;
+    renderUsersAdminSplit = function(body) {
+      _rus(body);
+      setTimeout(function() {
+        try {
+          document.querySelectorAll('#userSplitList .item-manage-row').forEach(function(row) {
+            if (row.querySelector('.v911-wdep')) return;
+            var sub = row.querySelector('.imr-name');
+            if (!sub) return;
+            var m = (sub.textContent || '').match(/@([a-zA-Z0-9_]+)/);
+            if (!m) return;
+            var acts = row.querySelector('.imr-acts');
+            if (!acts) return;
+            acts.insertAdjacentHTML('beforeend',
+              '<button class="btn btn-xs btn-gold v911-wdep" onclick="var a=prompt(\'Nạp ví @' + m[1] + ' số tiền:\');if(a)walletDepositAdmin(\'' + m[1] + '\',a)">+Ví</button>');
+          });
+        } catch(e) {}
+      }, 100);
+    };
+  }
+
+  // Hook enterMain / tab
+  var _enter = typeof enterMain === 'function' ? enterMain : null;
+  if (_enter) {
+    enterMain = function() {
+      var r = _enter.apply(this, arguments);
+      setTimeout(function() {
+        if (me) {
+          me = checkVipExpiry(Object.assign({}, me));
+          ensureAccountNo(me);
+          if (!(localUsers || {})[me.username] || !(localUsers || {})[me.username].accountNo) {
+            updateUser(me.username, me).catch(function(){});
+          }
+        }
+        injectWalletSection();
+      }, 500);
+      return r;
+    };
+  }
+  if (typeof switchUserTab === 'function') {
+    var _st = switchUserTab;
+    switchUserTab = function(t) {
+      var r = _st.apply(this, arguments);
+      if (t === 'profile' || t === 'vip') setTimeout(injectWalletSection, 150);
+      return r;
+    };
+  }
+
+  // Định kỳ kiểm tra hết hạn VIP (2 phút)
+  setInterval(function() {
+    if (me) {
+      var before = me.vipUntil;
+      me = checkVipExpiry(Object.assign({}, me));
+      if (before && !me.vipUntil && before !== me.vipUntil) {
+        toast('⏰ Gói VIP đã hết hạn', 'err');
+        try { if (typeof paintVipBar === 'function') paintVipBar(); } catch(e) {}
+      }
+    }
+  }, 120000);
+
+  console.log('%c PATCH v9.11 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
+
+<script>
+// ============================================================
+// PATCH v9.12 — Đăng nhập Google (Firebase Auth)
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c PATCH v9.12 Google Login', 'color:#4285F4;font-weight:bold');
+
+  var auth = null;
+  var googleProvider = null;
+
+  function initGoogleAuth() {
+    try {
+      if (typeof firebase === 'undefined' || !firebase.auth) {
+        console.warn('[Google] firebase-auth chưa load');
+        return false;
+      }
+      auth = firebase.auth();
+      googleProvider = new firebase.auth.GoogleAuthProvider();
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      return true;
+    } catch (e) {
+      console.warn('[Google] init fail', e);
+      return false;
+    }
+  }
+
+  function googleUsernameFromUser(user) {
+    // Ưu tiên email local-part, fallback uid
+    var base = '';
+    if (user.email) {
+      base = String(user.email).split('@')[0].toLowerCase();
+    } else {
+      base = 'g' + String(user.uid || '').slice(0, 12);
+    }
+    base = base.replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    if (base.length < 3) base = ('g_' + String(user.uid || 'user')).slice(0, 20);
+    if (base.length > 20) base = base.slice(0, 20);
+    return base;
+  }
+
+  function uniqueUsername(preferred, uid) {
+    var u = preferred;
+    var users = localUsers || {};
+    if (!users[u]) return u;
+    // Đã có — nếu cùng googleUid thì dùng lại
+    if (users[u].googleUid === uid) return u;
+    // Tìm user theo googleUid
+    for (var k in users) {
+      if (users[k] && users[k].googleUid === uid) return k;
+    }
+    // Tạo username mới
+    var suffix = String(uid || '').replace(/[^a-z0-9]/gi, '').slice(-4).toLowerCase();
+    var cand = (preferred.slice(0, 14) + '_' + suffix).slice(0, 20);
+    if (!users[cand]) return cand;
+    var i = 1;
+    while (users[cand + i] && i < 99) i++;
+    return (cand + i).slice(0, 20);
+  }
+
+  window.loginWithGoogle = async function() {
+    if (typeof isBusy !== 'undefined' && isBusy) return;
+    if (!initGoogleAuth()) {
+      showAlert('loginErr', '❌ Chưa tải được Google Auth. Kiểm tra mạng / Firebase Auth.', 'err');
+      toast('Firebase Auth chưa sẵn sàng', 'err');
+      return;
+    }
+
+    // Device ban
+    try {
+      if (typeof loadDeviceBlacklistHard === 'function') await loadDeviceBlacklistHard();
+      if (typeof isDeviceBanned === 'function' && isDeviceBanned()) {
+        showAlert('loginErr', '🚫 Thiết bị đã bị khóa vĩnh viễn', 'err');
+        return;
+      }
+    } catch (e) {}
+
+    var btn = document.getElementById('btnGoogleLogin');
+    if (btn) btn.disabled = true;
+    try {
+      isBusy = true;
+      var result;
+      try {
+        result = await auth.signInWithPopup(googleProvider);
+      } catch (popupErr) {
+        // Một số WebView / trình duyệt chặn popup → redirect
+        console.warn('[Google] popup fail, thử redirect', popupErr);
+        if (popupErr && (popupErr.code === 'auth/popup-blocked' ||
+            popupErr.code === 'auth/cancelled-popup-request' ||
+            /webview|blocked/i.test(String(popupErr.message || '')))) {
+          await auth.signInWithRedirect(googleProvider);
+          return; // trang sẽ reload
+        }
+        throw popupErr;
+      }
+
+      var user = result.user;
+      if (!user) throw new Error('Không lấy được user Google');
+
+      await finishGoogleLogin(user);
+    } catch (e) {
+      console.error('[Google] login error', e);
+      var msg = (e && e.message) || 'Đăng nhập Google thất bại';
+      if (e && e.code === 'auth/unauthorized-domain') {
+        msg = 'Domain chưa được phép — vào Firebase Console → Authentication → Settings → Authorized domains, thêm domain hiện tại.';
+      } else if (e && e.code === 'auth/operation-not-allowed') {
+        msg = 'Chưa bật Google Sign-In trong Firebase Console → Authentication → Sign-in method.';
+      } else if (e && e.code === 'auth/popup-closed-by-user') {
+        msg = 'Bạn đã đóng cửa sổ Google';
+      }
+      try { showAlert('loginErr', '❌ ' + msg, 'err'); } catch (x) {}
+      toast(msg, 'err');
+    } finally {
+      isBusy = false;
+      if (btn) btn.disabled = false;
+    }
+  };
+
+  async function finishGoogleLogin(user) {
+    var preferred = googleUsernameFromUser(user);
+    var username = uniqueUsername(preferred, user.uid);
+    var existing = (localUsers || {})[username];
+
+    // Tìm theo googleUid nếu username khác
+    if (!existing) {
+      var users = localUsers || {};
+      for (var k in users) {
+        if (users[k] && users[k].googleUid === user.uid) {
+          existing = users[k];
+          username = k;
+          break;
+        }
+      }
+    }
+
+    var did = typeof getDeviceId === 'function' ? getDeviceId() : '';
+    var display = user.displayName || preferred || username;
+    var avatar = user.photoURL || (existing && existing.avatar) || '👤';
+
+    if (existing) {
+      if (typeof isUserBanned === 'function' && isUserBanned(existing)) {
+        showAlert('loginErr', '🚫 Tài khoản đã bị khóa', 'err');
+        try { await auth.signOut(); } catch (e) {}
+        return;
+      }
+      var deviceIds = Array.isArray(existing.deviceIds) ? existing.deviceIds.slice() : [];
+      if (did && deviceIds.indexOf(did) < 0) deviceIds.push(did);
+      var updated = Object.assign({}, existing, {
+        googleUid: user.uid,
+        googleEmail: user.email || existing.googleEmail || '',
+        display: existing.display || display,
+        avatar: (existing.avatar && String(existing.avatar).indexOf('data:image') === 0)
+          ? existing.avatar
+          : (avatar || existing.avatar),
+        lastDeviceId: did || existing.lastDeviceId,
+        deviceIds: deviceIds,
+        lastLoginAt: new Date().toISOString(),
+        authProvider: 'google'
+      });
+      if (typeof checkVipExpiry === 'function') updated = checkVipExpiry(updated);
+      await updateUser(username, updated);
+      me = updated;
+    } else {
+      // Tạo tài khoản mới
+      var nu = {
+        username: username,
+        display: display,
+        role: 'user',
+        avatar: avatar,
+        joined: new Date().toISOString(),
+        banned: false,
+        googleUid: user.uid,
+        googleEmail: user.email || '',
+        authProvider: 'google',
+        deviceIds: did ? [did] : [],
+        lastDeviceId: did,
+        walletBalance: 0,
+        vip: false,
+        vipLevel: 0,
+        // Không có password — chỉ login Google
+        passwordHash: '',
+        passwordSalt: '',
+        noPassword: true
+      };
+      if (typeof ensureAccountNo === 'function') nu = ensureAccountNo(nu);
+      await updateUser(username, nu);
+      me = nu;
+      try {
+        if (typeof notifyApp === 'function') {
+          notifyApp('register_google', '🆕 Google: @' + username + '\n' + (user.email || ''), { user: username });
+        }
+      } catch (e) {}
+    }
+
+    localStorage.setItem(SESSION_K, JSON.stringify({
+      username: username,
+      exp: Date.now() + 7 * 86400000,
+      provider: 'google'
+    }));
+    try { showAlert('loginErr', '', 'err'); } catch (e) {}
+    toast('✅ Đăng nhập Google thành công', 'ok');
+    enterMain();
+    setTimeout(function() {
+      try { if (typeof __v6AfterLogin === 'function') __v6AfterLogin(); } catch (e) {}
+    }, 400);
+  }
+
+  // Xử lý redirect result (khi popup bị chặn)
+  function handleRedirectResult() {
+    if (!initGoogleAuth()) return;
+    auth.getRedirectResult().then(function(result) {
+      if (result && result.user) {
+        finishGoogleLogin(result.user).catch(function(e) {
+          console.error(e);
+          toast('Google login lỗi: ' + (e.message || ''), 'err');
+        });
+      }
+    }).catch(function(e) {
+      if (e && e.code !== 'auth/credential-already-in-use') {
+        console.warn('[Google] redirect', e);
+      }
+    });
+  }
+
+  // Đợi firebase auth load
+  function boot() {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      initGoogleAuth();
+      handleRedirectResult();
+    } else {
+      setTimeout(boot, 400);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(boot, 300); });
+  } else {
+    setTimeout(boot, 300);
+  }
+
+  console.log('%c PATCH v9.12 READY — Google Login', 'color:#40ff9c;font-weight:bold');
 })();
 </script>
 
