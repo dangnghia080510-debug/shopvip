@@ -17040,5 +17040,294 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.13.3 — GHI ĐÈ UI ví: bỏ @username, STK đúng 10 số
+// (chạy cuối cùng — đè mọi patch cũ)
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.13.3 force STK UI', 'color:#ff5c7a;font-weight:bold');
+
+  function isValidStk(s) {
+    return /^\d{10}$/.test(String(s || '').replace(/\D/g, ''));
+  }
+  function onlyStk(s) {
+    return String(s || '').replace(/\D/g, '').slice(0, 10);
+  }
+  function bal(u) {
+    return Math.max(0, parseInt(u && u.walletBalance, 10) || 0);
+  }
+
+  function genStk10() {
+    var n = '';
+    if (window.crypto && crypto.getRandomValues) {
+      var a = new Uint32Array(3);
+      crypto.getRandomValues(a);
+      n = String((a[0] % 9) + 1);
+      n += String(a[1] % 1000000000).padStart(9, '0').slice(0, 9);
+    } else {
+      n = String(1 + Math.floor(Math.random() * 9));
+      for (var i = 0; i < 9; i++) n += Math.floor(Math.random() * 10);
+    }
+    return n.slice(0, 10);
+  }
+
+  function stkTaken(stk, exceptUser) {
+    stk = onlyStk(stk);
+    if (!isValidStk(stk)) return true;
+    var users = localUsers || {};
+    for (var k in users) {
+      if (exceptUser && k === exceptUser) continue;
+      if (onlyStk(users[k] && users[k].accountNo) === stk) return true;
+    }
+    return false;
+  }
+
+  function randomFreeStk(exceptUser) {
+    for (var t = 0; t < 300; t++) {
+      var s = genStk10();
+      if (!stkTaken(s, exceptUser)) return s;
+    }
+    return null;
+  }
+
+  // STK kiểu MWADMIN / chữ = KHÔNG hợp lệ → coi như chưa có
+  function effectiveStk(u) {
+    if (!u) return '';
+    var s = onlyStk(u.accountNo);
+    return isValidStk(s) ? s : '';
+  }
+
+  window.findUserByAccountNo = function(stk) {
+    stk = onlyStk(stk);
+    if (!isValidStk(stk)) return null;
+    var users = localUsers || {};
+    for (var k in users) {
+      if (onlyStk(users[k] && users[k].accountNo) === stk) return users[k];
+    }
+    return null;
+  };
+
+  window.userGenerateStk = async function() {
+    if (!me) return;
+    var cur = effectiveStk(me);
+    if (cur && me.role !== 'admin') {
+      toast('Bạn đã có STK: ' + cur, 'err');
+      return;
+    }
+    var stk = randomFreeStk(me.username);
+    if (!stk) { toast('Không tạo được STK — thử lại', 'err'); return; }
+    if (!confirm('Số tài khoản 10 số của bạn:\n\n' + stk + '\n\nKhông trùng ai. Xác nhận lưu?')) return;
+    await updateUser(me.username, Object.assign({}, me, { accountNo: stk, accountNoAt: new Date().toISOString() }));
+    me.accountNo = stk;
+    toast('✅ STK: ' + stk, 'ok');
+    paintAllWalletUI();
+  };
+
+  window.adminSetAccountNo = async function(username) {
+    if (typeof requireStaff === 'function' && !requireStaff()) return;
+    var u = (localUsers || {})[username];
+    if (!u) { toast('Không thấy user', 'err'); return; }
+    var cur = effectiveStk(u) || String(u.accountNo || '');
+    var raw = prompt('STK 10 SỐ cho @' + username + '\nHiện: ' + (cur || 'chưa có') + '\n\nĐể trống = random\nChỉ chấp nhận đúng 10 chữ số, không trùng', '');
+    if (raw === null) return;
+    var stk = onlyStk(raw);
+    if (!stk) stk = randomFreeStk(username);
+    if (!isValidStk(stk)) { toast('Phải đúng 10 chữ số', 'err'); return; }
+    if (stkTaken(stk, username)) { toast('STK đã trùng người khác', 'err'); return; }
+    await updateUser(username, Object.assign({}, u, { accountNo: stk, accountNoAt: new Date().toISOString() }));
+    toast('✅ STK @' + username + ' = ' + stk, 'ok');
+  };
+
+  window.previewRecipient = function() {
+    var el = document.getElementById('wTxPreview');
+    var inp = document.getElementById('wTxTo');
+    if (!el || !inp) return;
+    // Chỉ cho nhập số
+    var digits = onlyStk(inp.value);
+    if (inp.value !== digits) inp.value = digits;
+    if (!digits) { el.innerHTML = ''; return; }
+    if (digits.length < 10) {
+      el.innerHTML = '<span style="color:var(--sub)">Đã nhập ' + digits.length + '/10 số</span>';
+      return;
+    }
+    var u = findUserByAccountNo(digits);
+    if (!u) {
+      el.innerHTML = '⚠️ Không có STK <b>' + digits + '</b>';
+      return;
+    }
+    el.innerHTML = '✓ Đúng STK — chủ ví: <b>' + esc(u.display || 'User') + '</b>';
+  };
+
+  window.walletTransfer = async function() {
+    if (!me) { toast('Cần đăng nhập', 'err'); return; }
+    if (!effectiveStk(me)) {
+      toast('Hãy tạo STK 10 số trước', 'err');
+      return;
+    }
+    var stk = onlyStk((document.getElementById('wTxTo') || {}).value);
+    var amount = Math.floor(Number((document.getElementById('wTxAmount') || {}).value) || 0);
+    var note = ((document.getElementById('wTxNote') || {}).value || '').trim();
+    var pin = ((document.getElementById('wTxPin') || {}).value || '').trim();
+    if (!isValidStk(stk)) { toast('STK người nhận phải đủ 10 số', 'err'); return; }
+    if (amount < 1000) { toast('Tối thiểu 1.000đ', 'err'); return; }
+
+    // PIN
+    if (!me.walletPinHash) { toast('Đặt mã bảo mật ví trước', 'err'); return; }
+    var okPin = false;
+    try {
+      var stored = me.walletPinHash;
+      if (stored.indexOf(':') > 0 && typeof verifyPassword === 'function') {
+        var p = stored.split(':');
+        okPin = await verifyPassword(String(pin), p[0], p[1]);
+      } else {
+        okPin = stored === btoa(pin + '_muop') || stored === btoa(pin + '_muop_v13');
+      }
+    } catch(e) {}
+    if (!okPin) { toast('❌ Mã bảo mật sai', 'err'); return; }
+
+    var recv = findUserByAccountNo(stk);
+    if (!recv) { toast('Không tìm thấy STK ' + stk, 'err'); return; }
+    if (recv.username === me.username) { toast('Không chuyển cho chính mình', 'err'); return; }
+    var sBal = bal(me);
+    if (sBal < amount) { toast('Số dư không đủ', 'err'); return; }
+
+    await updateUser(me.username, Object.assign({}, me, { walletBalance: sBal - amount }));
+    await updateUser(recv.username, Object.assign({}, recv, { walletBalance: bal(recv) + amount }));
+    me = (localUsers || {})[me.username] || me;
+    try {
+      if (typeof pushWalletTx === 'function') {
+        await pushWalletTx({ type: 'transfer', from: me.username, to: recv.username, toStk: stk, amount: amount, note: note });
+      }
+    } catch(e) {}
+    toast('✅ Đã chuyển ' + amount.toLocaleString('vi-VN') + 'đ → STK ' + stk, 'ok');
+    paintAllWalletUI();
+  };
+
+  function walletCardHtml() {
+    if (!me) return '';
+    var stk = effectiveStk(me);
+    var html = '';
+    html += '<div style="font-size:12px;color:var(--sub)">Số dư</div>';
+    html += '<div style="font-size:28px;font-weight:800;color:var(--gold);margin-bottom:10px">' + bal(me).toLocaleString('vi-VN') + 'đ</div>';
+    if (stk) {
+      html += '<div style="font-size:12px;color:var(--sub)">Số tài khoản (STK) — 10 số</div>';
+      html += '<div style="font-size:24px;font-weight:800;color:var(--cyan);letter-spacing:3px">' + stk + '</div>';
+      html += '<div class="sec-note">Chuyển tiền bằng <b>10 số này</b>, không dùng tên</div>';
+      html += '<button class="btn btn-xs btn-ghost" style="margin-top:6px" onclick="navigator.clipboard.writeText(\'' + stk + '\').then(function(){toast(\'Đã copy STK\',\'ok\')})">📋 Copy STK</button>';
+    } else {
+      html += '<div class="alert alert-warn show">STK cũ không hợp lệ hoặc chưa có. Bấm tạo 10 số mới.</div>';
+      html += '<button class="btn btn-cyan btn-full" onclick="userGenerateStk()">🎲 Tạo số tài khoản 10 số</button>';
+    }
+    var lv = typeof getUserVipLevel === 'function' ? getUserVipLevel(me) : 0;
+    if (lv >= 1) html += '<div style="margin-top:8px"><span class="vip-lv l' + lv + '">VIP ' + lv + '</span></div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">';
+    html += '<button class="btn btn-sm btn-ghost" onclick="setWalletPin()">🔐 Mã bảo mật</button>';
+    html += '<button class="btn btn-sm btn-cyan" onclick="var e=document.getElementById(\'v913TxBox\');if(e)e.style.display=\'block\'">💸 Chuyển tiền</button>';
+    html += '</div>';
+
+    html += '<div id="v913TxBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">';
+    html += '<div class="inp-label">STK người nhận (chỉ 10 chữ số)</div>';
+    html += '<input class="inp" id="wTxTo" placeholder="VD: 4829137601" inputmode="numeric" maxlength="10" oninput="previewRecipient()"/>';
+    html += '<div id="wTxPreview" class="sec-note" style="margin:8px 0"></div>';
+    html += '<div class="inp-label">Số tiền (đ)</div>';
+    html += '<input class="inp" id="wTxAmount" type="number" min="1000" placeholder="1000"/>';
+    html += '<div class="inp-label">Ghi chú</div>';
+    html += '<input class="inp" id="wTxNote" placeholder="Không bắt buộc"/>';
+    html += '<div class="inp-label">Mã bảo mật ví</div>';
+    html += '<input class="inp" id="wTxPin" type="password" inputmode="numeric" maxlength="6" placeholder="6 số"/>';
+    html += '<button class="btn btn-gold btn-full" style="margin-top:10px" onclick="walletTransfer()">Xác nhận chuyển</button>';
+    html += '</div>';
+    return html;
+  }
+
+  function paintAllWalletUI() {
+    if (!me) return;
+    // 1) Tab Ví chính
+    var box = document.getElementById('walletStatusBox');
+    if (box) box.innerHTML = walletCardHtml();
+
+    // 2) Mọi box ví cũ (v911 / profile)
+    var old = document.getElementById('v911WalletBox');
+    if (old) {
+      old.innerHTML = '<div class="sec-title">💳 VÍ CỦA TÔI</div><div class="glass-card" style="padding:14px;margin-bottom:12px">' + walletCardHtml() + '</div>';
+    }
+
+    // 3) Xóa / sửa label @username còn sót trong DOM
+    document.querySelectorAll('label, .inp-label, div').forEach(function(el) {
+      if (!el || el.children.length > 3) return;
+      var t = (el.textContent || '').trim();
+      if (/NGƯỜI NHẬN.*USERNAME|@USERNAME|Người nhận \(@user/i.test(t) && t.length < 40) {
+        el.textContent = 'STK người nhận (10 số)';
+      }
+    });
+    var wTx = document.getElementById('wTxTo');
+    if (wTx) {
+      wTx.placeholder = 'Chỉ 10 chữ số STK';
+      wTx.setAttribute('inputmode', 'numeric');
+      wTx.setAttribute('maxlength', '10');
+    }
+  }
+
+  // Đè mọi hàm vẽ ví cũ
+  window.renderWalletTab = async function() {
+    paintAllWalletUI();
+    // keys + history giữ tối giản
+    var pay = document.getElementById('walletPayList');
+    if (pay && me) {
+      try {
+        var snap = await db.collection(COL).doc(typeof VIP_REQ_DOC !== 'undefined' ? VIP_REQ_DOC : 'vip_requests').get();
+        var list = ((snap.exists && snap.data() && snap.data().list) || []).filter(function(r){ return r.user === me.username; }).reverse();
+        pay.innerHTML = list.length ? list.slice(0, 20).map(function(r){
+          return '<div class="history-item"><div class="history-name">' + esc(r.status) + ' ' + Number(r.amount||0).toLocaleString('vi-VN') + 'đ</div></div>';
+        }).join('') : '<div class="sec-note">Chưa có lịch sử nạp</div>';
+      } catch(e) {}
+    }
+  };
+  window.renderWalletUI = function() { paintAllWalletUI(); };
+  window.renderV913WalletTab = function() { paintAllWalletUI(); };
+
+  // Hook tab
+  if (typeof switchUserTab === 'function') {
+    var _st = switchUserTab;
+    switchUserTab = function(tab) {
+      var r = _st.apply(this, arguments);
+      if (tab === 'wallet' || tab === 'profile' || tab === 'vip') {
+        setTimeout(paintAllWalletUI, 50);
+        setTimeout(paintAllWalletUI, 300);
+      }
+      return r;
+    };
+  }
+
+  // MutationObserver: nếu patch cũ ghi đè lại form username → sửa lại
+  var obsTimer = null;
+  try {
+    var obs = new MutationObserver(function() {
+      clearTimeout(obsTimer);
+      obsTimer = setTimeout(function() {
+        var labels = document.body.innerText || '';
+        if (/NGƯỜI NHẬN \(@USERNAME\)|placeholder=\"username\"/i.test(document.body.innerHTML)) {
+          paintAllWalletUI();
+        }
+        // STK dạng MWADMIN trên card
+        var box = document.getElementById('walletStatusBox');
+        if (box && /STK:\s*MW/i.test(box.textContent || '') && me && !effectiveStk(me)) {
+          paintAllWalletUI();
+        }
+      }, 100);
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  } catch(e) {}
+
+  setTimeout(paintAllWalletUI, 600);
+  setTimeout(paintAllWalletUI, 2000);
+
+  console.log('%c FIX v9.13.3 READY — không còn @username / MWADMIN', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
