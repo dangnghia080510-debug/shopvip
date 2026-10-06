@@ -21286,5 +21286,106 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.15.2 — Nút ROLE / Admin phụ trên thẻ user (UI card)
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.15.2 editor role button on cards', 'color:#ffe066;font-weight:bold');
+
+  window.adminSetRole = window.adminSetRole || async function(username, role) {
+    if (!me || me.role !== 'admin') { toast('⛔ Chỉ Admin chính', 'err'); return; }
+    role = String(role || 'user');
+    if (['user', 'mod', 'editor'].indexOf(role) < 0) { toast('Role không hợp lệ', 'err'); return; }
+    if (username === me.username) { toast('Không đổi role chính mình', 'err'); return; }
+    if (typeof updateUser === 'function') {
+      await updateUser(username, { role: role });
+    }
+    toast('✅ @' + username + ' → ' + (role === 'editor' ? 'Admin phụ' : role), 'ok');
+    try {
+      if (typeof renderUsersAdminSplit === 'function') {
+        renderUsersAdminSplit(document.getElementById('adminBody'));
+      }
+    } catch(e) {}
+  };
+
+  function injectRoleOnCards() {
+    if (!me || me.role !== 'admin') return;
+    var list = document.getElementById('userSplitList');
+    if (!list) return;
+    list.querySelectorAll('.item-manage-row').forEach(function(row) {
+      if (row.querySelector('[data-role-sel]')) return;
+      var nameEl = row.querySelector('.imr-name');
+      var acts = row.querySelector('.imr-acts');
+      if (!nameEl || !acts) return;
+      var m = (nameEl.textContent || '').match(/@([a-zA-Z0-9_]+)/);
+      if (!m) return;
+      var un = m[1];
+      var u = (localUsers || {})[un] || {};
+      var cur = u.role || 'user';
+      if (cur === 'mod_editor') cur = 'editor';
+
+      var wrap = document.createElement('span');
+      wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin:2px';
+      wrap.innerHTML =
+        '<select data-role-sel="1" class="inp" style="width:auto;max-width:120px;padding:4px 6px;font-size:11px;height:28px">' +
+        '<option value="user">User</option>' +
+        '<option value="editor">Admin phụ</option>' +
+        '<option value="mod">MOD</option>' +
+        '</select>';
+      var sel = wrap.querySelector('select');
+      sel.value = (cur === 'admin') ? 'user' : cur;
+      sel.addEventListener('change', function() {
+        adminSetRole(un, sel.value);
+      });
+      acts.appendChild(wrap);
+
+      // badge role hiện tại
+      if (cur === 'editor' || cur === 'mod') {
+        var b = document.createElement('span');
+        b.className = 'bdg';
+        b.style.cssText = 'background:#7c3aed;color:#fff;margin-left:4px;font-size:10px';
+        b.textContent = cur === 'editor' ? 'Admin phụ' : 'MOD';
+        if (nameEl.innerHTML.indexOf('Admin phụ') < 0 && nameEl.innerHTML.indexOf('MOD') < 0) {
+          nameEl.appendChild(b);
+        }
+      }
+    });
+  }
+
+  function hookRender() {
+    if (typeof renderUsersAdminSplit !== 'function') return;
+    if (renderUsersAdminSplit.__v9152) return;
+    var _r = renderUsersAdminSplit;
+    renderUsersAdminSplit = function(body) {
+      var r = _r.apply(this, arguments);
+      setTimeout(injectRoleOnCards, 50);
+      setTimeout(injectRoleOnCards, 300);
+      return r;
+    };
+    renderUsersAdminSplit.__v9152 = true;
+  }
+
+  hookRender();
+  setTimeout(hookRender, 500);
+  setTimeout(injectRoleOnCards, 1000);
+
+  // Khi đổi tab Khách
+  if (typeof aTab === 'function' && !aTab.__v9152) {
+    var _a = aTab;
+    aTab = function(t) {
+      var r = _a.apply(this, arguments);
+      if (t === 'users') setTimeout(injectRoleOnCards, 200);
+      return r;
+    };
+    aTab.__v9152 = true;
+  }
+
+  console.log('%c FIX v9.15.2 READY — chọn Admin phụ trên thẻ user', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
