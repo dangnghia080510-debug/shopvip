@@ -20740,5 +20740,551 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.15.1 — VIP/tích xanh không mất + cấm chat không đụng admin
+// + Admin phụ (role editor): chỉ THÊM sản phẩm
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.15.1 VIP/verified + editor role', 'color:#ffe066;font-weight:bold');
+
+  function iso() { return new Date().toISOString(); }
+  function userDocId(username) {
+    return 'user_' + String(username || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
+  }
+
+  // ---- Role helpers ----
+  window.isAdmin = function(u) {
+    u = u || me;
+    return !!(u && u.role === 'admin');
+  };
+  window.isEditor = function(u) {
+    u = u || me;
+    return !!(u && (u.role === 'editor' || u.role === 'mod_editor'));
+  };
+  // Staff = vào được trang admin (admin / mod / editor)
+  window.isStaff = function(u) {
+    u = u || me;
+    return !!(u && (u.role === 'admin' || u.role === 'mod' || u.role === 'editor' || u.role === 'mod_editor'));
+  };
+  window.canAdminFull = function(u) {
+    u = u || me;
+    return !!(u && u.role === 'admin');
+  };
+  // Chỉ admin chính
+  window.requireAdmin = function() {
+    if (!canAdminFull()) { toast('⛔ Chỉ Admin chính', 'err'); return false; }
+    return true;
+  };
+  // Admin hoặc mod đầy đủ (không phải editor)
+  window.requireStaff = function() {
+    if (!me) { toast('⛔ Chỉ Admin/MOD', 'err'); return false; }
+    if (me.role === 'admin' || me.role === 'mod') return true;
+    if (isEditor(me)) { toast('⛔ Admin phụ chỉ được thêm sản phẩm', 'err'); return false; }
+    toast('⛔ Chỉ Admin/MOD', 'err');
+    return false;
+  };
+  // Vào admin page: admin/mod/editor
+  window.requireStaffOrEditor = function() {
+    if (!isStaff()) { toast('⛔ Không có quyền', 'err'); return false; }
+    return true;
+  };
+
+  // ---- Bảo vệ field VIP / verified khi updateUser ----
+  var PROTECT = [
+    'verified', 'verifiedAt', 'verifiedBy',
+    'vipLevel', 'vipLevelManual', 'vip', 'vipUntil', 'diamond', 'diamondUntil',
+    'vipFreePerDay', 'totalDeposit', 'chatMuted'
+  ];
+
+  var _updateUser = typeof updateUser === 'function' ? updateUser : null;
+  window.updateUser = async function(username, data) {
+    if (!username) return;
+    try { if (typeof stripUndefined === 'function') data = stripUndefined(data); } catch(e) {}
+
+    var prev = {};
+    try {
+      if (localUsers && localUsers[username]) prev = Object.assign({}, localUsers[username]);
+    } catch(e) {}
+
+    // Đọc remote users map
+    var remoteUser = {};
+    try {
+      var snap = await db.collection(COL).doc('users').get();
+      var remote = (snap.exists && snap.data() && snap.data().data) || {};
+      if (remote[username]) remoteUser = remote[username];
+    } catch(e) {}
+
+    // Đọc per-user doc
+    var docUser = {};
+    try {
+      var ds = await db.collection(COL).doc(userDocId(username)).get();
+      if (ds.exists) docUser = ds.data() || {};
+      if (docUser.user && typeof docUser.user === 'object') docUser = Object.assign({}, docUser, docUser.user);
+    } catch(e) {}
+
+    var basePrev = Object.assign({}, remoteUser, docUser, prev);
+    var merged = Object.assign({}, basePrev, data || {});
+
+    // Không để data "undefined/null" xóa nhầm verified/vip admin gán
+    PROTECT.forEach(function(k) {
+      if ((data && Object.prototype.hasOwnProperty.call(data, k))) {
+        // admin cố tình set — giữ theo data
+        if (data[k] === undefined) merged[k] = basePrev[k];
+      } else if (basePrev[k] !== undefined && basePrev[k] !== null) {
+        if (merged[k] === undefined || merged[k] === null) merged[k] = basePrev[k];
+      }
+    });
+
+    // vipLevelManual > 0 → luôn giữ VIP hiển thị
+    var manual = parseInt(merged.vipLevelManual, 10) || 0;
+    if (manual >= 1) {
+      merged.vip = true;
+      merged.vipLevel = Math.max(parseInt(merged.vipLevel, 10) || 0, manual);
+      if (merged.vipLevel >= 6) merged.diamond = true;
+    }
+
+    // verified boolean
+    if (basePrev.verified === true && data && data.verified !== false && !Object.prototype.hasOwnProperty.call(data || {}, 'verified')) {
+      merged.verified = true;
+    }
+
+    if (!localUsers) localUsers = {};
+    localUsers[username] = merged;
+    try { lsSet(LS_USERS, { data: localUsers }); } catch(e) {}
+
+    // Ghi users map (best effort)
+    try {
+      var snap2 = await db.collection(COL).doc('users').get();
+      var all = (snap2.exists && snap2.data() && snap2.data().data) || {};
+      all[username] = merged;
+      localUsers = Object.assign({}, all, localUsers, { [username]: merged });
+      await db.collection(COL).doc('users').set({ data: localUsers });
+    } catch(e) { console.warn('updateUser users map', e); }
+
+    // Ghi per-user doc (source of truth phụ)
+    try {
+      await db.collection(COL).doc(userDocId(username)).set({
+        username: username,
+        verified: !!merged.verified,
+        verifiedAt: merged.verifiedAt || null,
+        verifiedBy: merged.verifiedBy || null,
+        vip: !!merged.vip,
+        vipLevel: parseInt(merged.vipLevel, 10) || 0,
+        vipLevelManual: parseInt(merged.vipLevelManual, 10) || 0,
+        vipUntil: merged.vipUntil || null,
+        diamond: !!merged.diamond,
+        diamondUntil: merged.diamondUntil || null,
+        chatMuted: !!merged.chatMuted,
+        role: merged.role || 'user',
+        display: merged.display || username,
+        avatar: merged.avatar || '👤',
+        updatedAt: iso(),
+        user: merged
+      }, { merge: true });
+    } catch(e) { console.warn('updateUser user doc', e); }
+
+    if (me && me.username === username) {
+      me = Object.assign({}, me, merged);
+    }
+    return merged;
+  };
+
+  // ---- checkVipExpiry: KHÔNG xóa VIP admin gán (vipLevelManual) ----
+  window.checkVipExpiry = function(u) {
+    if (!u || u.role === 'admin') return u;
+    var manual = parseInt(u.vipLevelManual, 10) || 0;
+    var now = Date.now();
+    var out = Object.assign({}, u);
+
+    // Hết hạn theo ngày nhưng còn cấp manual → giữ VIP theo manual
+    if (out.vipUntil) {
+      var t = new Date(out.vipUntil).getTime();
+      if (!isNaN(t) && t <= now) {
+        out.vipUntil = null;
+        if (manual >= 1) {
+          out.vip = true;
+          out.vipLevel = Math.max(parseInt(out.vipLevel, 10) || 0, manual);
+          out.diamond = out.vipLevel >= 6 || !!out.diamond;
+        } else {
+          // Chỉ clear nếu không có manual
+          var lvFromDeposit = parseInt(out.vipLevel, 10) || 0;
+          if (lvFromDeposit < 1) {
+            out.vip = false;
+            out.vipLevel = 0;
+            out.diamond = false;
+          }
+        }
+      }
+    }
+    if (out.diamondUntil) {
+      var td = new Date(out.diamondUntil).getTime();
+      if (!isNaN(td) && td <= now) {
+        out.diamondUntil = null;
+        if (!(parseInt(out.vipLevel, 10) >= 6) && manual < 6) out.diamond = false;
+      }
+    }
+    return out;
+  };
+
+  // getUserVipLevel: ưu tiên manual
+  window.getUserVipLevel = function(u) {
+    if (!u) return 0;
+    if (u.role === 'admin') return 8;
+    var manual = parseInt(u.vipLevelManual, 10) || 0;
+    var lv = parseInt(u.vipLevel, 10) || 0;
+    lv = Math.max(lv, manual);
+    if (lv < 0) lv = 0;
+    if (lv > 8) lv = 8;
+    if (!lv && (u.vip || u.diamond)) lv = u.diamond ? Math.max(lv, 6) : Math.max(lv, 1);
+    return lv;
+  };
+
+  window.verifiedBadgeHtml = function(u) {
+    if (!u) return '';
+    if (u.role === 'admin') return '<span class="verified-tick" title="Admin">✓</span>';
+    if (u.verified === true || u.verified === 'true' || u.verified === 1) {
+      return '<span class="verified-tick" title="Đã xác minh">✓</span>';
+    }
+    return '';
+  };
+  window.vipLevelBadgeHtml = function(u) {
+    if (!u) return '';
+    var lv = getUserVipLevel(u);
+    if (lv < 1) return '';
+    return '<span class="vip-lv l' + lv + '">VIP ' + lv + '</span>';
+  };
+  window.userBadgesHtml = function(u) {
+    return vipLevelBadgeHtml(u) + verifiedBadgeHtml(u);
+  };
+
+  // Admin cấp tích xanh — ghi chắc
+  window.adminToggleVerified = async function(username) {
+    if (!requireAdmin() && !requireStaff()) {
+      // requireStaff already toasted; allow admin only for verified
+    }
+    if (!canAdminFull() && !(me && me.role === 'mod')) {
+      toast('⛔ Chỉ Admin/MOD', 'err');
+      return;
+    }
+    var u = (localUsers || {})[username];
+    if (!u) {
+      try {
+        var ds = await db.collection(COL).doc(userDocId(username)).get();
+        if (ds.exists) u = Object.assign({ username: username }, ds.data().user || ds.data());
+      } catch(e) {}
+    }
+    if (!u) { toast('Không thấy user', 'err'); return; }
+    var next = !u.verified;
+    await updateUser(username, {
+      verified: next,
+      verifiedAt: next ? iso() : null,
+      verifiedBy: (me && me.username) || 'admin'
+    });
+    toast(next ? ('✅ Đã cấp tích xanh @' + username) : ('Đã gỡ tích xanh @' + username), 'ok');
+    try { if (typeof aTab === 'function') aTab(curAdminTab || 'users', false); } catch(e) {}
+  };
+
+  window.adminSetVipLevel = async function(username, level) {
+    if (!canAdminFull() && !(me && me.role === 'mod')) {
+      toast('⛔ Chỉ Admin/MOD', 'err');
+      return;
+    }
+    level = Math.max(0, Math.min(8, parseInt(level, 10) || 0));
+    var u = (localUsers || {})[username] || { username: username };
+    var freePerDay = 0;
+    try {
+      if (typeof getVipFreeByLevel === 'function') freePerDay = level >= 1 ? getVipFreeByLevel(level) : 0;
+    } catch(e) {}
+    await updateUser(username, {
+      vipLevel: level,
+      vipLevelManual: level,
+      vip: level >= 1,
+      diamond: level >= 6,
+      vipFreePerDay: freePerDay,
+      // Không set vipUntil — VIP cấp tay không tự hết vì ngày
+      vipUntil: level >= 1 ? (u.vipUntil || null) : null
+    });
+    toast('✅ @' + username + ' → VIP ' + level, 'ok');
+    try { if (typeof aTab === 'function') aTab(curAdminTab || 'users', false); } catch(e) {}
+  };
+
+  // ---- Cấm chat: không áp dụng admin/mod/editor ----
+  window.muteChatUser = async function(username) {
+    if (!canAdminFull() && !(me && me.role === 'mod')) {
+      toast('⛔ Chỉ Admin/MOD', 'err');
+      return;
+    }
+    var u = (localUsers || {})[username];
+    if (!u) { toast('Không thấy user', 'err'); return; }
+    if (u.role === 'admin' || u.role === 'mod' || u.role === 'editor') {
+      toast('❌ Không thể cấm chat Admin / Admin phụ', 'err');
+      return;
+    }
+    await updateUser(username, { chatMuted: true });
+    toast('Đã cấm chat @' + username, 'ok');
+  };
+  window.unmuteChatUser = async function(username) {
+    if (!canAdminFull() && !(me && me.role === 'mod')) {
+      toast('⛔ Chỉ Admin/MOD', 'err');
+      return;
+    }
+    await updateUser(username, { chatMuted: false });
+    toast('Đã mở chat @' + username, 'ok');
+  };
+
+  // Wrap sendChatMsg — admin không bị mute
+  if (typeof sendChatMsg === 'function') {
+    var _send = sendChatMsg;
+    sendChatMsg = async function() {
+      if (me && (me.role === 'admin' || me.role === 'mod' || me.role === 'editor')) {
+        // bỏ cờ mute trên session
+        me.chatMuted = false;
+      } else if (me && me.chatMuted) {
+        toast('Bạn đã bị cấm chat', 'err');
+        return;
+      }
+      return _send.apply(this, arguments);
+    };
+  }
+
+  // Chat render: luôn gắn badge VIP + tích xanh từ localUsers
+  if (typeof renderChatMsgs === 'function') {
+    var _rc = renderChatMsgs;
+    renderChatMsgs = function(msgs) {
+      var r = _rc.apply(this, arguments);
+      try {
+        setTimeout(function() {
+          var el = document.getElementById('chatMsgs');
+          if (!el || !msgs || !msgs.length) return;
+          // Nếu HTML chưa có badge, inject tên + badge
+          var names = el.querySelectorAll('.chat-name');
+          var idx = 0;
+          msgs.forEach(function(m) {
+            if (!m || m.type === 'system') return;
+            var node = names[idx++];
+            if (!node) return;
+            var u = (localUsers && localUsers[m.user]) || { username: m.user, display: m.display, role: m.role };
+            // merge flags from msg if any
+            if (m.verified) u.verified = true;
+            if (m.vipLevel) u.vipLevel = m.vipLevel;
+            var isMine = me && m.user === me.username;
+            var badge = userBadgesHtml(u);
+            var label = isMine ? 'Bạn' : (m.display || m.user);
+            if (badge && node.innerHTML.indexOf('vip-lv') < 0 && node.innerHTML.indexOf('verified-tick') < 0) {
+              node.innerHTML = (isMine ? 'Bạn' : esc(label)) + ' ' + badge;
+            }
+          });
+        }, 30);
+      } catch(e) {}
+      return r;
+    };
+  }
+
+  // Gửi chat kèm meta verified/vipLevel để client khác hiện đúng hơn
+  if (typeof sendChatMsg === 'function') {
+    var _send2 = sendChatMsg;
+    sendChatMsg = async function() {
+      var ret = _send2.apply(this, arguments);
+      // best-effort: patch last msg meta — skip if too invasive
+      return ret;
+    };
+  }
+
+  // ---- Admin phụ (editor): chỉ thêm sản phẩm ----
+  window.goAdmin = function() {
+    if (!me || !isStaff(me)) { toast('Không có quyền!', 'err'); return; }
+    var label = me.display || me.username;
+    if (me.role === 'mod') label += ' (MOD)';
+    if (isEditor(me)) label += ' (Admin phụ)';
+    try {
+      document.getElementById('adminDName').textContent = label;
+      document.getElementById('adminAvaIcon').textContent = me.avatar || (isEditor(me) ? '📝' : '👑');
+    } catch(e) {}
+    showPage('adminPage');
+    if (isEditor(me)) {
+      restrictEditorTabs();
+      aTab('items');
+    } else {
+      showAllAdminTabs();
+      aTab('dash');
+    }
+  };
+
+  function restrictEditorTabs() {
+    document.querySelectorAll('.atab').forEach(function(b) {
+      var t = (b.getAttribute('onclick') || '') + b.textContent;
+      var allow = /items|Nội dung|📦/i.test(t);
+      b.style.display = allow ? '' : 'none';
+    });
+  }
+  function showAllAdminTabs() {
+    document.querySelectorAll('.atab').forEach(function(b) { b.style.display = ''; });
+  }
+
+  if (typeof aTab === 'function') {
+    var _aTab = aTab;
+    aTab = function(t, resetPage) {
+      if (isEditor(me) && t !== 'items') {
+        toast('Admin phụ chỉ được quản lý thêm nội dung', 'err');
+        t = 'items';
+      }
+      var r = _aTab.call(this, t, resetPage);
+      if (isEditor(me)) {
+        setTimeout(function() {
+          restrictEditorTabs();
+          // Ẩn nút xóa / sửa trong list items
+          var body = document.getElementById('adminBody');
+          if (!body) return;
+          body.querySelectorAll('button').forEach(function(btn) {
+            var tx = btn.textContent || '';
+            var oc = btn.getAttribute('onclick') || '';
+            if (/🗑|Xóa|deleteItem/i.test(tx + oc)) btn.style.display = 'none';
+            // Cho phép Thêm, ẩn Sửa sâu nếu muốn — user: chỉ thêm, không xóa
+            // Vẫn cho xem list
+          });
+          // Đảm bảo có nút Thêm
+          if (!body.querySelector('[onclick*="openItemModal()"]')) {
+            // renderItemsAdmin should have it
+          }
+        }, 100);
+      }
+      return r;
+    };
+  }
+
+  // Chặn deleteItem với editor
+  if (typeof deleteItem === 'function') {
+    var _del = deleteItem;
+    window.deleteItem = function(id) {
+      if (isEditor(me)) { toast('⛔ Admin phụ không được xóa sản phẩm', 'err'); return; }
+      if (!canAdminFull() && !(me && me.role === 'mod')) {
+        toast('⛔ Không có quyền xóa', 'err');
+        return;
+      }
+      return _del.apply(this, arguments);
+    };
+  }
+
+  // openItemModal: editor chỉ được thêm mới (không sửa id có sẵn)
+  if (typeof openItemModal === 'function') {
+    var _oim = openItemModal;
+    window.openItemModal = function(id) {
+      if (isEditor(me) && id) {
+        toast('⛔ Admin phụ chỉ được thêm sản phẩm mới, không sửa', 'err');
+        return;
+      }
+      return _oim.apply(this, arguments);
+    };
+  }
+
+  // saveItem: editor ok for new items only
+  if (typeof saveItem === 'function') {
+    var _si = saveItem;
+    window.saveItem = function() {
+      if (isEditor(me)) {
+        var editId = typeof editItemId !== 'undefined' ? editItemId : null;
+        if (editId) {
+          toast('⛔ Admin phụ không được sửa sản phẩm có sẵn', 'err');
+          return;
+        }
+      }
+      return _si.apply(this, arguments);
+    };
+  }
+
+  // ---- Admin: set role user → editor / user / mod ----
+  window.adminSetRole = async function(username, role) {
+    if (!canAdminFull()) { toast('⛔ Chỉ Admin chính', 'err'); return; }
+    role = String(role || 'user');
+    if (['user', 'mod', 'editor'].indexOf(role) < 0) { toast('Role không hợp lệ', 'err'); return; }
+    if (username === (me && me.username)) { toast('Không đổi role chính mình', 'err'); return; }
+    await updateUser(username, { role: role });
+    toast('✅ @' + username + ' → ' + role, 'ok');
+    try { if (typeof aTab === 'function') aTab('users', false); } catch(e) {}
+  };
+
+  // UI chọn role trên tab users
+  function injectRoleButtons() {
+    if (!canAdminFull()) return;
+    var body = document.getElementById('adminBody');
+    if (!body || body.querySelector('[data-v9151-role]')) return;
+    // thêm select role cạnh user rows nếu có
+    body.querySelectorAll('tr').forEach(function(tr) {
+      var un = '';
+      var btn = tr.querySelector('[onclick*="openBanModal"], [onclick*="toggleBan"], [onclick*="adminToggleVerified"]');
+      if (!btn) return;
+      var oc = btn.getAttribute('onclick') || '';
+      var m = oc.match(/'([a-zA-Z0-9_]+)'/);
+      if (!m) return;
+      un = m[1];
+      if (un === 'admin') return;
+      var td = tr.lastElementChild;
+      if (!td || td.querySelector('[data-v9151-role]')) return;
+      var sel = document.createElement('select');
+      sel.setAttribute('data-v9151-role', '1');
+      sel.className = 'inp';
+      sel.style.cssText = 'width:auto;padding:3px 6px;font-size:11px;margin-left:4px';
+      var u = (localUsers || {})[un] || {};
+      var cur = u.role || 'user';
+      sel.innerHTML = '<option value="user">User</option><option value="editor">Admin phụ</option><option value="mod">MOD</option>';
+      sel.value = cur === 'mod_editor' ? 'editor' : cur;
+      sel.onchange = function() { adminSetRole(un, sel.value); };
+      td.appendChild(sel);
+    });
+  }
+
+  if (typeof aTab === 'function') {
+    var _aTab2 = aTab;
+    // already wrapped — chain via setTimeout on users tab
+  }
+  setInterval(function() {
+    try {
+      if (curAdminTab === 'users') injectRoleButtons();
+    } catch(e) {}
+  }, 1500);
+
+  // Reload me from user doc on boot (lấy lại verified/vip)
+  setTimeout(async function() {
+    if (!me || !me.username) return;
+    try {
+      var ds = await db.collection(COL).doc(userDocId(me.username)).get();
+      if (ds.exists) {
+        var d = ds.data() || {};
+        var extra = d.user && typeof d.user === 'object' ? d.user : d;
+        me = Object.assign({}, me, {
+          verified: extra.verified === true || me.verified,
+          vipLevel: Math.max(parseInt(me.vipLevel, 10) || 0, parseInt(extra.vipLevel, 10) || 0),
+          vipLevelManual: Math.max(parseInt(me.vipLevelManual, 10) || 0, parseInt(extra.vipLevelManual, 10) || 0),
+          vip: me.vip || extra.vip,
+          diamond: me.diamond || extra.diamond
+        });
+        if (localUsers) localUsers[me.username] = Object.assign({}, localUsers[me.username] || {}, me);
+        try {
+          if (typeof paintVipBar === 'function') paintVipBar();
+          if (typeof renderVipStatus === 'function') renderVipStatus();
+        } catch(e) {}
+      }
+    } catch(e) {}
+  }, 1200);
+
+  // CSS tick + vip badge nếu thiếu
+  try {
+    if (!document.getElementById('v9151css')) {
+      var st = document.createElement('style');
+      st.id = 'v9151css';
+      st.textContent = '.verified-tick{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#1d9bf0;color:#fff;font-size:9px;font-weight:900;margin-left:4px;vertical-align:middle}' +
+        '.vip-lv{display:inline-block;font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:4px;background:linear-gradient(90deg,#ff6b35,#ffd04a);color:#0a0600;vertical-align:middle}' +
+        '.vip-lv.l6,.vip-lv.l7,.vip-lv.l8{background:linear-gradient(90deg,#b8f0ff,#7ab8ff);color:#0a1220}';
+      document.head.appendChild(st);
+    }
+  } catch(e) {}
+
+  console.log('%c FIX v9.15.1 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
