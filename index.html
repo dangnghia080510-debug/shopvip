@@ -20524,5 +20524,221 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.14.6 — Mã vượt: chuẩn hóa + đối chiếu Firebase
+// (hết báo sai mã oan do khoảng trắng / localStorage lệch)
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.14.6 verify code resilient', 'color:#3dfff5;font-weight:bold');
+
+  function normCode(s) {
+    s = String(s || '');
+    // fullwidth digits → ascii
+    s = s.replace(/[\uFF10-\uFF19]/g, function(ch) {
+      return String.fromCharCode(ch.charCodeAt(0) - 0xFF10 + 0x30);
+    });
+    // bỏ zero-width, khoảng trắng, xuống dòng
+    s = s.replace(/[\u200B-\u200D\uFEFF\s\r\n\t]/g, '');
+    // bỏ ký tự lạ thường copy nhầm
+    s = s.replace(/[^A-Za-z0-9\-_]/g, '');
+    return s.toUpperCase();
+  }
+
+  function resetBtn(idx) {
+    try {
+      if (typeof resetVerifyBtn === 'function') resetVerifyBtn(idx);
+      else {
+        var btn = document.getElementById('verifyBtn_' + idx);
+        if (btn) { btn.dataset.busy = ''; btn.disabled = false; btn.textContent = '✓'; }
+      }
+    } catch(e) {}
+  }
+
+  // Ghi đè verifyCode
+  window.verifyCode = async function(idx) {
+    var inp = document.getElementById('codeinp_' + idx);
+    var btn = document.getElementById('verifyBtn_' + idx);
+    if (!inp || inp.disabled || !currentItem || !me) return;
+    if (typeof isUserBanned === 'function' && isUserBanned(me)) {
+      toast('Tài khoản bị khóa', 'err'); return;
+    }
+    if (typeof checkMaintenance === 'function' && checkMaintenance()) return;
+    if (btn) {
+      if (btn.dataset.busy === '1') return;
+      btn.dataset.busy = '1';
+      btn.disabled = true;
+      btn.textContent = '…';
+    }
+
+    var val = normCode(inp.value);
+    if (!val) {
+      toast('⚠️ Nhập mã xác nhận!', 'err');
+      resetBtn(idx);
+      return;
+    }
+    // Ghi lại mã đã chuẩn hóa vào ô
+    try { inp.value = val; } catch(e) {}
+
+    var key = (typeof pendingCodeKey === 'function')
+      ? pendingCodeKey(currentItem.id, idx)
+      : ('vlp_pending_v2_' + currentItem.id + '_' + idx);
+
+    var payload = null;
+    var expected = '';
+    try {
+      var raw = localStorage.getItem(key);
+      if (raw) {
+        payload = JSON.parse(raw);
+        expected = normCode(payload.code || '');
+      }
+    } catch(e) {}
+
+    // Không có local → thử sid đã lưu
+    if (!payload) {
+      var sidOnly = '';
+      try { sidOnly = localStorage.getItem('vlp_sid_' + currentItem.id + '_' + idx) || ''; } catch(e) {}
+      if (sidOnly) {
+        try {
+          var snap0 = await db.collection(COL).doc('reveal_' + sidOnly).get();
+          if (snap0.exists) {
+            var d0 = snap0.data() || {};
+            expected = normCode(d0.code || '');
+            payload = {
+              code: d0.code,
+              user: d0.user || me.username,
+              itemId: d0.itemId || currentItem.id,
+              round: typeof d0.round === 'number' ? d0.round : idx,
+              sid: sidOnly,
+              startedAt: d0.startedAt || (Date.now() - 120000),
+              fromServer: !!d0.fromServer
+            };
+          }
+        } catch(e) {}
+      }
+    }
+
+    if (!payload || !expected) {
+      toast('⚠️ Không thấy phiên vượt — bấm «Lấy Link» lại trên app này, vượt xong dán mã', 'err');
+      resetBtn(idx);
+      return;
+    }
+
+    if (payload.user && payload.user !== me.username) {
+      toast('❌ Mã không thuộc tài khoản @' + me.username, 'err');
+      resetBtn(idx);
+      return;
+    }
+    if (payload.itemId && payload.itemId !== currentItem.id) {
+      toast('❌ Mã không đúng nội dung này', 'err');
+      resetBtn(idx);
+      return;
+    }
+    if (typeof payload.round === 'number' && payload.round !== idx) {
+      toast('❌ Mã không đúng lượt ' + (idx + 1), 'err');
+      resetBtn(idx);
+      return;
+    }
+    if (payload.exp && Date.now() > payload.exp) {
+      try { localStorage.removeItem(key); } catch(e) {}
+      toast('⚠️ Mã hết hạn — bấm Lấy Link lại', 'err');
+      resetBtn(idx);
+      return;
+    }
+
+    // Thời gian tối thiểu (giảm floor 20s → 15s; đọc setting)
+    var minSec = 45;
+    try {
+      minSec = Math.max(15, Number((getSettings() || {}).minVerifySec) || 45);
+    } catch(e) {}
+    if (payload.startedAt && (Date.now() - payload.startedAt) < minSec * 1000) {
+      var left = Math.ceil((minSec * 1000 - (Date.now() - payload.startedAt)) / 1000);
+      toast('⏳ Còn ' + left + 's mới xác nhận được (chống skip ads)', 'err');
+      resetBtn(idx);
+      return;
+    }
+
+    // Đối chiếu Firebase (nguồn đúng sau khi vượt)
+    if (payload.sid) {
+      try {
+        var snap = await db.collection(COL).doc('reveal_' + payload.sid).get();
+        if (snap.exists) {
+          var rd = snap.data() || {};
+          if (rd.used) {
+            toast('❌ Mã đã dùng — bấm Lấy Link lại', 'err');
+            resetBtn(idx);
+            return;
+          }
+          if (rd.code) expected = normCode(rd.code);
+          if (rd.user && rd.user !== me.username) {
+            toast('❌ Mã không thuộc tài khoản này', 'err');
+            resetBtn(idx);
+            return;
+          }
+        }
+      } catch(e) { console.warn('reveal fetch', e); }
+    }
+
+    if (val !== expected) {
+      console.warn('[verify] input=', val, 'expected=', expected, 'sid=', payload.sid);
+      toast('❌ Mã không đúng! Kiểm tra copy đủ ký tự, không thêm khoảng trắng. Mã trên web phải lấy từ đúng link vừa bấm «Lấy Link».', 'err');
+      resetBtn(idx);
+      return;
+    }
+
+    // OK — đánh dấu xong (giống logic gốc)
+    try { localStorage.removeItem(key); } catch(e) {}
+    verifiedSteps[idx] = true;
+    try {
+      if (payload.sid) {
+        db.collection(COL).doc('reveal_' + payload.sid).set({
+          used: true, usedBy: me.username, usedAt: new Date().toISOString()
+        }, { merge: true }).catch(function(){});
+      }
+    } catch(e) {}
+
+    if (inp) { inp.value = '✅ Đã xác nhận'; inp.classList.add('verified'); inp.disabled = true; }
+    if (btn) { btn.disabled = true; btn.className = 'btn btn-green btn-sm'; btn.dataset.busy = ''; }
+    var snum = document.getElementById('snum_' + idx);
+    if (snum) { snum.textContent = '✓'; snum.className = 'step-num done'; }
+    if (idx + 1 < (currentItem.rounds || 1)) {
+      var nextNum = document.getElementById('snum_' + (idx + 1));
+      if (nextNum) nextNum.className = 'step-num active';
+    }
+    try { if (typeof updateProgress === 'function') updateProgress(); } catch(e) {}
+    if (verifiedSteps.every(Boolean)) {
+      try { if (typeof clearActiveBypassState === 'function') clearActiveBypassState(); } catch(e) {}
+      setTimeout(function() {
+        try { if (typeof showResult === 'function') showResult(); } catch(e) {}
+      }, 350);
+    } else {
+      try { if (typeof saveActiveBypassState === 'function') saveActiveBypassState(); } catch(e) {}
+      toast('✅ Lượt ' + (idx + 1) + ' OK!', 'ok');
+    }
+  };
+
+  // handleCodeInput: auto normalize khi dán
+  var _hci = typeof handleCodeInput === 'function' ? handleCodeInput : null;
+  window.handleCodeInput = function(el, idx) {
+    if (el && el.value) {
+      var n = normCode(el.value);
+      // chỉ normalize khi dán dài (tránh cản gõ từng chữ)
+      if (el.value.length >= 6 && n !== el.value.trim().toUpperCase()) {
+        el.value = n;
+      }
+    }
+    if (_hci) return _hci(el, idx);
+    var btn = document.getElementById('verifyBtn_' + idx);
+    if (!btn) return;
+    if (el.value.trim()) { btn.classList.remove('btn-ghost'); btn.classList.add('btn-cyan'); }
+    else { btn.classList.remove('btn-cyan'); btn.classList.add('btn-ghost'); }
+  };
+
+  console.log('%c FIX v9.14.6 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
