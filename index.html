@@ -1734,7 +1734,11 @@ const BGM_STORAGE_PATH = 'vlp_bgm/background';
 const SESSION_K = 'vlp_session_v4';
 const REMEMBER_K = 'vlp_remember_v4';
 const ADMIN_USER = 'admin';
-const DEFAULT_ADMIN_PASS = '@ahnghia86';
+function genRandomPass(len = 16) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+  const arr = new Uint32Array(len); crypto.getRandomValues(arr);
+  return Array.from(arr, v => chars[v % chars.length]).join('');
+}
 
 const LS_USERS = 'vlp_users_v2';
 const LS_ITEMS = 'vlp_items_v2';
@@ -2163,7 +2167,7 @@ function getSettings() {
   return localSettings || {
     siteName: '👑 Mr.mướp 👑', link4mKey: '6a41f075234afd17497b7953', roundsDefault: 3, zaloAdmin: '0356228641',
     seededDemo: false, cooldownSec: 55, hideCompleted: true, maxTimesDefault: 1,
-    licenseServer: 'https://game-license-server-2dhq.onrender.com', licenseAdminToken: '@ahnghia86', rankExcluded: {},
+    licenseServer: 'https://game-license-server-2dhq.onrender.com', licenseAdminToken: '', rankExcluded: {},
     guideText: '', maintenanceMode: false, maintenanceMsg: 'Hệ thống đang bảo trì, quay lại sau!',
     hideTabRank: false, hideTabChat: false, hideTabHistory: false,
     minVerifySec: 75,
@@ -2567,7 +2571,7 @@ const APP_VERSION = '6.0.0';
 const DEFAULT_SETTINGS = {
   siteName: '👑 Mr.mướp 👑', link4mKey: '6a41f075234afd17497b7953', roundsDefault: 3, zaloAdmin: '0356228641',
   seededDemo: false, cooldownSec: 55, hideCompleted: true, maxTimesDefault: 1,
-  licenseServer: 'https://game-license-server-2dhq.onrender.com', licenseAdminToken: '@ahnghia86', rankExcluded: {},
+  licenseServer: 'https://game-license-server-2dhq.onrender.com', licenseAdminToken: '', rankExcluded: {},
   guideText: '', maintenanceMode: false, maintenanceMsg: 'Hệ thống đang bảo trì, quay lại sau!',
   appVersion: APP_VERSION, discordWebhook: '',
   hideTabRank: false, hideTabChat: false, hideTabHistory: false,
@@ -2587,7 +2591,9 @@ const DEFAULT_SETTINGS = {
 async function ensureDefaults() {
   if (!localUsers) localUsers = {};
   if (!localUsers[ADMIN_USER]) {
-    const { hash, salt } = await hashPassword(DEFAULT_ADMIN_PASS);
+    const firstPass = genRandomPass();
+    const { hash, salt } = await hashPassword(firstPass);
+    try { window.prompt('Tài khoản admin vừa được tạo. Sao chép mật khẩu này NGAY (chỉ hiện 1 lần):', firstPass); } catch (e) {}
     localUsers[ADMIN_USER] = { username: ADMIN_USER, passwordHash: hash, passwordSalt: salt, display: 'Admin', role: 'admin', avatar: '👑', joined: new Date().toISOString(), banned: false, mustChangePass: true };
     await saveUsers(localUsers);
   } else if (localUsers[ADMIN_USER].password && !localUsers[ADMIN_USER].passwordHash) {
@@ -2602,10 +2608,6 @@ async function ensureDefaults() {
   if (localSettings.hideCompleted === undefined) { localSettings = { ...localSettings, hideCompleted: true }; await saveSettings(localSettings); }
   if (localSettings.maxTimesDefault === undefined) { localSettings = { ...localSettings, maxTimesDefault: 1 }; await saveSettings(localSettings); }
   if (!localSettings.licenseServer) { localSettings = { ...localSettings, licenseServer: 'https://game-license-server-2dhq.onrender.com' }; await saveSettings(localSettings); }
-  if (localSettings.licenseAdminToken === undefined || localSettings.licenseAdminToken === '') {
-    localSettings = { ...localSettings, licenseAdminToken: '@ahnghia86' };
-    await saveSettings(localSettings);
-  }
   if (!localLogs) { localLogs = {}; await saveLogs(localLogs); }
   if (localSettings.rankExcluded === undefined) { localSettings = { ...localSettings, rankExcluded: {} }; await saveSettings(localSettings); }
   if (!getSettings().seededDemo) { localSettings = { ...getSettings(), seededDemo: true }; await saveSettings(localSettings); }
@@ -2987,24 +2989,8 @@ async function doLogin() {
       const migrated = await migrateIfPlain(found, p);
       if (migrated) { ok = true; user = migrated; }
     }
-    // Admin: cho phép MK mặc định @ahnghia86 và đồng bộ hash lại
-    if (!ok && u === ADMIN_USER && p === DEFAULT_ADMIN_PASS) {
-      try {
-        const { hash, salt } = await hashPassword(DEFAULT_ADMIN_PASS);
-        user = { ...found, passwordHash: hash, passwordSalt: salt, mustChangePass: false };
-        delete user.password;
-        ok = true;
-        localUsers[u] = user;
-        await updateUser(u, user);
-        console.log('[auth] admin pass reset to DEFAULT_ADMIN_PASS');
-      } catch (eReset) { console.warn(eReset); }
-    }
     if (!ok) { showAlert('loginErr', '❌ Sai tên đăng nhập hoặc mật khẩu', 'err'); return; }
 
-    if (u === ADMIN_USER) {
-      const isDefault = await verifyPassword(DEFAULT_ADMIN_PASS, user.passwordHash, user.passwordSalt);
-      if (isDefault) user = { ...user, mustChangePass: true };
-    }
     me = user;
     me.lastLogin = new Date().toISOString();
     await updateUser(u, me);
@@ -3097,7 +3083,7 @@ async function forceChangeAdminPass() {
   const np2 = document.getElementById('forceNewPass2').value;
   if (np.length < 8) { toast('❌ Mật khẩu admin ≥ 8 ký tự', 'err'); return; }
   if (np !== np2) { toast('❌ Không khớp', 'err'); return; }
-  if (np === DEFAULT_ADMIN_PASS || np.toLowerCase() === 'admin123' || np.toLowerCase() === 'password') {
+  if (np.toLowerCase() === 'admin123' || np.toLowerCase() === 'password') {
     toast('❌ Không dùng mật khẩu yếu / mặc định', 'err'); return;
   }
   const { hash, salt } = await hashPassword(np);
@@ -5247,7 +5233,7 @@ function renderSettings(body) {
     </div>
     <div class="settings-row">
       <div class="settings-label">🔐 License Admin Token (tạo key mỗi lần Lấy Link)</div>
-      <input class="inp" id="setLicToken" type="password" value="${esc(s.licenseAdminToken||'@ahnghia86')}" placeholder="@ahnghia86"/>
+      <input class="inp" id="setLicToken" type="password" value="${esc(s.licenseAdminToken||'')}" placeholder="Nhập token license"/>
       <button class="btn btn-cyan btn-sm" style="margin-top:8px;width:100%" onclick="saveSetting('licenseAdminToken','setLicToken')">💾 Lưu Token</button>
       <p style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.4">Mỗi lần bấm <b>Lấy Link</b> sẽ gọi server tạo key VL-xxx → gắn vào Link4M. User vượt xong copy key dán lại. Để trống Token = dùng mã random local như cũ.</p>
     </div>
@@ -21802,7 +21788,6 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 // ============================================================
 // FIX v9.15.5
 // - Không khóa oan sau vượt (nới anti-bot, bỏ ban 2p30 cứng)
-// - MK admin mặc định @ahnghia86 (+ đồng bộ hash)
 // - Theme hồng
 // - Hiện hướng dẫn + nội dung sau vượt
 // ============================================================
@@ -21864,69 +21849,6 @@ body::before{background:
     document.head.appendChild(pink);
     try { document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1a0a12'); } catch(e) {}
   } catch(e) {}
-
-  // ---------- 2. ADMIN PASS @ahnghia86 ----------
-  var NEW_ADMIN_PASS = '@ahnghia86';
-  async function ensureAdminPass() {
-    try {
-      if (typeof hashPassword !== 'function') return;
-      if (!localUsers || !localUsers.admin) return;
-      // Chỉ reset nếu flag chưa set HOẶC user bật force
-      var flag = '';
-      try { flag = localStorage.getItem('vlp_admin_pass_v9155') || ''; } catch(e) {}
-      if (flag === '1') return;
-      var { hash, salt } = await hashPassword(NEW_ADMIN_PASS);
-      var u = Object.assign({}, localUsers.admin, {
-        passwordHash: hash,
-        passwordSalt: salt,
-        mustChangePass: false
-      });
-      delete u.password;
-      localUsers.admin = u;
-      if (typeof updateUser === 'function') await updateUser('admin', u);
-      else if (typeof saveUsers === 'function') await saveUsers(localUsers);
-      try { localStorage.setItem('vlp_admin_pass_v9155', '1'); } catch(e) {}
-      console.log('[v9155] admin pass → @ahnghia86');
-    } catch(e) { console.warn('ensureAdminPass', e); }
-  }
-  // Cho phép login admin bằng pass mới ngay cả khi hash cũ
-  if (typeof doLogin === 'function') {
-    var _dl = doLogin;
-    // can't easily wrap form - patch verify on login path via updateUser after success
-  }
-  // Patch: khi login fail với admin, thử pass mới
-  setTimeout(function() {
-    try {
-      var btn = document.querySelector('#loginBtn, button[onclick*="doLogin"]');
-      // redefine doLogin wrapper
-      if (typeof window.doLogin === 'function' && !window.doLogin.__v9155) {
-        var orig = window.doLogin;
-        window.doLogin = async function() {
-          var userEl = document.getElementById('loginUser') || document.getElementById('lUser');
-          var passEl = document.getElementById('loginPass') || document.getElementById('lPass');
-          var u = userEl ? (userEl.value || '').trim() : '';
-          var p = passEl ? (passEl.value || '') : '';
-          if (u.toLowerCase() === 'admin' && p === NEW_ADMIN_PASS) {
-            await ensureAdminPass();
-            // sync me if already hashed
-            if (localUsers && localUsers.admin) {
-              var ok = false;
-              try {
-                if (localUsers.admin.passwordHash && localUsers.admin.passwordSalt && typeof verifyPassword === 'function') {
-                  ok = await verifyPassword(NEW_ADMIN_PASS, localUsers.admin.passwordHash, localUsers.admin.passwordSalt);
-                }
-              } catch(e) {}
-              if (!ok) await ensureAdminPass();
-            }
-          }
-          return orig.apply(this, arguments);
-        };
-        window.doLogin.__v9155 = true;
-      }
-    } catch(e) {}
-    ensureAdminPass();
-  }, 1500);
-  setTimeout(ensureAdminPass, 4000);
 
   // ---------- 3. KHÔNG KHÓA OAN SAU VƯỢT ----------
   // Nới ngưỡng + chỉ CẢNH BÁO, không ban nếu đã nhập đúng mã
@@ -22108,116 +22030,7 @@ body::before{background:
 </script>
 
 
-<script>
-// ============================================================
-// FIX v9.15.6 — Admin login @ahnghia86 chắc chắn
-// ============================================================
-(function(){
-  'use strict';
-  var PASS = '@ahnghia86';
 
-  function forcePatchDoLogin() {
-    if (typeof doLogin !== 'function') return;
-    if (doLogin.__v9156) return;
-    var _do = doLogin;
-    window.doLogin = async function() {
-      try {
-        if (!firebaseReady) { toast('Đang kết nối máy chủ...', 'err'); return; }
-        var u = (document.getElementById('liUser').value || '').trim().toLowerCase();
-        var p = (document.getElementById('liPass').value || '');
-        // Trước khi login: nếu admin + pass đúng → ghi đè hash
-        if (u === 'admin' && p === PASS && localUsers) {
-          var found = localUsers.admin || localUsers['admin'];
-          if (found && typeof hashPassword === 'function') {
-            var hs = await hashPassword(PASS);
-            var updated = Object.assign({}, found, {
-              passwordHash: hs.hash,
-              passwordSalt: hs.salt,
-              mustChangePass: false,
-              role: 'admin',
-              banned: false
-            });
-            delete updated.password;
-            delete updated.banPermanent;
-            delete updated.banUntil;
-            localUsers.admin = updated;
-            try { await updateUser('admin', updated); } catch(e) {}
-            console.log('[v9156] admin hash synced before login');
-          } else if (!found && typeof hashPassword === 'function') {
-            // Tạo admin mới nếu mất
-            var hs2 = await hashPassword(PASS);
-            var neu = {
-              username: 'admin',
-              passwordHash: hs2.hash,
-              passwordSalt: hs2.salt,
-              display: 'Admin',
-              role: 'admin',
-              avatar: '👑',
-              joined: new Date().toISOString(),
-              banned: false,
-              mustChangePass: false
-            };
-            if (!localUsers) localUsers = {};
-            localUsers.admin = neu;
-            try { await updateUser('admin', neu); } catch(e) {}
-            console.log('[v9156] admin created');
-          }
-        }
-      } catch(e) { console.warn(e); }
-      return _do.apply(this, arguments);
-    };
-    window.doLogin.__v9156 = true;
-  }
-
-  forcePatchDoLogin();
-  setTimeout(forcePatchDoLogin, 800);
-  setTimeout(forcePatchDoLogin, 2500);
-
-  // Nút khẩn cấp trên form login
-  setTimeout(function() {
-    try {
-      var form = document.getElementById('formLogin');
-      if (!form || document.getElementById('btnResetAdminPass')) return;
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.id = 'btnResetAdminPass';
-      b.className = 'btn btn-ghost btn-sm';
-      b.style.cssText = 'width:100%;margin-top:8px;font-size:11px';
-      b.textContent = '🔑 Khôi phục MK admin (@ahnghia86)';
-      b.onclick = async function() {
-        if (!confirm('Đặt lại mật khẩu admin thành @ahnghia86?')) return;
-        try {
-          if (typeof hashPassword !== 'function') { toast('Hệ thống chưa sẵn sàng', 'err'); return; }
-          var hs = await hashPassword(PASS);
-          if (!localUsers) localUsers = {};
-          var base = localUsers.admin || { username: 'admin', display: 'Admin', role: 'admin', avatar: '👑', joined: new Date().toISOString() };
-          var u = Object.assign({}, base, {
-            username: 'admin',
-            passwordHash: hs.hash,
-            passwordSalt: hs.salt,
-            role: 'admin',
-            banned: false,
-            mustChangePass: false
-          });
-          delete u.password;
-          localUsers.admin = u;
-          await updateUser('admin', u);
-          try {
-            document.getElementById('liUser').value = 'admin';
-            document.getElementById('liPass').value = PASS;
-          } catch(e) {}
-          toast('✅ Đã đặt MK admin = @ahnghia86 — bấm Đăng nhập', 'ok');
-        } catch(e) {
-          toast('Lỗi: ' + (e.message || e), 'err');
-        }
-      };
-      form.appendChild(b);
-    } catch(e) {}
-  }, 1200);
-
-  console.log('%c FIX v9.15.6 admin login READY', 'color:#40ff9c;font-weight:bold');
-})();
-</script>
 
 </body>
 </html>
