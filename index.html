@@ -2177,11 +2177,11 @@ function getOrdersArr() {
 function getSettings() {
   return localSettings || {
     siteName: '👑 Mr.mướp 👑', link4mKey: '6a41f075234afd17497b7953', roundsDefault: 3, zaloAdmin: '0356228641',
-    seededDemo: false, cooldownSec: 55, hideCompleted: true, maxTimesDefault: 1,
+    seededDemo: false, cooldownSec: 15, hideCompleted: true, maxTimesDefault: 1,
     licenseServer: 'https://game-license-server-2dhq.onrender.com', licenseAdminToken: '', rankExcluded: {},
     guideText: '', maintenanceMode: false, maintenanceMsg: 'Hệ thống đang bảo trì, quay lại sau!',
     hideTabRank: false, hideTabChat: false, hideTabHistory: false,
-    minVerifySec: 75,
+    minVerifySec: 20,
     bgmUrl: '',
     bgmTitle: '',
     bgmEnabled: false,
@@ -2581,7 +2581,7 @@ function checkFirebaseReady() {
 const APP_VERSION = '6.0.0';
 const DEFAULT_SETTINGS = {
   siteName: '👑 Mr.mướp 👑', link4mKey: '6a41f075234afd17497b7953', roundsDefault: 3, zaloAdmin: '0356228641',
-  seededDemo: false, cooldownSec: 55, hideCompleted: true, maxTimesDefault: 1,
+  seededDemo: false, cooldownSec: 15, hideCompleted: true, maxTimesDefault: 1,
   licenseServer: 'https://game-license-server-2dhq.onrender.com', licenseAdminToken: '', rankExcluded: {},
   guideText: '', maintenanceMode: false, maintenanceMsg: 'Hệ thống đang bảo trì, quay lại sau!',
   appVersion: APP_VERSION, discordWebhook: '',
@@ -2589,7 +2589,7 @@ const DEFAULT_SETTINGS = {
   soundEnabled: true, confettiEnabled: true, darkMode: true,
   maxAccPerDevice: 9999, weeklyRewardText: 'Top 1 tuần: Key VIP',
   pointsPerComplete: 10,
-  minVerifySec: 75,
+  minVerifySec: 20,
   bgmUrl: '',
   bgmTitle: '',
   bgmEnabled: false,
@@ -4476,7 +4476,7 @@ function showResult() {
   }
 
   // Đợi 10s + kiểm tra proof đã mở trang đích Link4M (mọi lượt)
-  let left = 10;
+  let left = 3;
   const tick = () => {
     if (isUserBanned(me)) {
       document.getElementById('bmResultContent').textContent = '🚫 Tài khoản bị khóa.';
@@ -7400,8 +7400,8 @@ async function renderVipRequestsAdmin(body) {
     el.innerHTML = `<div class="tbl-wrap"><table class="dtbl"><thead><tr><th>User</th><th>Gói</th><th>Tiền</th><th>TT</th><th>Thao tác</th></tr></thead><tbody>
       ${list.map(r => `
         <tr>
-          <td><b>${esc(r.display)}</b><br><span style="font-size:10px;color:var(--sub)">@${esc(r.user)}</span></td>
-          <td>${esc(r.packLabel)}<br><span style="font-size:10px;color:var(--sub)">${fmtDT(r.at)}</span></td>
+          <td><b>${esc(r.display)}</b><br><span style="font-size:10px;color:var(--sub)">@${esc(r.user)}</span>${r.accInfo ? `<br><span style="font-size:10px;color:var(--cyan)">${esc([r.accInfo.email, 'ví: ' + Number(r.accInfo.walletBalance || 0).toLocaleString('vi-VN') + 'đ', r.accInfo.vip ? 'VIP' : '', r.accInfo.deviceId ? 'máy …' + r.accInfo.deviceId : ''].filter(Boolean).join(' · '))}</span>` : ''}</td>
+          <td>${esc(r.packLabel)}<br><span style="font-size:10px;color:var(--sub)">${fmtDT(r.at)}</span>${r.transferNote ? `<br><span style="font-size:10px;color:var(--gold)">CK: ${esc(r.transferNote)}</span>` : ''}</td>
           <td>${Number(r.amount).toLocaleString('vi-VN')}đ</td>
           <td>${r.status}${r.deliveredKeys&&r.deliveredKeys.length?' · '+r.deliveredKeys.length+' key':''}</td>
           <td style="white-space:nowrap">
@@ -16408,6 +16408,7 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
       '<div id="v913DepositBox">' +
       '<div class="sec-title">💳 NẠP TIỀN VÀO VÍ (chuyển khoản)</div>' +
       '<div class="sec-note" style="margin-bottom:10px">Mua VIP / nội dung chỉ dùng <b>số dư ví</b>. Chỉ bước nạp ví mới cần chuyển khoản ngân hàng.</div>' +
+      '<div class="glass-card" style="padding:12px;margin-bottom:10px;font-size:13px"><div class="inp-label" style="margin:0 0 4px">👤 Tài khoản nạp (tự gửi kèm đơn)</div><b>' + esc((me && (me.display || me.username)) || '') + '</b> · @' + esc((me && me.username) || '') + (me && (me.email || me.googleEmail) ? '<br>' + esc(me.email || me.googleEmail) : '') + '</div>' +
       '<div class="settings-row"><div class="inp-label">Số tiền nạp (đ)</div>' +
       '<input class="inp" id="vipAmount" type="number" placeholder="VD: 50000" oninput="v913UpdateDepositNote()"/></div>' +
       '<div class="settings-row"><div class="inp-label">Nội dung CK (ghi đúng)</div>' +
@@ -16487,6 +16488,19 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
         type: 'wallet_deposit',
         transferNote: transferNote,
         note: note,
+        accInfo: (function() {
+          var uu = (typeof localUsers !== 'undefined' && localUsers && localUsers[me.username]) || me || {};
+          return {
+            username: me.username,
+            display: me.display || me.username,
+            email: uu.email || uu.googleEmail || '',
+            role: uu.role || 'user',
+            vip: !!uu.vip, diamond: !!uu.diamond,
+            walletBalance: Math.max(0, parseInt(uu.walletBalance, 10) || 0),
+            createdAt: uu.createdAt || '',
+            deviceId: (typeof getDeviceId === 'function' ? String(getDeviceId()).slice(-8) : '')
+          };
+        })(),
         at: new Date().toISOString()
       });
       await db.collection(COL).doc(typeof VIP_REQ_DOC !== 'undefined' ? VIP_REQ_DOC : 'vip_requests').set({ list: list.slice(-300) });
@@ -20314,7 +20328,7 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
           if (fb === false) return false;
         } catch (e3) { console.error('fallbackWalletCredit', e3); e = e3; }
       }
-      if (!opts.silent) toast('❌ Lỗi duyệt nạp: ' + ((e && (e.code ? e.code + ' — ' : '') + e.message) || 'thử lại'), 'err');
+      if (!opts.silent) toast((e && (e.code === 'resource-exhausted' || /quota/i.test(String(e.message || '')))) ? '❌ Firestore HẾT HẠN MỨC hôm nay (Quota exceeded). Đợi reset ~14:00 giờ VN hoặc nâng gói Blaze rồi duyệt lại.' : ('❌ Lỗi duyệt nạp: ' + ((e && (e.code ? e.code + ' — ' : '') + e.message) || 'thử lại')), 'err');
       return false;
     } finally {
       delete window.__v945Locks[id];
@@ -21947,53 +21961,53 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
     pink.id = 'v9155pink';
     pink.textContent = `
 :root{
-  --bg:#1a0a12!important;
-  --panel:#241018!important;
-  --card:#2a1420!important;
-  --border:#6b2d4a!important;
-  --gold:#ffb3d1!important;
-  --gold2:#ff6b9d!important;
-  --cyan:#ff8fab!important;
-  --cyan2:#ff4d8d!important;
-  --green:#ff9ec8!important;
-  --green2:#ff6ba8!important;
-  --purple:#ff7eb3!important;
-  --purple2:#e85a9b!important;
-  --text:#fff5f9!important;
-  --sub:#e8a0bc!important;
-  --glow-gold:0 0 22px #ff6b9d77!important;
-  --glow-cyan:0 0 22px #ff8fab66!important;
-  --glow-green:0 0 16px #ff9ec855!important;
-  --glow-purple:0 0 18px #ff7eb355!important;
+  --bg:#06182c!important;
+  --panel:#0b2440!important;
+  --card:#0f2d4d!important;
+  --border:#2c5f94!important;
+  --gold:#bfe6ff!important;
+  --gold2:#3aa8ff!important;
+  --cyan:#6cc4ff!important;
+  --cyan2:#1e90ff!important;
+  --green:#7fd8ff!important;
+  --green2:#29b6f6!important;
+  --purple:#8ab4ff!important;
+  --purple2:#4f8cff!important;
+  --text:#f2faff!important;
+  --sub:#9cc3e6!important;
+  --glow-gold:0 0 22px #3aa8ff77!important;
+  --glow-cyan:0 0 22px #6cc4ff66!important;
+  --glow-green:0 0 16px #7fd8ff55!important;
+  --glow-purple:0 0 18px #8ab4ff55!important;
 }
-body{background:#1a0a12!important}
+body{background:#06182c!important}
 body::before{background:
-  radial-gradient(ellipse at 20% 0%,rgba(255,105,180,.28) 0%,transparent 42%),
-  radial-gradient(ellipse at 80% 10%,rgba(255,80,150,.18) 0%,transparent 40%),
-  radial-gradient(ellipse at 50% 100%,rgba(255,120,170,.12) 0%,transparent 45%)!important}
-.brand-name{background:linear-gradient(90deg,#ff8fab,#ffd6e8)!important;-webkit-background-clip:text!important}
-.btn-cyan{background:linear-gradient(135deg,#ff8fab,#ff4d8d)!important;color:#1a0a12!important}
-.btn-gold{background:linear-gradient(135deg,#ffb3d1,#ff6b9d)!important;color:#1a0a12!important}
-.topnav{border-bottom-color:#6b2d4a!important;box-shadow:0 0 28px #ff6b9d33!important}
-.product-card{border-color:#6b2d4a!important}
-.product-card:active,.product-card:hover{border-color:#ff8fab!important;box-shadow:0 0 28px #ff6b9d55!important}
-.auth-tab.active{background:linear-gradient(135deg,#ff8fab,#ff4d8d)!important;color:#1a0a12!important}
-.user-dname,.sec-title{color:#ffb3d1!important}
-.role-badge.rb-admin{background:linear-gradient(90deg,#ffb3d1,#ff6b9d)!important}
-.rb-user{background:linear-gradient(90deg,#ff8fab,#ff4d8d)!important}
-.inp:focus{border-color:#ff8fab!important;box-shadow:0 0 0 3px #ff8fab22!important}
-.toast{border-color:#ff8fab!important;color:#ffb3d1!important}
-.modal-title{color:#ffb3d1!important}
-.admin-topbar{border-bottom-color:#ff6b9d!important}
-#authPage{background:radial-gradient(ellipse at 40% 10%,#3a1528 0%,#1a0a12 55%)!important}
-.guide-box{border-color:#6b2d4a!important;background:linear-gradient(145deg,#2a1420,#1a0a12)!important}
-.guide-title{color:#ffb3d1!important}
-.result-content{border-color:#ff8fab44!important;background:#1a0a12!important}
-.bottom-nav{border-top-color:#6b2d4a!important}
-.bottom-nav button:active{color:#ff8fab!important}
+  radial-gradient(ellipse at 20% 0%,rgba(60,170,255,.28) 0%,transparent 42%),
+  radial-gradient(ellipse at 80% 10%,rgba(30,144,255,.18) 0%,transparent 40%),
+  radial-gradient(ellipse at 50% 100%,rgba(100,200,255,.12) 0%,transparent 45%)!important}
+.brand-name{background:linear-gradient(90deg,#6cc4ff,#e0f4ff)!important;-webkit-background-clip:text!important}
+.btn-cyan{background:linear-gradient(135deg,#6cc4ff,#1e90ff)!important;color:#06182c!important}
+.btn-gold{background:linear-gradient(135deg,#bfe6ff,#3aa8ff)!important;color:#06182c!important}
+.topnav{border-bottom-color:#2c5f94!important;box-shadow:0 0 28px #3aa8ff33!important}
+.product-card{border-color:#2c5f94!important}
+.product-card:active,.product-card:hover{border-color:#6cc4ff!important;box-shadow:0 0 28px #3aa8ff55!important}
+.auth-tab.active{background:linear-gradient(135deg,#6cc4ff,#1e90ff)!important;color:#06182c!important}
+.user-dname,.sec-title{color:#bfe6ff!important}
+.role-badge.rb-admin{background:linear-gradient(90deg,#bfe6ff,#3aa8ff)!important}
+.rb-user{background:linear-gradient(90deg,#6cc4ff,#1e90ff)!important}
+.inp:focus{border-color:#6cc4ff!important;box-shadow:0 0 0 3px #6cc4ff22!important}
+.toast{border-color:#6cc4ff!important;color:#bfe6ff!important}
+.modal-title{color:#bfe6ff!important}
+.admin-topbar{border-bottom-color:#3aa8ff!important}
+#authPage{background:radial-gradient(ellipse at 40% 10%,#0e3358 0%,#06182c 55%)!important}
+.guide-box{border-color:#2c5f94!important;background:linear-gradient(145deg,#0f2d4d,#06182c)!important}
+.guide-title{color:#bfe6ff!important}
+.result-content{border-color:#6cc4ff44!important;background:#06182c!important}
+.bottom-nav{border-top-color:#2c5f94!important}
+.bottom-nav button:active{color:#6cc4ff!important}
 `;
     document.head.appendChild(pink);
-    try { document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1a0a12'); } catch(e) {}
+    try { document.querySelector('meta[name="theme-color"]').setAttribute('content', '#06182c'); } catch(e) {}
   } catch(e) {}
 
   // ---------- 3. KHÔNG KHÓA OAN SAU VƯỢT ----------
@@ -22239,6 +22253,39 @@ body::before{background:
     renderSettings.__v916 = true;
   }
   console.log('%c FIX v9.16 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
+
+<script>
+// FIX v9.17 — giảm chống bypass + tiết kiệm quota Firestore
+(function(){
+  'use strict';
+  // Không kiểm tra / không ghi "visit proof" lên Firebase nữa (mỗi lượt từng tốn nhiều lần đọc/ghi)
+  window.hasVisitProofAsync = async function() { return true; };
+  window.checkAllRoundsVisited = async function() { return []; };
+  window.setVisitProof = function(sid) {
+    if (!sid) return;
+    var at = Date.now();
+    try { if (typeof cacheVisitProof === 'function') cacheVisitProof(sid, at); } catch(e) {}
+    try { localStorage.setItem('vlp_visit_' + sid, JSON.stringify({ ok: true, at: at })); } catch(e) {}
+  };
+  // Hạ ngưỡng chờ (dù settings cũ trên Firebase còn 75s / 55s)
+  if (typeof getSettings === 'function' && !getSettings.__v917) {
+    var _gs = getSettings;
+    window.getSettings = function() {
+      var st = _gs.apply(this, arguments);
+      try {
+        if (st) {
+          if (!(Number(st.minVerifySec) <= 20)) st.minVerifySec = 20;
+          if (!(Number(st.cooldownSec) <= 15)) st.cooldownSec = 15;
+        }
+      } catch(e) {}
+      return st;
+    };
+    window.getSettings.__v917 = true;
+  }
+  console.log('%c FIX v9.17 READY', 'color:#3aa8ff;font-weight:bold');
 })();
 </script>
 
