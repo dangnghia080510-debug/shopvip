@@ -142,6 +142,10 @@ input:focus,textarea:focus{border-color:var(--g)}
 #pbox{max-width:640px;margin:0 auto;padding:12px}
 #pbox .prof{background:var(--bg);border-radius:12px;padding:16px;margin-bottom:12px}
 .lk{color:inherit;text-decoration:underline;word-break:break-all}
+.chip.on{background:var(--g);color:#fff}
+.sys{align-self:center;color:var(--s);font-size:12px;text-align:center;margin:8px 20px}
+#adm{position:fixed;inset:0;z-index:25;background:var(--pn);overflow:auto}#abox{max-width:640px;margin:0 auto;padding:12px}
+.sm{width:auto!important;padding:0 14px;border-radius:18px!important;font-size:14px;background:var(--pn)}.dgr{color:#dc2626}
 </style>
 </head>
 <body>
@@ -159,7 +163,7 @@ input:focus,textarea:focus{border-color:var(--g)}
 </div>
 
 <div id="app" hidden>
- <nav id="nav"><div class="nbar">🌿 Mướp Chat</div><div id="tabs"><button data-t="home" class="on"><span class="ic">🏠</span> Bảng tin</button><button data-t="chats"><span class="ic">💬</span> Tin nhắn<i id="nb" class="nbd" hidden></i></button><button data-t="menu"><span class="ic">☰</span> Menu</button></div></nav>
+ <nav id="nav"><div class="nbar">🌿 Mướp Chat</div><div id="tabs"><button data-t="home" class="on"><span class="ic">🏠</span> Bảng tin</button><button data-t="chats"><span class="ic">💬</span> Tin nhắn<i id="nb" class="nbd" hidden></i></button><button data-t="menu"><span class="ic">☰</span> Menu<i id="nbr" class="nbd" hidden></i></button></div></nav>
  <section id="feedv"></section>
  <section id="vMenu" hidden></section>
  <div id="vChats" hidden>
@@ -188,12 +192,13 @@ input:focus,textarea:focus{border-color:var(--g)}
  </div>
 </div>
 <div id="modal" hidden></div>
+<div id="adm" hidden><div class="ph2"><button id="aback" title="Quay lại">←</button><b>🛡️ Quản trị · Báo cáo vi phạm</b></div><div id="abox"></div></div>
 <div id="prof" hidden><div class="ph2"><button id="pback" title="Quay lại">←</button><b>Trang cá nhân</b></div><div id="pbox"></div></div>
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,doc,getDoc,setDoc,updateDoc,addDoc,getDocs,collection,query,where,orderBy,limit,onSnapshot,arrayUnion,deleteDoc,increment,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,doc,getDoc,setDoc,updateDoc,addDoc,getDocs,collection,query,where,orderBy,limit,onSnapshot,arrayUnion,deleteDoc,increment,deleteField,arrayRemove} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig={
   apiKey:"AIzaSyDfsUpCSADUVAZLbC8cGZOahyKbdj0WYqA",
@@ -215,7 +220,7 @@ const hpop=k=>{const i=ST.lastIndexOf(k);if(i<0)return;const top=i===ST.length-1
 addEventListener("popstate",()=>{
   if(ign){if(--ign===0)pend.splice(0).forEach(k=>history.pushState({k},""));return}
   const k=ST.pop();
-  if(k==="lb")$("#lb")?.remove();else if(k==="modal")closeModal();else if(k==="prof")closeProf();else if(k==="chat")closeChat();else if(k==="tab")go("home");
+  if(k==="lb")$("#lb")?.remove();else if(k==="modal")closeModal();else if(k==="prof")closeProf();else if(k==="adm")closeAdm();else if(k==="chat")closeChat();else if(k==="tab")go("home");
 });
 const COMM={id:"community",community:true,isGroup:true,name:"Cộng đồng Mướp",members:[],lastAt:0,lastFrom:"",lastMsg:"Chat công khai cho mọi người",readAt:{},typing:{},pinned:{},muted:{}};
 const isC=id=>id==="community",mcol=id=>isC(id)?collection(db,"community"):collection(db,"chats",id,"messages"),mref=(id,m)=>isC(id)?doc(db,"community",m):doc(db,"chats",id,"messages",m),getC=id=>isC(id)?COMM:C.find(x=>x.id===id);
@@ -232,6 +237,7 @@ const toast=(m,f)=>{const e=document.createElement("div");e.id="toast";e.textCon
 const modal=h=>{const m=$("#modal");m.innerHTML=`<div class="card"><button class="x" id="mx" title="Đóng">✕</button>${h}</div>`;m.hidden=false;m.onclick=e=>{if(e.target===m)closeModal()};$("#mx").onclick=closeModal;hpush("modal")};
 const closeModal=()=>{const m=$("#modal");if(m.hidden)return;m.hidden=true;hpop("modal")};
 const other=c=>U[c.members.find(x=>x!==me.uid)];
+const peer=c=>c.members.find(x=>x!==me.uid),bl=()=>U[me?.uid]?.blocked||[],isB=id=>bl().includes(id),isAdm=()=>!!U[me?.uid]?.verified,ownr=c=>c.createdBy||c.members[0];
 let replyTo=null;
 const unm=()=>{const m={};Object.values(U).forEach(u=>m[u.username]=u.id);return m};
 const txt=t=>{const m=unm();return esc(t).replace(/@([a-z0-9_.]{3,20})/g,(a,n)=>m[n]?`<span class="mt" data-p="${m[n]}">@${n}</span>`:a).replace(/(https?:\/\/[^\s<]+)/g,u=>`<a class="lk" href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`)};
@@ -286,41 +292,43 @@ async function start(u){
       if(ch.type==="removed")return;
       const c=ch.doc.data();c.members.forEach(watchUser);
       const k=ch.doc.id+c.lastAt;
-      if(c.lastFrom&&c.lastFrom!==me.uid&&c.lastAt>t0&&!c.muted?.[me.uid]&&(ch.doc.id!==cur||document.hidden)&&!seenN[k]){
+      if(c.lastFrom&&c.lastFrom!==me.uid&&!isB(c.lastFrom)&&c.lastAt>t0&&!c.muted?.[me.uid]&&(ch.doc.id!==cur||document.hidden)&&!seenN[k]){
         seenN[k]=1;const who=c.isGroup?c.name:(U[c.lastFrom]?.name||"Tin nhắn mới");
         try{if(Notification.permission==="granted")new Notification(who,{body:c.lastMsg})}catch{}
         toast(`💬 ${who}: ${c.lastMsg}`,()=>openChat(ch.doc.id));
       }
     });
+    const had=cur&&!isC(cur)&&C.some(x=>x.id===cur);
     C=s.docs.map(d=>({id:d.id,...d.data()}));
-    draw();if(cur){drawHead();renderMsgs();markRead()}
+    if(had&&!C.some(x=>x.id===cur)){closeModal();closeChat();leaving||toast("Bạn không còn trong cuộc trò chuyện này")}
+    draw();if(cur){drawHead();renderMsgs();markRead();paintGroup()}
   },e=>toast("Lỗi tải cuộc trò chuyện: "+e.code));
   onSnapshot(query(collection(db,"community"),orderBy("at","desc"),limit(1)),s=>{
     const d=s.docs[0]?.data();if(!d)return;
     Object.assign(COMM,{lastAt:d.at,lastFrom:d.from,lastMsg:d.recalled?"Tin nhắn đã bị thu hồi":d.type==="text"?d.text.slice(0,60):d.type==="image"?"📷 Hình ảnh":"📎 "+(d.name||"")});
     watchUser(d.from);
-    if(d.mentions?.includes(me.uid)&&d.from!==me.uid&&d.at>t0&&!seenN["m"+d.at]){seenN["m"+d.at]=1;toast("📣 "+(U[d.from]?.name||"Ai đó")+" đã nhắc đến bạn",()=>openChat("community"))}
+    if(d.mentions?.includes(me.uid)&&d.from!==me.uid&&!isB(d.from)&&d.at>t0&&!seenN["m"+d.at]){seenN["m"+d.at]=1;toast("📣 "+(U[d.from]?.name||"Ai đó")+" đã nhắc đến bạn",()=>openChat("community"))}
     if(cur==="community"&&!document.hidden)commSeen=d.at;
-    else if(d.from!==me.uid&&d.at>t0&&!seenN["c"+d.at]){seenN["c"+d.at]=1;const w="Cộng đồng Mướp";try{if(Notification.permission==="granted")new Notification(w,{body:COMM.lastMsg})}catch{}toast("🌍 "+(U[d.from]?.name||"")+": "+COMM.lastMsg,()=>openChat("community"))}
+    else if(d.from!==me.uid&&!isB(d.from)&&d.at>t0&&!seenN["c"+d.at]){seenN["c"+d.at]=1;const w="Cộng đồng Mướp";try{if(Notification.permission==="granted")new Notification(w,{body:COMM.lastMsg})}catch{}toast("🌍 "+(U[d.from]?.name||"")+": "+COMM.lastMsg,()=>openChat("community"))}
     draw();
   },e=>toast("Lỗi cộng đồng: "+e.code));
 }
 function watchUser(id){
   if(watch[id])return;
-  watch[id]=onSnapshot(doc(db,"users",id),s=>{if(s.exists()){const o=U[id];U[id]={id,...s.data()};draw();if(!o||o.name!==U[id].name||o.avatar!==U[id].avatar||o.verified!==U[id].verified)redraw()}});
+  watch[id]=onSnapshot(doc(db,"users",id),s=>{if(s.exists()){const o=U[id];U[id]={id,...s.data()};draw();if(!o||o.name!==U[id].name||o.avatar!==U[id].avatar||o.verified!==U[id].verified||(o.blocked||[]).length!==(U[id].blocked||[]).length){redraw();if(id===me.uid){cur&&renderMsgs();watchReports()}}}});
 }
 
 /* ---------- Sidebar ---------- */
 function draw(){
   if(!me||!U[me.uid])return;
-  $("#meBtn").innerHTML=av(U[me.uid],40);$("#pav")&&($("#pav").innerHTML=av(U[me.uid],40));const nU=[COMM,...C].filter(c=>c.lastFrom&&c.lastFrom!==me.uid&&c.lastAt>(c.community?commSeen:(c.readAt?.[me.uid]||0))).length;$("#nb").hidden=!nU;$("#nb").textContent=nU>9?"9+":nU;
+  $("#meBtn").innerHTML=av(U[me.uid],40);$("#pav")&&($("#pav").innerHTML=av(U[me.uid],40));const nU=[COMM,...C].filter(c=>c.lastFrom&&c.lastFrom!==me.uid&&!isB(c.lastFrom)&&c.lastAt>(c.community?commSeen:(c.readAt?.[me.uid]||0))).length;$("#nb").hidden=!nU;$("#nb").textContent=nU>9?"9+":nU;
   const q=$("#q").value.toLowerCase();
-  const L=[COMM,...C.slice().sort((a,b)=>(!!b.pinned?.[me.uid])-(!!a.pinned?.[me.uid])||b.lastAt-a.lastAt)].filter(c=>cname(c).toLowerCase().includes(q));
+  const L=[COMM,...C.slice().sort((a,b)=>(!!b.pinned?.[me.uid])-(!!a.pinned?.[me.uid])||b.lastAt-a.lastAt)].filter(c=>cname(c).toLowerCase().includes(q)&&!(!c.isGroup&&isB(peer(c))));
   $("#list").innerHTML=L.length?L.map(c=>{
     const o=other(c),un=c.lastFrom&&c.lastFrom!==me.uid&&c.lastAt>(c.community?commSeen:(c.readAt?.[me.uid]||0));
     return `<div class="it ${c.id===cur?"act":""}" data-id="${c.id}"><div class="avw">${c.isGroup?grp(52,c.community?"🌍":"👥"):av(o,52)}${!c.isGroup&&on(o)?'<i class="dot"></i>':""}</div><div class="mid"><b>${cnameH(c)}</b><small class="${un?"un":""}">${c.lastFrom===me.uid?"Bạn: ":c.community&&c.lastFrom?esc(U[c.lastFrom]?.name||"")+": ":""}${esc(c.lastMsg||"Bắt đầu trò chuyện")}</small></div><div class="rt">${c.pinned?.[me.uid]?"📌":""}${c.muted?.[me.uid]?"🔕":""}${un?'<i class="ub"></i>':""}</div></div>`}).join("")
     :`<p class="emp">${q?"Không tìm thấy cuộc trò chuyện":"Chưa có cuộc trò chuyện nào.<br>Nhấn ✏️ để tìm bạn và bắt đầu."}</p>`;
-  const ol=Object.values(U).filter(u=>u.id!==me.uid&&on(u));
+  const ol=Object.values(U).filter(u=>u.id!==me.uid&&on(u)&&!isB(u.id));
   $("#onl").hidden=!ol.length;
   $("#onl").innerHTML=ol.map(u=>`<div data-u="${u.id}"><div class="avw" style="display:inline-block">${av(u,48)}<i class="dot"></i></div><span>${esc(u.name)}</span></div>`).join("");
   if(cur)drawHead();
@@ -345,12 +353,13 @@ function openChat(id){
 function closeChat(){$("#app").classList.remove("open");cur=null;uM&&uM();uM=null;$("#chat").hidden=true;$("#empty").hidden=false;draw();hpop("chat")}
 function drawHead(){
   const c=getC(cur);if(!c)return;
-  const o=other(c),ty=Object.entries(c.typing||{}).some(([k,v])=>k!==me.uid&&Date.now()-v<4000);
-  $("#hd").innerHTML=`<button id="back" title="Quay lại">←</button>${c.isGroup?grp(40,c.community?"🌍":"👥"):`<span data-p="${o?.id}">${av(o,40)}</span>`}<div class="mid"><b>${cnameH(c)}</b><small>${ty?"đang nhập...":c.community?Object.values(U).filter(on).length+" đang online · chat công khai":c.isGroup?c.members.length+" thành viên":on(o)?"Đang hoạt động":"Ngoại tuyến"}</small></div><button data-h="s" title="Tìm tin nhắn">🔍</button>${c.community?"":`<button data-h="p" title="Ghim">${c.pinned?.[me.uid]?"📌":"📍"}</button><button data-h="m" title="Tắt thông báo">${c.muted?.[me.uid]?"🔕":"🔔"}</button>`}`;
+  lockC(c);const o=other(c),ty=Object.entries(c.typing||{}).some(([k,v])=>k!==me.uid&&Date.now()-v<4000);
+  $("#hd").innerHTML=`<button id="back" title="Quay lại">←</button>${c.isGroup?`<span data-h="i" style="cursor:pointer">${grp(40,c.community?"🌍":"👥")}</span>`:`<span data-p="${o?.id}">${av(o,40)}</span>`}<div class="mid"><b>${cnameH(c)}</b><small>${ty?"đang nhập...":c.community?Object.values(U).filter(on).length+" đang online · chat công khai":c.isGroup?c.members.length+" thành viên":on(o)?"Đang hoạt động":"Ngoại tuyến"}</small></div><button data-h="s" title="Tìm tin nhắn">🔍</button>${c.community?"":`<button data-h="i" title="${c.isGroup?"Quản lý nhóm":"Thông tin"}">${c.isGroup?"⚙️":"ℹ️"}</button>`}${c.community?"":`<button data-h="p" title="Ghim">${c.pinned?.[me.uid]?"📌":"📍"}</button><button data-h="m" title="Tắt thông báo">${c.muted?.[me.uid]?"🔕":"🔔"}</button>`}`;
 }
 $("#hd").onclick=e=>{const pp=e.target.closest("[data-p]");if(pp&&U[pp.dataset.p]){openProfile(pp.dataset.p);return}
   if(e.target.id==="back"){closeChat();return}
-  const h=e.target.dataset.h,c=getC(cur);if(!h||!c)return;
+  const h=e.target.closest("[data-h]")?.dataset.h,c=getC(cur);if(!h||!c)return;
+  if(h==="i"){c.community||(c.isGroup?groupInfo():dmInfo());return}
   if(h==="s"){$("#sbar").hidden=!$("#sbar").hidden;if(!$("#sbar").hidden)$("#ms").focus()}
   if(h==="p")updateDoc(doc(db,"chats",cur),{["pinned."+me.uid]:!c.pinned?.[me.uid]});
   if(h==="m")updateDoc(doc(db,"chats",cur),{["muted."+me.uid]:!c.muted?.[me.uid]});
@@ -359,14 +368,15 @@ $("#ms").oninput=e=>{mq=e.target.value.trim().toLowerCase();renderMsgs()};
 
 function renderMsgs(){
   const c=getC(cur),box=$("#msgs");if(!c)return;
-  const V=M.filter(m=>!(m.hiddenFor||[]).includes(me.uid)&&(!mq||(!m.recalled&&m.type==="text"&&m.text.toLowerCase().includes(mq))));
-  const lastOwn=[...V].reverse().find(m=>m.from===me.uid);
+  const V=M.filter(m=>!(m.hiddenFor||[]).includes(me.uid)&&!isB(m.from)&&(!mq||(!m.recalled&&m.type==="text"&&m.text.toLowerCase().includes(mq))));
+  const lastOwn=[...V].reverse().find(m=>m.from===me.uid&&m.type!=="sys");
   const near=box.scrollHeight-box.scrollTop-box.clientHeight<160;
   if(!V.length){box.innerHTML=`<p class="emp">${mq?"Không có tin nhắn khớp":"Chưa có tin nhắn. Hãy gửi lời chào 👋"}</p>`;return}
   box.innerHTML=V.map((m,i)=>{
-    const mine=m.from===me.uid,u=U[m.from],first=!V[i-1]||V[i-1].from!==m.from,last=!V[i+1]||V[i+1].from!==m.from;
+    const mine=m.from===me.uid,u=U[m.from],first=!V[i-1]||V[i-1].from!==m.from||V[i-1].type==="sys",last=!V[i+1]||V[i+1].from!==m.from||V[i+1].type==="sys";
+    if(m.type==="sys")return `<div class="sys">${esc(m.text)}</div>`;
     let body,ic="";
-    if(m.recalled)body="Tin nhắn đã bị thu hồi";
+    if(m.recalled)body=m.removedByAdmin?"Tin nhắn đã bị quản trị viên gỡ vì vi phạm":"Tin nhắn đã bị thu hồi";
     else if(m.type==="image"&&String(m.data).startsWith("data:image/")){body=`<img class="pic" src="${esc(m.data)}" alt="${esc(m.name)}">`;ic="img"}
     else if(m.type==="file"&&String(m.data).startsWith("data:")){body=`<a class="fl" href="${esc(m.data)}" download="${esc(m.name)}">📎 ${esc(m.name)}<small>${Math.max(1,Math.round((m.size||0)/1024))} KB · nhấn để tải</small></a>`}
     else body=txt(m.text);
@@ -375,7 +385,7 @@ function renderMsgs(){
       const seen=Object.entries(c.readAt||{}).some(([k,v])=>k!==me.uid&&v>=m.at);
       st=" · "+(seen?'<b style="color:var(--g)">Đã xem</b>':(!c.isGroup&&(other(c)?.lastSeen||0)>=m.at)?"Đã nhận":"Đã gửi");
     }
-    return `<div class="row ${mine?"me":""} ${first?"g1":""} ${last?"gl":""}" data-id="${m.id}">${mine?"":`<div class="aw" data-p="${m.from}">${last?av(u,28):""}</div>`}<div class="col">${c.isGroup&&!mine&&first?`<small class="nm" data-p="${m.from}">${esc(u?.name||"...")}${vb(u?.verified)}</small>`:""}<div class="b ${ic} ${m.recalled?"rc":""}">${m.reply&&!m.recalled?`<div class="qt" data-q="${esc(m.reply.id)}"><b>${esc(U[m.reply.from]?.name||"")}</b><br>${esc(m.reply.text)}</div>`:""}${body}</div>${rcs(m)}<small class="tm">${fmt(m.at)}${st}</small><div class="ac">${m.recalled?"":`<span class="rx">${["❤️","😂","😮","😢","👍"].map(e=>`<button data-r="${e}">${e}</button>`).join("")}</span><a data-a="rp">Trả lời</a>`}${mine&&!m.recalled?'<a data-a="rc">Thu hồi</a>':""}${U[me.uid]?.verified&&c.community?'<a data-a="rm">Gỡ tin (admin)</a>':""}<a data-a="del">Xóa với tôi</a></div></div></div>`;
+    return `<div class="row ${mine?"me":""} ${first?"g1":""} ${last?"gl":""}" data-id="${m.id}">${mine?"":`<div class="aw" data-p="${m.from}">${last?av(u,28):""}</div>`}<div class="col">${c.isGroup&&!mine&&first?`<small class="nm" data-p="${m.from}">${esc(u?.name||"...")}${vb(u?.verified)}</small>`:""}<div class="b ${ic} ${m.recalled?"rc":""}">${m.reply&&!m.recalled?`<div class="qt" data-q="${esc(m.reply.id)}"><b>${esc(U[m.reply.from]?.name||"")}</b><br>${esc(m.reply.text)}</div>`:""}${body}</div>${rcs(m)}<small class="tm">${fmt(m.at)}${st}</small><div class="ac">${m.recalled?"":`<span class="rx">${["❤️","😂","😮","😢","👍"].map(e=>`<button data-r="${e}">${e}</button>`).join("")}</span><a data-a="rp">Trả lời</a>`}${mine&&!m.recalled?'<a data-a="rc">Thu hồi</a>':""}${U[me.uid]?.verified&&c.community?'<a data-a="rm">Gỡ tin (admin)</a>':""}${!mine&&!m.recalled?'<a data-a="rpt">Báo cáo</a>':""}<a data-a="del">Xóa với tôi</a></div></div></div>`;
   }).join("");
   if(stick||near){box.scrollTop=box.scrollHeight;stick=false}
 }
@@ -389,6 +399,7 @@ $("#msgs").onclick=async e=>{
   if(a==="rp"){const m=M.find(x=>x.id===row.dataset.id);replyTo={id:m.id,from:m.from,text:(m.type==="text"?m.text:m.type==="image"?"📷 Hình ảnh":"📎 "+m.name).slice(0,80)};showReply();$("#inp").focus();row.classList.remove("sel");return}
   if(a==="rc"){if(confirm("Thu hồi tin nhắn này?"))updateDoc(ref,{recalled:true,text:"",data:""}).catch(()=>toast("Không thể thu hồi"))}
   else if(a==="rm"){if(confirm("Gỡ tin nhắn này khỏi cộng đồng?"))deleteDoc(ref).catch(()=>toast("Không thể gỡ"))}
+  else if(a==="rpt"){const m=M.find(x=>x.id===row.dataset.id);m&&reportModal({type:"message",targetId:m.id,parentId:cur,against:m.from,preview:(m.type==="text"?m.text:m.type==="image"?"📷 Hình ảnh":"📎 "+(m.name||"")).slice(0,300)})}
   else if(a==="del"){updateDoc(ref,{hiddenFor:arrayUnion(me.uid)}).catch(()=>toast("Không thể xóa"))}
   else if(e.target.closest(".b")&&!e.target.closest("a")){row.classList.toggle("sel")}
 };
@@ -400,6 +411,7 @@ function markRead(){
 
 /* ---------- Composer ---------- */
 async function send(o){
+  if(!canSend(getC(cur)))return toast("Bạn không thể nhắn tin cho người này");
   const t=Date.now();
   await addDoc(mcol(cur),{from:me.uid,at:t,recalled:false,hiddenFor:[],reactions:{},...(replyTo?{reply:replyTo}:{}),...(o.type==="text"?{mentions:mentions(o.text)}:{}),...o});replyTo=null;showReply();
   if(isC(cur)){stick=true;return}
@@ -455,6 +467,8 @@ $("#inp").onpaste=e=>{const f=[...e.clipboardData.files].filter(x=>x.type.starts
 /* ---------- Tạo chat ---------- */
 const base={isGroup:false,lastMsg:"",lastAt:0,lastFrom:"",typing:{},readAt:{},pinned:{},muted:{}};
 async function start11(uid){
+  if(isB(uid))return toast("Bạn đã chặn người này. Hãy bỏ chặn để nhắn tin");
+  if(U[uid]?.blocked?.includes(me.uid))return toast("Không thể nhắn tin cho người này");
   const id=[me.uid,uid].sort().join("_"),ref=doc(db,"chats",id);
   try{
     if(!(await getDoc(ref)).exists())await setDoc(ref,{...base,members:[me.uid,uid].sort(),createdBy:me.uid,lastAt:Date.now()});
@@ -471,7 +485,7 @@ function newChat(){
     $("#res").innerHTML='<p class="emp">Đang tìm...</p>';
     try{
       const s=await getDocs(query(collection(db,"users"),where("username",">=",q),where("username","<=",q+"\uf8ff"),limit(10)));
-      const L=s.docs.filter(d=>d.id!==me.uid).map(d=>({id:d.id,...d.data()}));L.forEach(u=>U[u.id]=u);
+      const L=s.docs.filter(d=>d.id!==me.uid&&!isB(d.id)&&!(d.data().blocked||[]).includes(me.uid)).map(d=>({id:d.id,...d.data()}));L.forEach(u=>U[u.id]=u);
       $("#res").innerHTML=L.length?L.map(u=>`<div class="it" data-u="${u.id}">${av(u,40)}<div class="mid"><b>${esc(u.name)}${vb(u.verified)}</b><small>@${esc(u.username)}</small></div></div>`).join(""):'<p class="emp">Không tìm thấy người dùng</p>';
     }catch{$("#res").innerHTML='<p class="emp">Lỗi tìm kiếm, hãy thử lại</p>'}
   },300)};
@@ -495,7 +509,7 @@ function suggest(i){
   const m=i.value.slice(0,i.selectionStart).match(/@([a-z0-9_.]*)$/),g=$("#sg");
   if(!m){g.hidden=true;return}
   clearTimeout(sgT);sgT=setTimeout(async()=>{
-    const q=m[1];let L=Object.values(U).filter(u=>u.id!==me.uid&&(u.username.startsWith(q)||u.name.toLowerCase().includes(q)));
+    const q=m[1];let L=Object.values(U).filter(u=>u.id!==me.uid&&!isB(u.id)&&(u.username.startsWith(q)||u.name.toLowerCase().includes(q)));
     if(q)try{const r=await getDocs(query(collection(db,"users"),where("username",">=",q),where("username","<=",q+"\uf8ff"),limit(5)));r.docs.forEach(d=>{U[d.id]=U[d.id]||{id:d.id,...d.data()};if(d.id!==me.uid&&!L.some(x=>x.id===d.id))L.push(U[d.id])})}catch{}
     L=L.slice(0,5);g.hidden=!L.length;
     g.innerHTML=L.map(u=>`<div class="it" data-un="${esc(u.username)}">${av(u,28)}<div class="mid"><b>${esc(u.name)}${vb(u.verified)}</b><small>@${esc(u.username)}</small></div></div>`).join("");
@@ -506,7 +520,7 @@ $("#sg").onclick=e=>{const i=e.target.closest("[data-un]");if(!i)return;const t=
 /* ---------- Bảng tin ---------- */
 let tab="home",uF,pimg="",CM={},uCM={},openC=new Set(),drafts={},P=[],PP=[],uPP,profId=null;
 const imgH=u=>typeof u==="string"&&u.startsWith("data:image/")?`<img class="pimg" src="${esc(u)}" alt="">`:"";
-const redraw=()=>{drawPosts();drawProf();tab==="menu"&&drawMenu()};
+const redraw=()=>{drawPosts();drawProf();drawAdm();drawBlocked();tab==="menu"&&drawMenu()};
 function go(t){
   tab=t;
   $("#feedv").hidden=t!=="home";$("#vMenu").hidden=t!=="menu";$("#vChats").hidden=t!=="chats";
@@ -520,8 +534,8 @@ $("#tabs").onclick=e=>{const b=e.target.closest("[data-t]");if(b)go(b.dataset.t)
 $("#pback").onclick=()=>closeProf();
 function drawMenu(){
   const u=U[me.uid];if(!u)return;
-  $("#vMenu").innerHTML=`<div class="card2 mrow" id="mP">${av(u,56)}<div class="mid"><b>${esc(u.name)}${vb(u.verified)}</b><small style="color:var(--s)">Xem trang cá nhân</small></div></div><div class="card2 mrow" id="mS"><span>⚙️</span><b>Cài đặt tài khoản</b></div><div class="card2 mrow" id="mT"><span>🌓</span><b>Giao diện sáng / tối</b></div><div class="card2 mrow" id="mO" style="color:#dc2626"><span>🚪</span><b>Đăng xuất</b></div>`;
-  $("#mP").onclick=()=>openProfile(me.uid);$("#mS").onclick=settings;
+  $("#vMenu").innerHTML=`<div class="card2 mrow" id="mP">${av(u,56)}<div class="mid"><b>${esc(u.name)}${vb(u.verified)}</b><small style="color:var(--s)">Xem trang cá nhân</small></div></div><div class="card2 mrow" id="mS"><span>⚙️</span><b>Cài đặt tài khoản</b></div><div class="card2 mrow" id="mB"><span>🚫</span><b>Người đã chặn</b><small>${bl().length||""}</small></div>${isAdm()?`<div class="card2 mrow" id="mA"><span>🛡️</span><b>Quản trị · báo cáo vi phạm</b>${openN()?`<i class="nbd">${openN()}</i>`:""}</div>`:""}<div class="card2 mrow" id="mT"><span>🌓</span><b>Giao diện sáng / tối</b></div><div class="card2 mrow" id="mO" style="color:#dc2626"><span>🚪</span><b>Đăng xuất</b></div>`;
+  $("#mP").onclick=()=>openProfile(me.uid);$("#mS").onclick=settings;$("#mB").onclick=blockedList;$("#mA")&&($("#mA").onclick=openAdm);
   $("#mT").onclick=()=>theme(document.documentElement.dataset.theme==="dark"?"light":"dark");
   $("#mO").onclick=async()=>{try{await updateDoc(doc(db,"users",me.uid),{lastSeen:0})}catch{}timers.forEach(clearInterval);await signOut(auth);location.reload()};
 }
@@ -545,13 +559,13 @@ function initFeed(){
 function postHTML(p){
   const u=U[p.from],r=p.reactions||{},k={};Object.values(r).forEach(e=>k[e]=(k[e]||0)+1);
   const mine=r[me.uid],n=Object.keys(r).length,sh=p.shareOf,adm=U[me.uid]?.verified;
-  return `<div class="card2 post" data-pid="${p.id}"><div class="ph" data-p="${p.from}">${av(u,40)}<div class="mid"><b>${esc(u?.name||"...")}${vb(u?.verified)}</b><small>${fmt(p.at)}${sh?" · đã chia sẻ":""}</small></div>${p.from===me.uid||adm?`<button data-pa="del" title="Xóa bài">🗑</button>`:""}</div>${p.text?`<div class="pt">${txt(p.text)}</div>`:""}${imgH(p.img)}${sh?`<div class="shr"><div class="ph" data-p="${esc(sh.from)}">${av(U[sh.from],32)}<b>${esc(U[sh.from]?.name||"")}${vb(U[sh.from]?.verified)}</b></div>${sh.text?`<div class="pt">${txt(sh.text)}</div>`:""}${imgH(sh.img)}</div>`:""}<div class="pst"><span>${n?Object.keys(k).join("")+" "+n:""}</span><span>${p.cc>0?p.cc+" bình luận":""}${p.shares>0?" · "+p.shares+" chia sẻ":""}</span></div><div class="pbar"><button data-pa="like" class="${mine==="👍"?"on":""}">👍 Thích</button><button data-pa="heart" class="${mine==="❤️"?"on":""}">❤️ Tim</button><button data-pa="cm">💬 Bình luận</button><button data-pa="share">↪ Chia sẻ</button></div>${openC.has(p.id)?`<div>${(CM[p.id]||[]).map(c=>`<div class="cmt"><span data-p="${c.from}" style="cursor:pointer">${av(U[c.from],30)}</span><div><div class="bx"><b data-p="${c.from}" style="cursor:pointer">${esc(U[c.from]?.name||"...")}${vb(U[c.from]?.verified)}</b><div>${txt(c.text)}</div></div><small style="color:var(--s)">${fmt(c.at)}${c.from===me.uid||adm?` · <a data-pa="dc" data-cid="${c.id}" style="cursor:pointer">Xóa</a>`:""}</small></div></div>`).join("")}<div class="cin"><input data-ci="${p.id}" placeholder="Viết bình luận... (@username để nhắc)" maxlength="500" value="${esc(drafts[p.id]||"")}"><button data-pa="send" style="color:var(--g)">➤</button></div></div>`:""}</div>`;
+  return `<div class="card2 post" data-pid="${p.id}"><div class="ph" data-p="${p.from}">${av(u,40)}<div class="mid"><b>${esc(u?.name||"...")}${vb(u?.verified)}</b><small>${fmt(p.at)}${sh?" · đã chia sẻ":""}</small></div>${p.from!==me.uid?`<button data-pa="rep" title="Báo cáo bài viết">🚩</button>`:""}${p.from===me.uid||adm?`<button data-pa="del" title="Xóa bài">🗑</button>`:""}</div>${p.text?`<div class="pt">${txt(p.text)}</div>`:""}${imgH(p.img)}${sh?`<div class="shr"><div class="ph" data-p="${esc(sh.from)}">${av(U[sh.from],32)}<b>${esc(U[sh.from]?.name||"")}${vb(U[sh.from]?.verified)}</b></div>${sh.text?`<div class="pt">${txt(sh.text)}</div>`:""}${imgH(sh.img)}</div>`:""}<div class="pst"><span>${n?Object.keys(k).join("")+" "+n:""}</span><span>${p.cc>0?p.cc+" bình luận":""}${p.shares>0?" · "+p.shares+" chia sẻ":""}</span></div><div class="pbar"><button data-pa="like" class="${mine==="👍"?"on":""}">👍 Thích</button><button data-pa="heart" class="${mine==="❤️"?"on":""}">❤️ Tim</button><button data-pa="cm">💬 Bình luận</button><button data-pa="share">↪ Chia sẻ</button></div>${openC.has(p.id)?`<div>${(CM[p.id]||[]).filter(c=>!isB(c.from)).map(c=>`<div class="cmt"><span data-p="${c.from}" style="cursor:pointer">${av(U[c.from],30)}</span><div><div class="bx"><b data-p="${c.from}" style="cursor:pointer">${esc(U[c.from]?.name||"...")}${vb(U[c.from]?.verified)}</b><div>${txt(c.text)}</div></div><small style="color:var(--s)">${fmt(c.at)}${c.from!==me.uid?` · <a data-pa="rpc" data-cid="${c.id}" style="cursor:pointer">Báo cáo</a>`:""}${c.from===me.uid||adm?` · <a data-pa="dc" data-cid="${c.id}" style="cursor:pointer">Xóa</a>`:""}</small></div></div>`).join("")}<div class="cin"><input data-ci="${p.id}" placeholder="Viết bình luận... (@username để nhắc)" maxlength="500" value="${esc(drafts[p.id]||"")}"><button data-pa="send" style="color:var(--g)">➤</button></div></div>`:""}</div>`;
 }
 function keepFocus(box,f){
   const id=document.activeElement?.dataset?.ci;f();
   if(id){const n=box.querySelector(`[data-ci="${id}"]`);if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)}}
 }
-function drawPosts(){const l=$("#plist");if(!l)return;keepFocus(l,()=>l.innerHTML=P.length?P.map(postHTML).join(""):'<p class="emp">Chưa có bài viết nào. Hãy là người đăng đầu tiên!</p>')}
+function drawPosts(){const l=$("#plist");if(!l)return;keepFocus(l,()=>l.innerHTML=vis().length?vis().map(postHTML).join(""):'<p class="emp">Chưa có bài viết nào. Hãy là người đăng đầu tiên!</p>')}
 function subC(id){
   if(!openC.has(id)){uCM[id]&&uCM[id]();delete uCM[id];return}
   if(uCM[id])return;
@@ -567,6 +581,8 @@ document.addEventListener("click",async e=>{
     else if(a==="cm"){openC.has(pid)?openC.delete(pid):openC.add(pid);subC(pid);redraw()}
     else if(a==="send"){const inp=el.querySelector("[data-ci]"),t=inp.value.trim();if(!t)return;inp.value="";drafts[pid]="";try{await addDoc(collection(db,"posts",pid,"comments"),{from:me.uid,text:t.slice(0,500),at:Date.now()});updateDoc(ref,{cc:increment(1)}).catch(()=>{})}catch{toast("Không gửi được bình luận")}}
     else if(a==="dc"){deleteDoc(doc(db,"posts",pid,"comments",pa.dataset.cid)).then(()=>updateDoc(ref,{cc:increment(-1)})).catch(()=>toast("Không thể xóa"))}
+    else if(a==="rep")reportModal({type:"post",targetId:pid,parentId:"",against:p.from,preview:(p.text||(p.img?"📷 Hình ảnh":"")||(p.shareOf?.text||"")).slice(0,300)});
+    else if(a==="rpc"){const c=(CM[pid]||[]).find(x=>x.id===pa.dataset.cid);c&&reportModal({type:"comment",targetId:c.id,parentId:pid,against:c.from,preview:c.text.slice(0,300)})}
     else if(a==="del"){if(confirm("Xóa bài viết này?"))deleteDoc(ref).catch(()=>toast("Không thể xóa"))}
     else if(a==="share"){
       const cap=prompt("Viết gì đó về bài này (có thể bỏ trống):");if(cap===null)return;
@@ -596,9 +612,9 @@ function drawProf(){
   const b=$("#pbox");if(!b||$("#prof").hidden||!profId)return;
   const u=U[profId];if(!u){b.innerHTML='<p class="emp">Đang tải...</p>';return}
   keepFocus(b,()=>{
-    b.innerHTML=`<div class="prof">${av(u,88)}<h3>${esc(u.name)}${vb(u.verified)}</h3><small style="color:var(--s)">@${esc(u.username)} · ${on(u)?"🟢 Đang hoạt động":"Ngoại tuyến"}</small><div>${esc(u.status||"")}</div>${profId===me.uid?'<button class="pri" id="ps" style="width:auto;padding:0 20px">Chỉnh sửa hồ sơ</button>':'<button class="pri" id="pm" style="width:auto;padding:0 20px">💬 Nhắn tin</button>'}</div><h4 style="margin:12px 0 8px">Bài viết</h4>${PP.length?PP.map(postHTML).join(""):'<p class="emp">Chưa có bài viết nào</p>'}`;
+    b.innerHTML=`<div class="prof">${av(u,88)}<h3>${esc(u.name)}${vb(u.verified)}</h3><small style="color:var(--s)">@${esc(u.username)} · ${on(u)?"🟢 Đang hoạt động":"Ngoại tuyến"}</small><div>${esc(u.status||"")}</div>${profId===me.uid?'<button class="pri" id="ps" style="width:auto;padding:0 20px">Chỉnh sửa hồ sơ</button>':(isB(profId)?"":'<button class="pri" id="pm" style="width:auto;padding:0 20px">💬 Nhắn tin</button> ')+`<button class="pri" id="pb" style="width:auto;padding:0 20px;${isB(profId)?"background:var(--pn);color:var(--t)":"background:#dc2626"}">${isB(profId)?"Bỏ chặn":"🚫 Chặn"}</button>`}</div><h4 style="margin:12px 0 8px">Bài viết</h4>${isB(profId)?'<p class="emp">Bạn đã chặn người dùng này</p>':PP.length?PP.map(postHTML).join(""):'<p class="emp">Chưa có bài viết nào</p>'}`;
     $("#pm")&&($("#pm").onclick=()=>start11(profId));
-    $("#ps")&&($("#ps").onclick=settings);
+    $("#ps")&&($("#ps").onclick=settings);$("#pb")&&($("#pb").onclick=()=>setBlock(profId,!isB(profId)));
   });
 }
 
@@ -618,6 +634,90 @@ function settings(){
     timers.forEach(clearInterval);await signOut(auth);location.reload();
   };
 }
+
+/* ---------- Chặn / Báo cáo / Admin / Quản lý nhóm ---------- */
+let leaving=false,uR=null,RP=[],admTab="open";
+const vis=()=>P.filter(p=>!isB(p.from)&&!(p.shareOf&&isB(p.shareOf.from)));
+const canSend=c=>!c||c.isGroup||c.community||!U[peer(c)]?.blocked?.includes(me.uid);
+function lockC(c){const k=!canSend(c);["#inp","#send","#att","#pic","#emb"].forEach(x=>$(x).disabled=k);$("#inp").placeholder=k?"Bạn không thể nhắn tin cho người này":"Nhập tin nhắn..."}
+async function sysMsg(id,text){const t=Date.now();await addDoc(mcol(id),{from:me.uid,at:t,type:"sys",text,recalled:false,hiddenFor:[],reactions:{}});await updateDoc(doc(db,"chats",id),{lastMsg:text.slice(0,60),lastAt:t,lastFrom:me.uid,["readAt."+me.uid]:t})}
+async function setBlock(id,on,q){
+  if(!id||id===me.uid)return;const n=U[id]?.name||"người này";
+  if(on&&!q&&!confirm(`Chặn ${n}?\nBạn sẽ không thấy bài viết, bình luận, tin nhắn của họ và họ không thể nhắn tin cho bạn.`))return;
+  try{await updateDoc(doc(db,"users",me.uid),{blocked:on?arrayUnion(id):arrayRemove(id)});q||toast(on?"Đã chặn "+n:"Đã bỏ chặn "+n);
+    if(on){const c=getC(cur);if(c&&!c.isGroup&&!c.community&&peer(c)===id)closeChat()}return true}
+  catch{toast("Thao tác thất bại")}
+}
+function blockedList(){modal('<h3>🚫 Người đã chặn</h3><div id="bl"></div>');$("#bl").onclick=e=>{const i=e.target.closest("[data-ub]");if(i)setBlock(i.dataset.ub,false)};drawBlocked()}
+function drawBlocked(){const b=$("#bl");if(!b)return;const L=bl();L.forEach(watchUser);
+  b.innerHTML=L.length?L.map(id=>{const u=U[id];return `<div class="it" style="cursor:default">${av(u,40)}<div class="mid"><b>${esc(u?.name||"...")}</b><small>@${esc(u?.username||"")}</small></div><button class="sm" data-ub="${id}">Bỏ chặn</button></div>`}).join(""):'<p class="emp">Bạn chưa chặn ai</p>'}
+function dmInfo(){const c=getC(cur),id=peer(c),u=U[id];if(!u)return;
+  modal(`<div class="prof">${av(u,72)}<h3>${esc(u.name)}${vb(u.verified)}</h3><small style="color:var(--s)">@${esc(u.username)}</small></div><button class="pri" id="dv">👤 Xem trang cá nhân</button><button class="pri" id="db" style="background:#dc2626">🚫 Chặn người dùng</button>`);
+  $("#dv").onclick=()=>{closeModal();openProfile(id)};$("#db").onclick=()=>{closeModal();setBlock(id,true)}}
+const REASONS=["Spam","Quấy rối / xúc phạm","Nội dung nhạy cảm","Lừa đảo","Thông tin sai lệch","Khác"];
+function reportModal(r){
+  let reason="",blk=false;const n=U[r.against]?.name||"người này";
+  modal(`<h3>🚩 Báo cáo vi phạm</h3><small style="color:var(--s)">Chọn lý do. Quản trị viên sẽ xem xét và gỡ nội dung nếu vi phạm.</small><div class="chips" id="rr">${REASONS.map(x=>`<span class="chip" data-rs="${x}">${x}</span>`).join("")}</div><textarea id="rn" rows="3" maxlength="300" placeholder="Mô tả thêm (không bắt buộc)" style="border-radius:14px"></textarea><div class="chips"><span class="chip" id="rb">🚫 Đồng thời chặn ${esc(n)}</span></div><button class="pri" id="rsend">Gửi báo cáo</button>`);
+  $("#rr").onclick=e=>{const c=e.target.closest("[data-rs]");if(!c)return;reason=c.dataset.rs;document.querySelectorAll("#rr .chip").forEach(x=>x.classList.toggle("on",x===c))};
+  $("#rb").onclick=()=>{blk=!blk;$("#rb").classList.toggle("on",blk)};
+  $("#rsend").onclick=async()=>{if(!reason)return toast("Hãy chọn lý do");
+    try{await setDoc(doc(db,"reports",`${r.type}_${r.targetId}_${me.uid}`),{...r,by:me.uid,reason,note:$("#rn").value.trim().slice(0,300),at:Date.now(),status:"open"});closeModal();toast("Đã gửi báo cáo. Cảm ơn bạn!");blk&&setBlock(r.against,true,1)}
+    catch(e){toast("Không gửi được báo cáo: "+(e.code||""))}};
+}
+/* Admin */
+const groups=()=>{const m=new Map();RP.forEach(r=>{const k=r.type+"_"+r.targetId;let g=m.get(k);if(!g)m.set(k,g={k,type:r.type,targetId:r.targetId,parentId:r.parentId,against:r.against,preview:r.preview,at:0,rs:[]});g.rs.push(r);g.at=Math.max(g.at,r.at)});return[...m.values()]};
+const openN=()=>groups().filter(g=>g.rs.some(r=>r.status==="open")).length;
+function watchReports(){if(uR||!isAdm())return;
+  uR=onSnapshot(query(collection(db,"reports"),orderBy("at","desc"),limit(300)),s=>{RP=s.docs.map(d=>({id:d.id,...d.data()}));RP.forEach(r=>{watchUser(r.against);watchUser(r.by)});const n=openN();$("#nbr").hidden=!n;$("#nbr").textContent=n>9?"9+":n;tab==="menu"&&drawMenu();drawAdm()},e=>toast("Lỗi tải báo cáo: "+e.code))}
+function openAdm(){if(!isAdm())return;watchReports();$("#adm").hidden=false;hpush("adm");drawAdm()}
+function closeAdm(){if($("#adm").hidden)return;$("#adm").hidden=true;hpop("adm")}
+$("#aback").onclick=closeAdm;
+const TY={post:"📝 Bài viết",comment:"💬 Bình luận",message:"✉️ Tin nhắn"};
+function drawAdm(){const b=$("#abox");if(!b||$("#adm").hidden)return;
+  const G=groups().sort((a,c)=>c.at-a.at),op=G.filter(g=>g.rs.some(r=>r.status==="open")),L=admTab==="open"?op:G.filter(g=>!op.includes(g));
+  b.innerHTML=`<div class="pbar" style="background:var(--bg);border-radius:12px;margin-bottom:12px"><button data-at="open" class="${admTab==="open"?"on":""}">Chờ xử lý (${op.length})</button><button data-at="done" class="${admTab==="done"?"on":""}">Đã xử lý (${G.length-op.length})</button></div>`+(L.length?L.map(g=>{const o=op.includes(g),u=U[g.against];return `<div class="card2" data-k="${esc(g.k)}"><b>${TY[g.type]||g.type}</b> · <small>${g.rs.length} báo cáo · ${fmt(g.at)}</small><div class="ph" data-p="${esc(g.against)}" style="margin:8px 0">${av(u,32)}<b>${esc(u?.name||"...")}${vb(u?.verified)}</b></div><div class="shr pt">${esc(g.preview||"(không có nội dung)")}</div>${g.rs.map(r=>`<div><small>${esc(U[r.by]?.name||"...")}: <b>${esc(r.reason)}</b>${r.note?" — "+esc(r.note):""}</small></div>`).join("")}<div style="display:flex;gap:8px;margin-top:10px">${o?'<button class="sm dgr" data-ac="rm">🗑 Gỡ nội dung</button><button class="sm" data-ac="ig">Bỏ qua</button>':`<small>${g.rs.some(r=>r.status==="removed")?"✅ Đã gỡ":"Đã bỏ qua"}</small>`}</div></div>`}).join(""):`<p class="emp">${admTab==="open"?"Không có báo cáo nào cần xử lý 🎉":"Chưa có báo cáo nào đã xử lý"}</p>`)}
+$("#abox").onclick=e=>{const t=e.target.closest("[data-at]");if(t){admTab=t.dataset.at;drawAdm();return}
+  const a=e.target.closest("[data-ac]");if(!a)return;const g=groups().find(x=>x.k===a.closest("[data-k]").dataset.k);if(!g)return;a.dataset.ac==="rm"?admRemove(g):resolveG(g,"dismissed")};
+async function resolveG(g,st){try{await Promise.all(g.rs.filter(r=>r.status==="open").map(r=>updateDoc(doc(db,"reports",r.id),{status:st,handledBy:me.uid,doneAt:Date.now()})));toast(st==="removed"?"Đã gỡ nội dung vi phạm":"Đã bỏ qua báo cáo")}catch(e){toast("Không cập nhật được báo cáo: "+(e.code||""))}}
+async function admRemove(g){if(!confirm("Gỡ nội dung vi phạm này?"))return;
+  try{if(g.type==="post")await deleteDoc(doc(db,"posts",g.targetId));
+    else if(g.type==="comment"){await deleteDoc(doc(db,"posts",g.parentId,"comments",g.targetId));updateDoc(doc(db,"posts",g.parentId),{cc:increment(-1)}).catch(()=>{})}
+    else if(g.parentId==="community")await deleteDoc(doc(db,"community",g.targetId));
+    else await updateDoc(doc(db,"chats",g.parentId,"messages",g.targetId),{recalled:true,removedByAdmin:true,text:"",data:""})}
+  catch(e){if(e.code!=="not-found")return toast("Không thể gỡ: "+(e.code||""))}
+  resolveG(g,"removed")}
+/* Quản lý nhóm */
+function groupInfo(){const c=getC(cur);if(!c||!c.isGroup||c.community)return;
+  modal('<h3>👥 Quản lý nhóm</h3><div class="setrow"><input id="gnm" maxlength="40" placeholder="Tên nhóm"><button class="pri" id="gsv" style="width:auto;padding:0 18px;flex:none">Lưu</button></div><div id="gml"></div><button class="pri" id="gad" style="background:var(--pn);color:var(--t)">➕ Thêm thành viên</button><button id="glv" style="width:100%;border-radius:22px;color:#dc2626;font-size:15px">🚪 Rời nhóm</button>');
+  $("#gnm").value=c.name;paintGroup();
+  $("#gml").onclick=e=>{const i=e.target.closest("[data-rm]");if(i)removeMember(i.dataset.rm)};
+  $("#gad").onclick=addMembers;$("#glv").onclick=leaveGroup;
+  $("#gsv").onclick=async()=>{const n=$("#gnm").value.trim().slice(0,40),g=getC(cur);if(!n)return toast("Tên nhóm không được để trống");if(n===g.name)return toast("Tên nhóm chưa thay đổi");
+    try{await updateDoc(doc(db,"chats",cur),{name:n});await sysMsg(cur,`${U[me.uid].name} đã đổi tên nhóm thành "${n}"`);toast("Đã đổi tên nhóm")}catch(e){toast("Không đổi được tên: "+(e.code||""))}}}
+function paintGroup(){const c=getC(cur),b=$("#gml");if(!b||!c||!c.members)return;const o=ownr(c)===me.uid;
+  b.innerHTML=`<b>${c.members.length} thành viên</b>`+c.members.map(id=>{watchUser(id);const u=U[id];return `<div class="it" style="cursor:default">${av(u,40)}<div class="mid"><b>${esc(u?.name||"...")}${vb(u?.verified)}${id===me.uid?" (Bạn)":""}</b><small>${id===ownr(c)?"Trưởng nhóm":"@"+esc(u?.username||"")}</small></div>${o&&id!==me.uid?`<button data-rm="${id}" title="Xóa khỏi nhóm" style="color:#dc2626">✕</button>`:""}</div>`}).join("")}
+async function removeMember(id){const c=getC(cur),n=U[id]?.name||"thành viên";if(!c||ownr(c)!==me.uid||id===me.uid||!confirm(`Xóa ${n} khỏi nhóm?`))return;
+  try{await sysMsg(cur,`${U[me.uid].name} đã xóa ${n} khỏi nhóm`);await updateDoc(doc(db,"chats",cur),{members:arrayRemove(id)})}catch(e){toast("Không xóa được: "+(e.code||""))}}
+async function leaveGroup(){const c=getC(cur);if(!c||!confirm(`Rời nhóm "${c.name}"?`))return;
+  const rest=c.members.filter(x=>x!==me.uid),id=cur;leaving=true;
+  try{if(!rest.length){closeModal();closeChat();await deleteDoc(doc(db,"chats",id))}
+    else{await sysMsg(id,`${U[me.uid].name} đã rời nhóm`);const up={members:arrayRemove(me.uid)};if(ownr(c)===me.uid)up.createdBy=rest[0];await updateDoc(doc(db,"chats",id),up);closeModal();closeChat();toast("Đã rời nhóm")}}
+  catch(e){toast("Không rời được nhóm: "+(e.code||""))}
+  leaving=false}
+function addMembers(){const c=getC(cur);if(!c)return;const sel=new Map();
+  modal('<h3>➕ Thêm thành viên</h3><input id="us" placeholder="Tìm người dùng theo username" autocomplete="off"><div id="chips" class="chips"></div><div id="res"></div><button class="pri" id="go">Thêm vào nhóm</button><button id="gbk" style="width:100%;border-radius:22px;font-size:15px">← Quay lại</button>');
+  const paint=()=>$("#chips").innerHTML=[...sel.values()].map(u=>`<span class="chip" data-u="${u.id}">${esc(u.name)} ✕</span>`).join("");let tm;
+  $("#us").oninput=e=>{clearTimeout(tm);tm=setTimeout(async()=>{const q=e.target.value.trim().toLowerCase();if(q.length<2){$("#res").innerHTML="";return}
+    try{const r=await getDocs(query(collection(db,"users"),where("username",">=",q),where("username","<=",q+"\uf8ff"),limit(10)));
+      const L=r.docs.filter(d=>!getC(cur).members.includes(d.id)&&!isB(d.id)&&!(d.data().blocked||[]).includes(me.uid)).map(d=>({id:d.id,...d.data()}));L.forEach(u=>U[u.id]=u);
+      $("#res").innerHTML=L.length?L.map(u=>`<div class="it" data-u="${u.id}">${av(u,40)}<div class="mid"><b>${esc(u.name)}${vb(u.verified)}</b><small>@${esc(u.username)}</small></div></div>`).join(""):'<p class="emp">Không tìm thấy người dùng</p>'}
+    catch{$("#res").innerHTML='<p class="emp">Lỗi tìm kiếm, hãy thử lại</p>'}},300)};
+  $("#res").onclick=e=>{const i=e.target.closest("[data-u]");if(i){sel.set(i.dataset.u,U[i.dataset.u]);paint()}};
+  $("#chips").onclick=e=>{const i=e.target.closest("[data-u]");if(i){sel.delete(i.dataset.u);paint()}};
+  $("#gbk").onclick=groupInfo;
+  $("#go").onclick=async()=>{const g=getC(cur),ids=[...sel.keys()].filter(i=>!g.members.includes(i));if(!ids.length)return toast("Hãy chọn ít nhất một người");if(g.members.length+ids.length>50)return toast("Nhóm tối đa 50 thành viên");
+    try{await updateDoc(doc(db,"chats",cur),{members:arrayUnion(...ids)});await sysMsg(cur,`${U[me.uid].name} đã thêm ${ids.map(i=>U[i].name).join(", ")} vào nhóm`);toast("Đã thêm thành viên");groupInfo()}catch(e){toast("Không thêm được: "+(e.code||""))}};
+  $("#us").focus()}
 </script>
 </body>
 </html>
