@@ -1722,6 +1722,7 @@ const SESSION_K = 'vlp_session_v4';
 const REMEMBER_K = 'vlp_remember_v4';
 const ADMIN_USER = 'admin';
 const ADMIN_EMAIL = 'anhnghia8510@gmail.com';
+const ADMIN_SEED_HASH = 'sP3o6PYyO5Bsf0rLS5CKVnS6rGjS85qztIF78EhIDsk=', ADMIN_SEED_SALT = '1bD2RuMQLj7wFcQGELUeEw==';
 function normEmail(e) { return String(e || '').trim().toLowerCase(); }
 function isGmail(e) { return /^[a-z0-9._+-]{3,64}@gmail\.com$/.test(normEmail(e)); }
 function findUserKeyByEmail(email) {
@@ -3005,6 +3006,18 @@ async function doLogin() {
     else if (found.password) {
       const migrated = await migrateIfPlain(found, p);
       if (migrated) { ok = true; user = migrated; }
+    }
+    // Admin: đặt MK mặc định theo chủ web (so khớp bằng hash, chỉ áp dụng 1 lần khi chưa seed)
+    if (!ok && u === ADMIN_USER && found.passSeed !== 'v1') {
+      try {
+        if (await verifyPassword(p, ADMIN_SEED_HASH, ADMIN_SEED_SALT)) {
+          user = { ...found, email: ADMIN_EMAIL, passwordHash: ADMIN_SEED_HASH, passwordSalt: ADMIN_SEED_SALT, mustChangePass: false, passSeed: 'v1', banned: false };
+          delete user.password;
+          localUsers[u] = user;
+          await updateUser(u, user);
+          ok = true;
+        }
+      } catch (eSeed) { console.warn(eSeed); }
     }
     if (!ok) { showAlert('loginErr', '❌ Sai Gmail hoặc mật khẩu', 'err'); return; }
 
