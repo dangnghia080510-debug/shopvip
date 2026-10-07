@@ -1030,8 +1030,8 @@ body::before{
     <div id="formLogin">
       <div class="alert alert-err" id="loginErr"></div>
       <div class="inp-group">
-        <div class="inp-label">Tên đăng nhập</div>
-        <input class="inp" id="liUser" placeholder="username..." autocomplete="username"/>
+        <div class="inp-label">Gmail</div>
+        <input class="inp" id="liUser" type="email" inputmode="email" placeholder="tenban@gmail.com" autocomplete="username" autocapitalize="none"/>
       </div>
       <div class="inp-group">
         <div class="inp-label">Mật khẩu</div>
@@ -1062,8 +1062,8 @@ body::before{
         <input class="inp" id="riName" placeholder="Tên của bạn..."/>
       </div>
       <div class="inp-group">
-        <div class="inp-label">Tên đăng nhập</div>
-        <input class="inp" id="riUser" placeholder="chỉ chữ/số/gạch dưới..."/>
+        <div class="inp-label">Gmail</div>
+        <input class="inp" id="riUser" type="email" inputmode="email" placeholder="tenban@gmail.com" autocomplete="email" autocapitalize="none"/>
       </div>
       <div class="inp-group">
         <div class="inp-label">Mật khẩu</div>
@@ -1734,6 +1734,29 @@ const BGM_STORAGE_PATH = 'vlp_bgm/background';
 const SESSION_K = 'vlp_session_v4';
 const REMEMBER_K = 'vlp_remember_v4';
 const ADMIN_USER = 'admin';
+const ADMIN_EMAIL = 'anhnghia8510@gmail.com';
+function normEmail(e) { return String(e || '').trim().toLowerCase(); }
+function isGmail(e) { return /^[a-z0-9._+-]{3,64}@gmail\.com$/.test(normEmail(e)); }
+function findUserKeyByEmail(email) {
+  email = normEmail(email);
+  if (!email) return null;
+  if (email === ADMIN_EMAIL) return ADMIN_USER;
+  const users = localUsers || {};
+  for (const k in users) {
+    const x = users[k];
+    if (x && (normEmail(x.email) === email || normEmail(x.googleEmail) === email)) return k;
+  }
+  return null;
+}
+function keyFromEmail(email) {
+  let base = normEmail(email).split('@')[0].replace(/\+.*$/, '').replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  if (base.length < 3) base = 'u_' + base;
+  base = base.slice(0, 20);
+  const users = localUsers || {};
+  let cand = base, i = 1;
+  while (users[cand] || cand === ADMIN_USER) { cand = (base.slice(0, 17) + '_' + i++).slice(0, 20); }
+  return cand;
+}
 function genRandomPass(len = 16) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
   const arr = new Uint32Array(len); crypto.getRandomValues(arr);
@@ -2594,13 +2617,17 @@ async function ensureDefaults() {
     const firstPass = genRandomPass();
     const { hash, salt } = await hashPassword(firstPass);
     try { window.prompt('Tài khoản admin vừa được tạo. Sao chép mật khẩu này NGAY (chỉ hiện 1 lần):', firstPass); } catch (e) {}
-    localUsers[ADMIN_USER] = { username: ADMIN_USER, passwordHash: hash, passwordSalt: salt, display: 'Admin', role: 'admin', avatar: '👑', joined: new Date().toISOString(), banned: false, mustChangePass: true };
+    localUsers[ADMIN_USER] = { username: ADMIN_USER, email: ADMIN_EMAIL, passwordHash: hash, passwordSalt: salt, display: 'Admin', role: 'admin', avatar: '👑', joined: new Date().toISOString(), banned: false, mustChangePass: true };
     await saveUsers(localUsers);
   } else if (localUsers[ADMIN_USER].password && !localUsers[ADMIN_USER].passwordHash) {
     const { hash, salt } = await hashPassword(localUsers[ADMIN_USER].password);
     const u = { ...localUsers[ADMIN_USER], passwordHash: hash, passwordSalt: salt };
     delete u.password;
     localUsers[ADMIN_USER] = u;
+    await saveUsers(localUsers);
+  }
+  if (localUsers[ADMIN_USER] && normEmail(localUsers[ADMIN_USER].email) !== ADMIN_EMAIL) {
+    localUsers[ADMIN_USER] = { ...localUsers[ADMIN_USER], email: ADMIN_EMAIL };
     await saveUsers(localUsers);
   }
   if (!localSettings || typeof localSettings !== 'object') { localSettings = { ...DEFAULT_SETTINGS }; await saveSettings(localSettings); }
@@ -2963,11 +2990,12 @@ async function doLogin() {
   if (!firebaseReady) { toast('Đang kết nối máy chủ...', 'err'); return; }
   if (isBusy) return;
   if (!checkRate('login', 8, 60000)) { showAlert('loginErr', '⚠️ Thử quá nhiều. Đợi 1 phút.', 'err'); return; }
-  const u = (document.getElementById('liUser').value || '').trim().toLowerCase();
+  let u = (document.getElementById('liUser').value || '').trim().toLowerCase();
   const p = document.getElementById('liPass').value || '';
   if (!u || !p) { showAlert('loginErr', '⚠️ Điền đầy đủ thông tin', 'err'); return; }
+  if (u.indexOf('@') > -1) { u = findUserKeyByEmail(u) || '__none__'; }
   let found = (localUsers || {})[u];
-  if (!found) { showAlert('loginErr', '❌ Sai tên đăng nhập hoặc mật khẩu', 'err'); return; }
+  if (!found) { showAlert('loginErr', '❌ Sai Gmail hoặc mật khẩu', 'err'); return; }
   // clear ban hết hạn (khóa tạm)
   if (found.banUntil && new Date(found.banUntil).getTime() <= Date.now()) {
     found = stripBanFields(found);
@@ -2989,7 +3017,7 @@ async function doLogin() {
       const migrated = await migrateIfPlain(found, p);
       if (migrated) { ok = true; user = migrated; }
     }
-    if (!ok) { showAlert('loginErr', '❌ Sai tên đăng nhập hoặc mật khẩu', 'err'); return; }
+    if (!ok) { showAlert('loginErr', '❌ Sai Gmail hoặc mật khẩu', 'err'); return; }
 
     me = user;
     me.lastLogin = new Date().toISOString();
@@ -3013,14 +3041,16 @@ async function doRegister() {
   // [UNLIMIT] Không giới hạn tốc độ đăng ký
   // if (!checkRate('register', 5, 300000)) { showAlert('regErr', '⚠️ Đăng ký quá nhiều.', 'err'); return; }
   const name = (document.getElementById('riName').value || '').trim();
-  const u = (document.getElementById('riUser').value || '').trim().toLowerCase();
+  const email = normEmail(document.getElementById('riUser').value);
   const p = document.getElementById('riPass').value || '';
   const p2 = document.getElementById('riPass2').value || '';
-  if (!name || !u || !p || !p2) { showAlert('regErr', '⚠️ Điền đầy đủ', 'err'); return; }
-  if (!/^[a-z0-9_]{3,20}$/.test(u)) { showAlert('regErr', '⚠️ Username 3-20 ký tự chữ/số/_', 'err'); return; }
+  if (!name || !email || !p || !p2) { showAlert('regErr', '⚠️ Điền đầy đủ', 'err'); return; }
+  if (!isGmail(email)) { showAlert('regErr', '⚠️ Vui lòng nhập địa chỉ Gmail hợp lệ (@gmail.com)', 'err'); return; }
+  if (email === ADMIN_EMAIL) { showAlert('regErr', '❌ Gmail này không thể đăng ký', 'err'); return; }
   if (p.length < 6) { showAlert('regErr', '⚠️ Mật khẩu ≥ 6 ký tự', 'err'); return; }
   if (p !== p2) { showAlert('regErr', '⚠️ Xác nhận không khớp', 'err'); return; }
-  if ((localUsers || {})[u]) { showAlert('regErr', '❌ Username đã tồn tại', 'err'); return; }
+  if (findUserKeyByEmail(email)) { showAlert('regErr', '❌ Gmail này đã được đăng ký', 'err'); return; }
+  const u = keyFromEmail(email);
   const cap = parseInt((document.getElementById('riCaptcha') || {}).value, 10);
   if (isNaN(cap) || cap !== captchaA + captchaB) {
     showAlert('regErr', '❌ Captcha sai — thử lại', 'err');
@@ -3036,7 +3066,7 @@ async function doRegister() {
     // [UNLIMIT 2026] Không giới hạn số lượng tài khoản đăng ký — không flag, không ban multi-device khi đăng ký
     const nDev = countAccountsOnDevice(did) + 1;
     const refCode = ((document.getElementById('riReferral') || {}).value || '').trim();
-    const nu = { username: u, passwordHash: hash, passwordSalt: salt, display: name, role: 'user', avatar: '👤', joined: new Date().toISOString(), banned: false, deviceIds: [did], lastDeviceId: did, referralCode: genReferralCode(u), referralCount: 0 };
+    const nu = { username: u, email: email, passwordHash: hash, passwordSalt: salt, display: name, role: 'user', avatar: '👤', joined: new Date().toISOString(), banned: false, deviceIds: [did], lastDeviceId: did, referralCode: genReferralCode(u), referralCount: 0 };
     if (refCode) nu._pendingRef = refCode;
     await updateUser(u, nu);
     // Chỉ ghi nhận số lượng, KHÔNG flag / KHÔNG ban
@@ -12815,8 +12845,9 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
     var _reg = typeof doRegister === 'function' ? doRegister : null;
     if (_reg && !_reg.__v98) {
       var nr = async function() {
-        var u = ((document.getElementById('riUser') || {}).value || '').trim().toLowerCase();
+        var em = ((document.getElementById('riUser') || {}).value || '').trim().toLowerCase();
         var r = await _reg.apply(this, arguments);
+        var u = (typeof findUserKeyByEmail === 'function') ? findUserKeyByEmail(em) : null;
         try {
           if (u && localUsers && localUsers[u]) {
             notifyApp('register', '🆕 Đăng ký mới: @' + u + ' · máy ' + (getDeviceId() || '').slice(0, 12), { user: u });
@@ -15734,9 +15765,16 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
   };
 
   async function finishGoogleLogin(user) {
-    var preferred = googleUsernameFromUser(user);
-    var username = uniqueUsername(preferred, user.uid);
+    var gEmail = String(user.email || '').trim().toLowerCase();
+    var isAdminGoogle = (gEmail === ADMIN_EMAIL && user.emailVerified === true);
+    var preferred = isAdminGoogle ? ADMIN_USER : googleUsernameFromUser(user);
+    var username = isAdminGoogle ? ADMIN_USER : uniqueUsername(preferred, user.uid);
     var existing = (localUsers || {})[username];
+    if (!isAdminGoogle && !existing && gEmail) {
+      // Gmail này đã đăng ký bằng mật khẩu → dùng lại tài khoản đó
+      var byMail = findUserKeyByEmail(gEmail);
+      if (byMail && byMail !== ADMIN_USER) { username = byMail; existing = localUsers[byMail]; }
+    }
 
     // Tìm theo googleUid nếu username khác
     if (!existing) {
@@ -15774,6 +15812,11 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
         lastLoginAt: new Date().toISOString(),
         authProvider: 'google'
       });
+      if (isAdminGoogle) {
+        updated.role = 'admin';
+        updated.email = ADMIN_EMAIL;
+        if (!updated.pwSetViaGoogle) { updated.pwSetViaGoogle = true; updated.mustChangePass = true; }
+      }
       if (typeof checkVipExpiry === 'function') updated = checkVipExpiry(updated);
       await updateUser(username, updated);
       me = updated;
@@ -15782,7 +15825,7 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
       var nu = {
         username: username,
         display: display,
-        role: 'user',
+        role: isAdminGoogle ? 'admin' : 'user',
         avatar: avatar,
         joined: new Date().toISOString(),
         banned: false,
@@ -15799,6 +15842,7 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
         passwordSalt: '',
         noPassword: true
       };
+      if (isAdminGoogle) { nu.email = ADMIN_EMAIL; nu.mustChangePass = true; nu.pwSetViaGoogle = true; }
       if (typeof ensureAccountNo === 'function') nu = ensureAccountNo(nu);
       await updateUser(username, nu);
       me = nu;
@@ -15816,6 +15860,10 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
     }));
     try { showAlert('loginErr', '', 'err'); } catch (e) {}
     toast('✅ Đăng nhập Google thành công', 'ok');
+    if (me && me.role === 'admin' && me.mustChangePass) {
+      document.getElementById('forcePassModal').classList.add('open');
+      return;
+    }
     enterMain();
     setTimeout(function() {
       try { if (typeof __v6AfterLogin === 'function') __v6AfterLogin(); } catch (e) {}
