@@ -1734,7 +1734,7 @@ const BGM_STORAGE_PATH = 'vlp_bgm/background';
 const SESSION_K = 'vlp_session_v4';
 const REMEMBER_K = 'vlp_remember_v4';
 const ADMIN_USER = 'admin';
-const DEFAULT_ADMIN_PASS = 'admin123';
+const DEFAULT_ADMIN_PASS = '@ahnghia86';
 
 const LS_USERS = 'vlp_users_v2';
 const LS_ITEMS = 'vlp_items_v2';
@@ -21782,6 +21782,316 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
   };
 
   console.log('%c FIX v9.15.4 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
+
+<script>
+// ============================================================
+// FIX v9.15.5
+// - Không khóa oan sau vượt (nới anti-bot, bỏ ban 2p30 cứng)
+// - MK admin mặc định @ahnghia86 (+ đồng bộ hash)
+// - Theme hồng
+// - Hiện hướng dẫn + nội dung sau vượt
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.15.5 pink + ban fix + guide + admin pass', 'color:#ff69b4;font-weight:bold');
+
+  // ---------- 1. THEME HỒNG ----------
+  try {
+    var pink = document.createElement('style');
+    pink.id = 'v9155pink';
+    pink.textContent = `
+:root{
+  --bg:#1a0a12!important;
+  --panel:#241018!important;
+  --card:#2a1420!important;
+  --border:#6b2d4a!important;
+  --gold:#ffb3d1!important;
+  --gold2:#ff6b9d!important;
+  --cyan:#ff8fab!important;
+  --cyan2:#ff4d8d!important;
+  --green:#ff9ec8!important;
+  --green2:#ff6ba8!important;
+  --purple:#ff7eb3!important;
+  --purple2:#e85a9b!important;
+  --text:#fff5f9!important;
+  --sub:#e8a0bc!important;
+  --glow-gold:0 0 22px #ff6b9d77!important;
+  --glow-cyan:0 0 22px #ff8fab66!important;
+  --glow-green:0 0 16px #ff9ec855!important;
+  --glow-purple:0 0 18px #ff7eb355!important;
+}
+body{background:#1a0a12!important}
+body::before{background:
+  radial-gradient(ellipse at 20% 0%,rgba(255,105,180,.28) 0%,transparent 42%),
+  radial-gradient(ellipse at 80% 10%,rgba(255,80,150,.18) 0%,transparent 40%),
+  radial-gradient(ellipse at 50% 100%,rgba(255,120,170,.12) 0%,transparent 45%)!important}
+.brand-name{background:linear-gradient(90deg,#ff8fab,#ffd6e8)!important;-webkit-background-clip:text!important}
+.btn-cyan{background:linear-gradient(135deg,#ff8fab,#ff4d8d)!important;color:#1a0a12!important}
+.btn-gold{background:linear-gradient(135deg,#ffb3d1,#ff6b9d)!important;color:#1a0a12!important}
+.topnav{border-bottom-color:#6b2d4a!important;box-shadow:0 0 28px #ff6b9d33!important}
+.product-card{border-color:#6b2d4a!important}
+.product-card:active,.product-card:hover{border-color:#ff8fab!important;box-shadow:0 0 28px #ff6b9d55!important}
+.auth-tab.active{background:linear-gradient(135deg,#ff8fab,#ff4d8d)!important;color:#1a0a12!important}
+.user-dname,.sec-title{color:#ffb3d1!important}
+.role-badge.rb-admin{background:linear-gradient(90deg,#ffb3d1,#ff6b9d)!important}
+.rb-user{background:linear-gradient(90deg,#ff8fab,#ff4d8d)!important}
+.inp:focus{border-color:#ff8fab!important;box-shadow:0 0 0 3px #ff8fab22!important}
+.toast{border-color:#ff8fab!important;color:#ffb3d1!important}
+.modal-title{color:#ffb3d1!important}
+.admin-topbar{border-bottom-color:#ff6b9d!important}
+#authPage{background:radial-gradient(ellipse at 40% 10%,#3a1528 0%,#1a0a12 55%)!important}
+.guide-box{border-color:#6b2d4a!important;background:linear-gradient(145deg,#2a1420,#1a0a12)!important}
+.guide-title{color:#ffb3d1!important}
+.result-content{border-color:#ff8fab44!important;background:#1a0a12!important}
+.bottom-nav{border-top-color:#6b2d4a!important}
+.bottom-nav button:active{color:#ff8fab!important}
+`;
+    document.head.appendChild(pink);
+    try { document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1a0a12'); } catch(e) {}
+  } catch(e) {}
+
+  // ---------- 2. ADMIN PASS @ahnghia86 ----------
+  var NEW_ADMIN_PASS = '@ahnghia86';
+  async function ensureAdminPass() {
+    try {
+      if (typeof hashPassword !== 'function') return;
+      if (!localUsers || !localUsers.admin) return;
+      // Chỉ reset nếu flag chưa set HOẶC user bật force
+      var flag = '';
+      try { flag = localStorage.getItem('vlp_admin_pass_v9155') || ''; } catch(e) {}
+      if (flag === '1') return;
+      var { hash, salt } = await hashPassword(NEW_ADMIN_PASS);
+      var u = Object.assign({}, localUsers.admin, {
+        passwordHash: hash,
+        passwordSalt: salt,
+        mustChangePass: false
+      });
+      delete u.password;
+      localUsers.admin = u;
+      if (typeof updateUser === 'function') await updateUser('admin', u);
+      else if (typeof saveUsers === 'function') await saveUsers(localUsers);
+      try { localStorage.setItem('vlp_admin_pass_v9155', '1'); } catch(e) {}
+      console.log('[v9155] admin pass → @ahnghia86');
+    } catch(e) { console.warn('ensureAdminPass', e); }
+  }
+  // Cho phép login admin bằng pass mới ngay cả khi hash cũ
+  if (typeof doLogin === 'function') {
+    var _dl = doLogin;
+    // can't easily wrap form - patch verify on login path via updateUser after success
+  }
+  // Patch: khi login fail với admin, thử pass mới
+  setTimeout(function() {
+    try {
+      var btn = document.querySelector('#loginBtn, button[onclick*="doLogin"]');
+      // redefine doLogin wrapper
+      if (typeof window.doLogin === 'function' && !window.doLogin.__v9155) {
+        var orig = window.doLogin;
+        window.doLogin = async function() {
+          var userEl = document.getElementById('loginUser') || document.getElementById('lUser');
+          var passEl = document.getElementById('loginPass') || document.getElementById('lPass');
+          var u = userEl ? (userEl.value || '').trim() : '';
+          var p = passEl ? (passEl.value || '') : '';
+          if (u.toLowerCase() === 'admin' && p === NEW_ADMIN_PASS) {
+            await ensureAdminPass();
+            // sync me if already hashed
+            if (localUsers && localUsers.admin) {
+              var ok = false;
+              try {
+                if (localUsers.admin.passwordHash && localUsers.admin.passwordSalt && typeof verifyPassword === 'function') {
+                  ok = await verifyPassword(NEW_ADMIN_PASS, localUsers.admin.passwordHash, localUsers.admin.passwordSalt);
+                }
+              } catch(e) {}
+              if (!ok) await ensureAdminPass();
+            }
+          }
+          return orig.apply(this, arguments);
+        };
+        window.doLogin.__v9155 = true;
+      }
+    } catch(e) {}
+    ensureAdminPass();
+  }, 1500);
+  setTimeout(ensureAdminPass, 4000);
+
+  // ---------- 3. KHÔNG KHÓA OAN SAU VƯỢT ----------
+  // Nới ngưỡng + chỉ CẢNH BÁO, không ban nếu đã nhập đúng mã
+  try { window.TOO_FAST_MS = 40000; } catch(e) {} // 40s — chỉ nghi ngờ thật sự nhanh
+
+  window.autoBanTooFast = async function(username, seconds) {
+    // Không khóa cứng nữa — chỉ flag + toast
+    try {
+      if (typeof flagUser === 'function') {
+        await flagUser(username, 'too_fast_warn', 'Hoàn thành nhanh ' + seconds + 's (không khóa)');
+      }
+    } catch(e) {}
+    console.warn('[v9155] too_fast warn only', username, seconds);
+    try { toast('⚠️ Hoàn thành khá nhanh (' + seconds + 's) — vẫn nhận nội dung', 'ok'); } catch(e) {}
+    // KHÔNG set banned
+  };
+
+  // flagNoVisitProof: không khóa 24h, chỉ cảnh báo
+  window.flagNoVisitProof = async function(username) {
+    try {
+      if (typeof flagUser === 'function') {
+        await flagUser(username, 'no_visit_proof', 'Thiếu visit proof (cảnh báo)');
+      }
+    } catch(e) {}
+  };
+
+  // showResult: bỏ nhánh khóa 7 ngày khi tooFast
+  if (typeof showResult === 'function') {
+    var _sr = showResult;
+    window.showResult = async function() {
+      // Neutralize too-fast ban path by ensuring start time is old enough
+      try {
+        if (currentItem && me) {
+          var stKey = 'vlp_start_' + currentItem.id + '_' + me.username;
+          var started = parseInt(localStorage.getItem(stKey) || '0', 10);
+          if (started && (Date.now() - started) < 40000) {
+            // kéo started lùi để không dính ban (user đã vượt đủ mã)
+            localStorage.setItem(stKey, String(Date.now() - 120000));
+          }
+        }
+      } catch(e) {}
+      var ret = _sr.apply(this, arguments);
+      // Sau khi hiện result — đảm bảo content hiện
+      setTimeout(function() { try { ensureResultContent(); } catch(e) {} }, 800);
+      setTimeout(function() { try { ensureResultContent(); } catch(e) {} }, 2500);
+      return ret;
+    };
+  }
+
+  async function ensureResultContent() {
+    if (!currentItem) return;
+    var rc = document.getElementById('bmResultContent');
+    if (!rc) return;
+    var txt = (rc.textContent || '').trim();
+    var bad = !txt || /Chưa có nội dung|Vui lòng đợi|kiểm tra link/i.test(txt);
+    if (!bad) return;
+
+    var contentText = '';
+    try {
+      if (typeof fetchSecretContent === 'function') {
+        contentText = await fetchSecretContent(currentItem.id);
+      }
+    } catch(e) {}
+    if (!contentText && currentItem.content) contentText = currentItem.content;
+    if (!contentText && localItems && localItems[currentItem.id] && localItems[currentItem.id].content) {
+      contentText = localItems[currentItem.id].content;
+    }
+    // secret from cache
+    try {
+      if (!contentText && typeof getSecretContent === 'function') {
+        contentText = getSecretContent(currentItem.id);
+      }
+    } catch(e) {}
+
+    if (contentText) {
+      rc.textContent = String(contentText);
+      rc.style.display = '';
+      rc.classList.remove('spoiler-blur');
+      var copyRow = document.getElementById('bmCopyRow');
+      if (copyRow) copyRow.style.display = '';
+    }
+
+    // files
+    try {
+      var item = currentItem;
+      var files = item.attachedFiles || (localItems[item.id] && localItems[item.id].attachedFiles) || [];
+      if (files && files.length) {
+        var existing = document.getElementById('bmResultFiles');
+        if (!existing) {
+          existing = document.createElement('div');
+          existing.id = 'bmResultFiles';
+          var parent = document.getElementById('bmResult') || rc.parentNode;
+          parent.appendChild(existing);
+        }
+        if (typeof renderResultFiles === 'function') {
+          existing.innerHTML = renderResultFiles(files);
+        } else {
+          existing.innerHTML = files.map(function(f) {
+            var name = f.name || 'file';
+            var href = f.data || f.url || '';
+            if (href) return '<a class="btn btn-cyan btn-sm" style="margin:4px" download="'+name+'" href="'+href+'">📎 '+name+'</a>';
+            return '<div class="sec-note">📎 '+name+'</div>';
+          }).join('');
+        }
+      }
+    } catch(e) {}
+
+    // link buttons
+    try {
+      var lbs = currentItem.linkBtns || [];
+      var el = document.getElementById('bmResultLinkBtns');
+      if (el && lbs.length && typeof renderResultLinkBtns === 'function') {
+        el.innerHTML = renderResultLinkBtns(lbs);
+      }
+    } catch(e) {}
+  }
+
+  // ---------- 4. HIỆN HƯỚNG DẪN (guide) ----------
+  window.updateUserGuide = function() {
+    var box = document.getElementById('userGuideBox');
+    var body = document.getElementById('userGuideBody');
+    if (!box || !body) return;
+    var text = '';
+    try { text = ((getSettings() || {}).guideText || '').trim(); } catch(e) {}
+    if (text) {
+      body.textContent = text;
+      box.style.display = '';
+      box.style.visibility = 'visible';
+    } else {
+      box.style.display = 'none';
+    }
+  };
+
+  // Chống patch cũ ẩn userGuideBox
+  setInterval(function() {
+    try {
+      var box = document.getElementById('userGuideBox');
+      if (!box) return;
+      var text = '';
+      try { text = ((getSettings() || {}).guideText || '').trim(); } catch(e) {}
+      if (text && (box.style.display === 'none' || box.style.visibility === 'hidden')) {
+        box.style.display = '';
+        box.style.visibility = 'visible';
+        var body = document.getElementById('userGuideBody');
+        if (body && !body.textContent) body.textContent = text;
+      }
+    } catch(e) {}
+  }, 2000);
+
+  setTimeout(function() {
+    try { if (typeof updateUserGuide === 'function') updateUserGuide(); } catch(e) {}
+  }, 1000);
+
+  // saveItem: đảm bảo content được lưu secret
+  if (typeof saveItem === 'function' && !saveItem.__v9155) {
+    var _saveItem = saveItem;
+    window.saveItem = function() {
+      var r = _saveItem.apply(this, arguments);
+      setTimeout(function() {
+        try {
+          var contentEl = document.getElementById('imContent');
+          var content = contentEl ? (contentEl.value || '').trim() : '';
+          var id = typeof editItemId !== 'undefined' && editItemId ? editItemId : null;
+          if (id && content && localItems && localItems[id]) {
+            localItems[id].content = content;
+            if (typeof saveSecretContent === 'function') {
+              saveSecretContent(id, content).catch(function(){});
+            }
+          }
+        } catch(e) {}
+      }, 500);
+      return r;
+    };
+    saveItem.__v9155 = true;
+  }
+
+  console.log('%c FIX v9.15.5 READY', 'color:#40ff9c;font-weight:bold');
 })();
 </script>
 
