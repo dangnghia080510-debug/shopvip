@@ -1926,7 +1926,7 @@ function flagUser(username, flag, detail) {
 }
 
 /** Tổng thời gian tối thiểu từ lúc bấm Lấy Link lần đầu → nhận nội dung (chống captcha xong là claim) */
-const TOO_FAST_MS = 150000; // 2 phút 30 giây
+const TOO_FAST_MS = 0; // v9.16: tắt chặn 'vượt quá nhanh' (báo oan, không giao nội dung)
 /** Mỗi lượt: tối thiểu bao lâu sau khi bấm Lấy Link mới được dán mã */
 const MIN_PER_ROUND_MS = 45000; // 45 giây / lượt
 
@@ -4489,10 +4489,9 @@ function showResult() {
 
     checkAllRoundsVisited(item.id, item.rounds || 1).then(missing => {
     if (missing.length) {
-      document.getElementById('bmResultContent').textContent = '🚫 Không xác minh được vượt Link4M (thiếu proof lượt: ' + missing.join(', ') + '). Tài khoản bị KHÓA VĨNH VIỄN vì gian lận/bypass.';
-      toast('🚫 Bypass phát hiện — khóa vĩnh viễn', 'err');
-      permanentBanFraud(me.username, 'Không chứng minh vượt Link4M (thiếu visit proof lượt ' + missing.join(',') + ')');
-      return;
+      // v9.16: KHÔNG khóa acc nữa — mã đúng đã chứng minh user vào trang đích. Chỉ ghi cờ cho admin xem.
+      try { flagUser(me.username, 'no_visit_proof', 'Thiếu visit proof lượt ' + missing.join(',') + ' (không khóa)'); } catch(e) {}
+      console.warn('[v9.16] thiếu proof lượt', missing);
     }
 
     // Kiểm tra slot còn không (race)
@@ -7406,7 +7405,7 @@ async function renderVipRequestsAdmin(body) {
           <td>${Number(r.amount).toLocaleString('vi-VN')}đ</td>
           <td>${r.status}${r.deliveredKeys&&r.deliveredKeys.length?' · '+r.deliveredKeys.length+' key':''}</td>
           <td style="white-space:nowrap">
-            ${r.status==='pending' ? `
+            ${(r.status==='pending' || (r.status==='processing' && (!r.processingAt || Date.now()-new Date(r.processingAt).getTime()>120000))) ? `
               <button class="btn btn-green btn-xs" id="btnApr_${esc(r.id)}" onclick="this.disabled=true;this.textContent='...';approveVipReq('${r.id}')">Duyệt</button>
               <button class="btn btn-red btn-xs" onclick="this.disabled=true;rejectVipReq('${r.id}')">Từ chối</button>
             ` : r.status==='processing' ? '<span class="bdg" style="background:#f5c54220;color:var(--gold);border:1px solid var(--gold)">⏳ Đang duyệt</span>'
@@ -9060,7 +9059,8 @@ approveVipReq = async function(id) {
       return;
     }
     const cur = listSnap[idx];
-    if (cur.status !== 'pending') {
+    const __staleProc = cur.status === 'processing' && (!cur.processingAt || (Date.now() - new Date(cur.processingAt).getTime() > 120000));
+    if (cur.status !== 'pending' && !__staleProc) {
       toast('⚠️ Yêu cầu này đã xử lý rồi (' + (cur.status || '?') + ') — không duyệt lại', 'err');
       aTab('vipreq', false);
       return;
@@ -13069,20 +13069,25 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
       flags: flags.slice(0, 40),
       lastFlagAt: new Date().toISOString()
     });
-    // Auto khóa
+    // v9.16: CHỈ báo admin. Tự khóa vĩnh viễn + khóa máy gây khóa oan => mặc định TẮT
+    // (bật lại bằng settings.fraudAutoBan = true)
     if (score >= FRAUD_SCORE_BAN) {
-      updated.banned = true;
-      updated.banPermanent = true;
-      updated.banReason = 'Tự động: gian lận bypass/bot (score ' + score + ')';
-      updated.banUntil = null;
+      var __autoBan = false;
+      try { __autoBan = ((getSettings() || {}).fraudAutoBan === true); } catch(e) {}
       try {
-        notifyApp('auto_ban_fraud', '🚨 AUTO-BAN @' + username + '\n' + reason + '\nScore: ' + score, { user: username, score: score });
+        notifyApp('auto_ban_fraud', '🚨 NGHI NGỜ @' + username + '\n' + reason + '\nScore: ' + score + (__autoBan ? '' : ' (không tự khóa)'), { user: username, score: score });
       } catch(e) {}
-      try {
-        if (typeof getDeviceId === 'function') {
-          adminBanDevice(getDeviceId(), 'fraud bot @' + username).catch(function(){});
-        }
-      } catch(e) {}
+      if (__autoBan) {
+        updated.banned = true;
+        updated.banPermanent = true;
+        updated.banReason = 'Tự động: gian lận bypass/bot (score ' + score + ')';
+        updated.banUntil = null;
+        try {
+          if (typeof getDeviceId === 'function') {
+            adminBanDevice(getDeviceId(), 'fraud bot @' + username).catch(function(){});
+          }
+        } catch(e) {}
+      }
     }
     updateUser(username, updated).then(function() {
       if (me && me.username === username) {
@@ -13107,16 +13112,9 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
         if (snap && snap.exists) {
           var d = snap.data() || {};
           if (!d.ok && !d.ts && !d.at) return false;
-          // Khớp user
+          // v9.16: mở link bằng trình duyệt khác app => deviceId lệch là BÌNH THƯỜNG, không cộng điểm, không từ chối.
           if (d.user && d.user !== me.username) {
-            fraudScoreAdd(me.username, 3, 'visit proof user mismatch');
-            return false;
-          }
-          // Khớp device
-          var did = typeof getDeviceId === 'function' ? getDeviceId() : '';
-          if (d.deviceId && did && d.deviceId !== did) {
-            fraudScoreAdd(me.username, 3, 'visit proof device mismatch');
-            return false;
+            console.warn('[v9.16] visit proof user khác — bỏ qua, không phạt');
           }
           // Thời gian dwell
           var ts = d.ts || (d.at ? new Date(d.at).getTime() : 0) || 0;
@@ -20197,6 +20195,40 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
     return false;
   }
 
+  // v9.16: cách ghi tuần tự — đánh dấu đã cộng TRƯỚC (chống cộng 2 lần), rồi cộng ví; lỗi thì hoàn đánh dấu
+  async function fallbackWalletCredit(id, opts) {
+    opts = opts || {};
+    var snapF = await reqRef().get();
+    var listF = (snapF.exists && snapF.data() && snapF.data().list) || [];
+    var iF = listF.findIndex(function(x) { return x && (x.id === id || String(x.at) === String(id)); });
+    if (iF < 0) throw new Error('Không thấy yêu cầu');
+    var reqF = listF[iF];
+    if (reqF._walletCredited) { if (!opts.silent) toast('Đơn này đã cộng ví rồi', 'ok'); return false; }
+    if (reqF.status === 'rejected') throw new Error('Đơn đã bị từ chối');
+    var amtF = n(reqF.amount);
+    if (amtF <= 0) throw new Error('Số tiền không hợp lệ');
+    var backup = Object.assign({}, reqF);
+    var updF = Object.assign({}, reqF, {
+      status: 'approved', packType: reqF.packType || 'wallet_deposit',
+      approvedBy: (me && me.username) || 'admin', approvedAt: nowIso(),
+      _walletCredited: true, walletCreditedAt: nowIso()
+    });
+    delete updF.processingBy; delete updF.processingAt;
+    listF[iF] = updF;
+    await reqRef().set(safe({ list: listF }));
+    var nextF;
+    try {
+      nextF = await window.changeWalletBalance(reqF.user, amtF, 'Duyệt nạp #' + reqF.id);
+    } catch (eC) {
+      try { listF[iF] = backup; await reqRef().set(safe({ list: listF })); } catch (eR) {}
+      throw eC;
+    }
+    pushTx({ type: 'deposit_approved', to: reqF.user, amount: amtF, reqId: reqF.id, note: 'Duyệt nạp ví (fallback)' });
+    try { if (typeof addLog === 'function') addLog('approve_wallet', reqF.user + ' · +' + amtF); } catch (e) {}
+    if (!opts.silent) toast('✅ Đã cộng ' + fmt(amtF) + ' → @' + reqF.user + ' · Số dư: ' + fmt(nextF), 'ok');
+    return nextF;
+  }
+
   async function approveWalletDeposit(id, opts) {
     opts = opts || {};
     if (typeof requireStaff === 'function' && !requireStaff()) return false;
@@ -20274,7 +20306,15 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
     } catch (e) {
       if (e && e.message === 'ALREADY') { if (!opts.silent) toast('Đơn này đã cộng ví rồi', 'ok'); return false; }
       console.error('approveWalletDeposit', e);
-      if (!opts.silent) toast('❌ Lỗi duyệt nạp: ' + ((e && e.message) || 'thử lại'), 'err');
+      // v9.16: transaction lỗi (doc đơn quá lớn / tranh chấp / rules) → thử cách ghi tuần tự an toàn
+      if (!(e && /từ chối|Không thấy|Số tiền/.test(String(e.message || '')))) {
+        try {
+          var fb = await fallbackWalletCredit(id, opts);
+          if (fb !== false) return fb;
+          if (fb === false) return false;
+        } catch (e3) { console.error('fallbackWalletCredit', e3); e = e3; }
+      }
+      if (!opts.silent) toast('❌ Lỗi duyệt nạp: ' + ((e && (e.code ? e.code + ' — ' : '') + e.message) || 'thử lại'), 'err');
       return false;
     } finally {
       delete window.__v945Locks[id];
@@ -20595,6 +20635,38 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
     return s.toUpperCase();
   }
 
+  // v9.16: so khớp chịu lỗi O/0, I/1 (bảng mã gốc không có 0,O,1,I nên an toàn)
+  function confNorm(s) { return normCode(s).replace(/O/g, '0').replace(/I/g, '1'); }
+
+  // v9.16: nhớ MỌI mã đã cấp cho (nội dung, lượt) — bấm «Lấy Link» nhiều lần vẫn dán mã của link cũ được
+  var HIST_PREFIX = 'vlp_hist_';
+  function readIssued(itemId, idx) {
+    try { return JSON.parse(localStorage.getItem(HIST_PREFIX + itemId + '_' + idx) || '[]') || []; } catch (e) { return []; }
+  }
+  (function hookPendingWrites() {
+    try {
+      if (Storage.prototype.__vlpHist) return;
+      var _set = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(k, v) {
+        var r = _set.apply(this, arguments);
+        try {
+          if (this === window.localStorage && typeof k === 'string' && k.indexOf('vlp_pending_v2_') === 0) {
+            var pl = JSON.parse(v);
+            if (pl && pl.code) {
+              var hk = HIST_PREFIX + k.slice('vlp_pending_v2_'.length);
+              var arr = []; try { arr = JSON.parse(localStorage.getItem(hk) || '[]') || []; } catch (e) {}
+              arr = arr.filter(function(x) { return x && x.sid !== pl.sid && (!x.exp || x.exp > Date.now()); });
+              arr.push({ code: pl.code, sid: pl.sid, startedAt: pl.startedAt, exp: pl.exp, fromServer: !!pl.fromServer, deviceId: pl.deviceId });
+              _set.call(this, hk, JSON.stringify(arr.slice(-6)));
+            }
+          }
+        } catch (e) {}
+        return r;
+      };
+      Storage.prototype.__vlpHist = true;
+    } catch (e) {}
+  })();
+
   function resetBtn(idx) {
     try {
       if (typeof resetVerifyBtn === 'function') resetVerifyBtn(idx);
@@ -20668,6 +20740,30 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
       }
     }
 
+    // v9.16: thử khớp với các mã đã cấp trước đó của lượt này
+    try {
+      var __hist = readIssued(currentItem.id, idx).filter(function(h) { return h && h.code && (!h.exp || h.exp > Date.now()); });
+      var __vc = confNorm(val);
+      if (!payload || !expected) {
+        var __last = __hist[__hist.length - 1];
+        if (__last) {
+          payload = { code: __last.code, user: me.username, itemId: currentItem.id, round: idx, sid: __last.sid,
+                      startedAt: __last.startedAt, exp: __last.exp, fromServer: !!__last.fromServer };
+          expected = normCode(__last.code);
+        }
+      }
+      if (payload && expected && confNorm(expected) !== __vc) {
+        for (var __i = __hist.length - 1; __i >= 0; __i--) {
+          if (confNorm(__hist[__i].code) === __vc) {
+            payload = Object.assign({}, payload, { code: __hist[__i].code, sid: __hist[__i].sid,
+                      startedAt: __hist[__i].startedAt, exp: __hist[__i].exp });
+            expected = normCode(__hist[__i].code);
+            break;
+          }
+        }
+      }
+    } catch (eH) { console.warn('hist match', eH); }
+
     if (!payload || !expected) {
       toast('⚠️ Không thấy phiên vượt — bấm «Lấy Link» lại trên app này, vượt xong dán mã', 'err');
       resetBtn(idx);
@@ -20729,7 +20825,7 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
       } catch(e) { console.warn('reveal fetch', e); }
     }
 
-    if (val !== expected) {
+    if (confNorm(val) !== confNorm(expected)) {
       console.warn('[verify] input=', val, 'expected=', expected, 'sid=', payload.sid);
       toast('❌ Mã không đúng! Kiểm tra copy đủ ký tự, không thêm khoảng trắng. Mã trên web phải lấy từ đúng link vừa bấm «Lấy Link».', 'err');
       resetBtn(idx);
@@ -22081,6 +22177,70 @@ body::before{background:
 
 
 
+
+
+<script>
+// ============================================================
+// FIX v9.16 — KHÔNG KHÓA OAN · MÃ KEY · DUYỆT NẠP VÍ
+// (chạy cuối cùng để chặn mọi đường khóa oan còn sót)
+// ============================================================
+(function(){
+  'use strict';
+  // 1) Khóa vĩnh viễn vì "không có visit proof" → chỉ ghi cờ
+  window.permanentBanFraud = async function(username, reason) {
+    try { if (typeof flagUser === 'function') await flagUser(username, 'no_visit_proof', String(reason || 'nghi ngờ').slice(0, 100) + ' (không khóa)'); } catch(e) {}
+    console.warn('[v9.16] permanentBanFraud bị vô hiệu — chỉ ghi cờ:', username, reason);
+  };
+  // 2) flag "không proof" không khóa 24h
+  window.flagNoVisitProof = async function(username) {
+    try { if (typeof flagUser === 'function') await flagUser(username, 'no_visit_proof', 'Thiếu visit proof (cảnh báo)'); } catch(e) {}
+  };
+
+  // 3) Mở khóa oan hàng loạt (nút trong Admin → Cài đặt)
+  var FALSE_BAN_RE = /Bot: vượt link|Không chứng minh|Nhiều lần xác nhận|Tự động: gian lận|vượt quá nhanh|Gian lận: bypass/i;
+  window.adminClearFalseBans = async function() {
+    if (!me || (me.role !== 'admin' && me.role !== 'mod')) { toast('⛔ Chỉ Admin/MOD', 'err'); return; }
+    var users = Object.values(localUsers || {}).filter(function(u) {
+      return u && u.role !== 'admin' && (u.banned || u.banPermanent || u.banUntil) && FALSE_BAN_RE.test(String(u.banReason || ''));
+    });
+    var bl = [];
+    try { if (typeof loadDeviceBlacklistHard === 'function') bl = (await loadDeviceBlacklistHard()) || []; } catch(e) {}
+    var badDev = bl.filter(function(x) { return x && /fraud bot/i.test(String(x.reason || '')); });
+    if (!users.length && !badDev.length) { toast('Không có tài khoản/máy nào bị khóa oan do chống gian lận', 'ok'); return; }
+    if (!confirm('Mở khóa ' + users.length + ' tài khoản và ' + badDev.length + ' thiết bị bị khóa tự động (chống gian lận)?')) return;
+    for (var i = 0; i < users.length; i++) {
+      try {
+        var cleared = stripBanFields(users[i]);
+        cleared.fraudScore = 0; delete cleared.rankHidden;
+        await updateUser(users[i].username, cleared);
+      } catch(e) { console.warn(e); }
+    }
+    if (badDev.length) {
+      try {
+        var keep = bl.filter(function(x) { return !(x && /fraud bot/i.test(String(x.reason || ''))); });
+        if (typeof saveDeviceBlacklistHard === 'function') await saveDeviceBlacklistHard(keep);
+      } catch(e) { console.warn(e); }
+    }
+    try { addLog('clear_false_bans', users.length + ' user · ' + badDev.length + ' máy'); } catch(e) {}
+    toast('✅ Đã mở khóa ' + users.length + ' tài khoản, ' + badDev.length + ' thiết bị', 'ok');
+  };
+
+  if (typeof renderSettings === 'function' && !renderSettings.__v916) {
+    var _rs916 = renderSettings;
+    renderSettings = function(body) {
+      _rs916.apply(this, arguments);
+      try {
+        body.insertAdjacentHTML('beforeend',
+          '<div class="settings-row"><div class="settings-label">🧹 Mở khóa oan (chống gian lận)</div>' +
+          '<div class="sec-note">Mở khóa các acc/máy bị khóa tự động do hệ thống chống gian lận. Khóa tay của admin không bị đụng tới.</div>' +
+          '<button class="btn btn-gold btn-sm" style="margin-top:8px;width:100%" onclick="adminClearFalseBans()">🧹 Mở khóa oan hàng loạt</button></div>');
+      } catch(e) {}
+    };
+    renderSettings.__v916 = true;
+  }
+  console.log('%c FIX v9.16 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
 
 </body>
 </html>
