@@ -20092,12 +20092,8 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
   }
 
   function mirrorToUserDoc(username, bal) {
-    // giữ walletBalance trên user doc khớp (các màn admin/đọc cũ vẫn đúng)
-    try {
-      if (typeof updateUser === 'function' && localUsers && localUsers[username]) {
-        Promise.resolve(updateUser(username, { walletBalance: n(bal) })).catch(function(){});
-      }
-    } catch (e) {}
+    // v9.17: KHÔNG ghi lại doc users (tốn quota) — số dư thật nằm ở doc wallet_<user>
+    try { if (localUsers && localUsers[username]) localUsers[username].walletBalance = n(bal); } catch (e) {}
   }
 
   function repaint() {
@@ -20155,8 +20151,9 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
     delta = Math.trunc(Number(delta) || 0);
     if (!username) throw new Error('Thiếu tài khoản');
     if (!delta) return await window.getWalletBalance(username);
-    var seed = await seedBalance(username);
     var ref = wRef(username);
+    var __w0 = await ref.get();
+    var seed = __w0.exists ? 0 : await seedBalance(username);
     var next = await db.runTransaction(async function(t) {
       var s = await t.get(ref);
       var cur = s.exists ? n((s.data() || {}).balance) : seed;
@@ -20185,12 +20182,7 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
   async function pushTx(tx) {
     tx = Object.assign({ id: 'WTX' + Date.now() + Math.random().toString(36).slice(2, 6), at: nowIso() }, tx);
     try {
-      var ref = db.collection(COL).doc('wallet_txs');
-      var snap = await ref.get();
-      var list = (snap.exists && snap.data() && snap.data().list) || [];
-      list.push(tx);
-      if (list.length > 500) list = list.slice(-500);
-      await ref.set(safe({ list: list }));
+      await db.collection(COL).doc('wallet_txs').set({ list: firebase.firestore.FieldValue.arrayUnion(safe(tx)) }, { merge: true });
     } catch (e) { console.warn('pushTx', e); }
     return tx;
   }
@@ -20260,7 +20252,8 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
       if (req._walletCredited) { if (!opts.silent) toast('Đơn này đã cộng ví rồi', 'ok'); return false; }
       if (req.status === 'rejected') { if (!opts.silent) toast('Đơn đã bị từ chối', 'err'); return false; }
 
-      var seed = await seedBalance(user);
+      var __w1 = await wRef(user).get();
+      var seed = __w1.exists ? 0 : await seedBalance(user);
       var rRef = reqRef();
       var wr = wRef(user);
       var reqId = req.id;
@@ -20302,14 +20295,7 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
       // thông báo cho user
       try {
         if (typeof NOTIF_COL_DOC !== 'undefined') {
-          var ns = await db.collection(COL).doc(NOTIF_COL_DOC).get();
-          var ex = (ns.exists && ns.data() && ns.data().msgs) || [];
-          ex.push({
-            id: 'n' + Date.now(), icon: '💳', title: '✅ Nạp ví thành công',
-            msg: '+' + fmt(amount) + ' · Số dư: ' + fmt(nextBal),
-            targetUser: user, at: nowIso(), by: adminName
-          });
-          await db.collection(COL).doc(NOTIF_COL_DOC).set({ msgs: ex.slice(-50) });
+          await db.collection(COL).doc(NOTIF_COL_DOC).set({ msgs: firebase.firestore.FieldValue.arrayUnion({ id: 'n' + Date.now(), icon: '💳', title: '✅ Nạp ví thành công', msg: '+' + fmt(amount) + ' · Số dư: ' + fmt(nextBal), targetUser: user, at: nowIso(), by: adminName }) }, { merge: true });
         }
       } catch (e) {}
       try { if (typeof notifyTelegramAdmin === 'function') notifyTelegramAdmin('✅ Nạp ví @' + user + ' +' + fmt(amount)); } catch (e) {}
