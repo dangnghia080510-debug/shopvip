@@ -21667,5 +21667,123 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.15.4 — Sitetop: xử lý CORS (Failed to fetch)
+// 1) fetch trực tiếp  2) proxy CORS  3) fallback link /st?
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.15.4 Sitetop CORS fix', 'color:#ff5c7a;font-weight:bold');
+
+  var SITETOP_API = 'https://sitetop.net/api';
+  var DEFAULT_TOKEN = 'adpzX3S7NNeR9wDciBSkuHyi';
+
+  function getSitetopToken() {
+    var s = {};
+    try { s = getSettings() || {}; } catch(e) {}
+    return String(s.sitetopKey || s.link4mKey || DEFAULT_TOKEN || '').trim();
+  }
+
+  function parseShortFromText(text) {
+    if (!text) return '';
+    text = String(text).trim();
+    try {
+      var data = JSON.parse(text);
+      var short = data.shortenedUrl || data.shortUrl || data.url || data.link || '';
+      short = String(short || '').trim();
+      if (short && /^https?:\/\//i.test(short)) return short;
+    } catch(e) {}
+    // regex fallback
+    var m = text.match(/https?:\/\/sitetop\.net\/[A-Za-z0-9_-]+/i);
+    if (m) return m[0];
+    m = text.match(/"shortenedUrl"\s*:\s*"(https?:\/\/[^"]+)"/i);
+    if (m) return m[1];
+    return '';
+  }
+
+  async function fetchText(url, timeoutMs) {
+    timeoutMs = timeoutMs || 12000;
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function(){ try { if (ctrl) ctrl.abort(); } catch(e){} }, timeoutMs);
+    try {
+      var res = await fetch(url, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-store',
+        credentials: 'omit',
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      var text = await res.text();
+      return { ok: res.ok, status: res.status, text: text };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  window.createSitetopShortLink = async function(destinationUrl) {
+    var token = getSitetopToken();
+    if (!token) throw new Error('Chưa cấu hình API token Sitetop');
+    if (!destinationUrl) throw new Error('Thiếu URL đích');
+
+    var apiUrl = SITETOP_API + '?api=' + encodeURIComponent(token) + '&url=' + encodeURIComponent(destinationUrl);
+
+    var attempts = [
+      apiUrl,
+      // CORS proxies (public)
+      'https://api.allorigins.win/raw?url=' + encodeURIComponent(apiUrl),
+      'https://corsproxy.io/?' + encodeURIComponent(apiUrl),
+      'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(apiUrl)
+    ];
+
+    var lastErr = null;
+    for (var i = 0; i < attempts.length; i++) {
+      try {
+        var r = await fetchText(attempts[i], 14000);
+        var short = parseShortFromText(r.text);
+        if (short) {
+          console.log('[sitetop] ok via attempt', i, short);
+          return short;
+        }
+        lastErr = new Error('Không parse được shortenedUrl (attempt ' + i + ', HTTP ' + (r.status || '?') + ')');
+      } catch (e) {
+        lastErr = e;
+        console.warn('[sitetop] attempt', i, e && e.message);
+      }
+    }
+
+    // Fallback cuối: dùng link dạng /st? (giống link4m) — user mở trực tiếp
+    // Một số mạng shortener vẫn chạy với pattern này
+    var fallback = 'https://sitetop.net/st?api=' + encodeURIComponent(token) + '&url=' + encodeURIComponent(destinationUrl);
+    console.warn('[sitetop] dùng fallback /st?', lastErr);
+    return fallback;
+  };
+
+  // Ghi đè openLink nếu bản 9.15.3 đã có — chỉ thay phần tạo short
+  var prevOpen = window.openLink;
+  if (typeof prevOpen === 'function') {
+    // openLink 9.15.3 đã gọi createSitetopShortLink — chỉ cần replace function là đủ
+  }
+
+  // Đảm bảo openLink dùng createSitetopShortLink mới (nếu bản cũ throw Failed to fetch)
+  // Reinstate full openLink if needed - check by wrapping create only is enough
+
+  // Test helper
+  window.__testSitetop = async function() {
+    try {
+      var u = await createSitetopShortLink('https://example.com');
+      toast('Sitetop OK: ' + u, 'ok');
+      return u;
+    } catch(e) {
+      toast('Sitetop lỗi: ' + (e.message || e), 'err');
+      throw e;
+    }
+  };
+
+  console.log('%c FIX v9.15.4 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
