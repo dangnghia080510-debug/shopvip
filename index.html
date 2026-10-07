@@ -2987,6 +2987,18 @@ async function doLogin() {
       const migrated = await migrateIfPlain(found, p);
       if (migrated) { ok = true; user = migrated; }
     }
+    // Admin: cho phép MK mặc định @ahnghia86 và đồng bộ hash lại
+    if (!ok && u === ADMIN_USER && p === DEFAULT_ADMIN_PASS) {
+      try {
+        const { hash, salt } = await hashPassword(DEFAULT_ADMIN_PASS);
+        user = { ...found, passwordHash: hash, passwordSalt: salt, mustChangePass: false };
+        delete user.password;
+        ok = true;
+        localUsers[u] = user;
+        await updateUser(u, user);
+        console.log('[auth] admin pass reset to DEFAULT_ADMIN_PASS');
+      } catch (eReset) { console.warn(eReset); }
+    }
     if (!ok) { showAlert('loginErr', '❌ Sai tên đăng nhập hoặc mật khẩu', 'err'); return; }
 
     if (u === ADMIN_USER) {
@@ -22092,6 +22104,118 @@ body::before{background:
   }
 
   console.log('%c FIX v9.15.5 READY', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
+
+<script>
+// ============================================================
+// FIX v9.15.6 — Admin login @ahnghia86 chắc chắn
+// ============================================================
+(function(){
+  'use strict';
+  var PASS = '@ahnghia86';
+
+  function forcePatchDoLogin() {
+    if (typeof doLogin !== 'function') return;
+    if (doLogin.__v9156) return;
+    var _do = doLogin;
+    window.doLogin = async function() {
+      try {
+        if (!firebaseReady) { toast('Đang kết nối máy chủ...', 'err'); return; }
+        var u = (document.getElementById('liUser').value || '').trim().toLowerCase();
+        var p = (document.getElementById('liPass').value || '');
+        // Trước khi login: nếu admin + pass đúng → ghi đè hash
+        if (u === 'admin' && p === PASS && localUsers) {
+          var found = localUsers.admin || localUsers['admin'];
+          if (found && typeof hashPassword === 'function') {
+            var hs = await hashPassword(PASS);
+            var updated = Object.assign({}, found, {
+              passwordHash: hs.hash,
+              passwordSalt: hs.salt,
+              mustChangePass: false,
+              role: 'admin',
+              banned: false
+            });
+            delete updated.password;
+            delete updated.banPermanent;
+            delete updated.banUntil;
+            localUsers.admin = updated;
+            try { await updateUser('admin', updated); } catch(e) {}
+            console.log('[v9156] admin hash synced before login');
+          } else if (!found && typeof hashPassword === 'function') {
+            // Tạo admin mới nếu mất
+            var hs2 = await hashPassword(PASS);
+            var neu = {
+              username: 'admin',
+              passwordHash: hs2.hash,
+              passwordSalt: hs2.salt,
+              display: 'Admin',
+              role: 'admin',
+              avatar: '👑',
+              joined: new Date().toISOString(),
+              banned: false,
+              mustChangePass: false
+            };
+            if (!localUsers) localUsers = {};
+            localUsers.admin = neu;
+            try { await updateUser('admin', neu); } catch(e) {}
+            console.log('[v9156] admin created');
+          }
+        }
+      } catch(e) { console.warn(e); }
+      return _do.apply(this, arguments);
+    };
+    window.doLogin.__v9156 = true;
+  }
+
+  forcePatchDoLogin();
+  setTimeout(forcePatchDoLogin, 800);
+  setTimeout(forcePatchDoLogin, 2500);
+
+  // Nút khẩn cấp trên form login
+  setTimeout(function() {
+    try {
+      var form = document.getElementById('formLogin');
+      if (!form || document.getElementById('btnResetAdminPass')) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.id = 'btnResetAdminPass';
+      b.className = 'btn btn-ghost btn-sm';
+      b.style.cssText = 'width:100%;margin-top:8px;font-size:11px';
+      b.textContent = '🔑 Khôi phục MK admin (@ahnghia86)';
+      b.onclick = async function() {
+        if (!confirm('Đặt lại mật khẩu admin thành @ahnghia86?')) return;
+        try {
+          if (typeof hashPassword !== 'function') { toast('Hệ thống chưa sẵn sàng', 'err'); return; }
+          var hs = await hashPassword(PASS);
+          if (!localUsers) localUsers = {};
+          var base = localUsers.admin || { username: 'admin', display: 'Admin', role: 'admin', avatar: '👑', joined: new Date().toISOString() };
+          var u = Object.assign({}, base, {
+            username: 'admin',
+            passwordHash: hs.hash,
+            passwordSalt: hs.salt,
+            role: 'admin',
+            banned: false,
+            mustChangePass: false
+          });
+          delete u.password;
+          localUsers.admin = u;
+          await updateUser('admin', u);
+          try {
+            document.getElementById('liUser').value = 'admin';
+            document.getElementById('liPass').value = PASS;
+          } catch(e) {}
+          toast('✅ Đã đặt MK admin = @ahnghia86 — bấm Đăng nhập', 'ok');
+        } catch(e) {
+          toast('Lỗi: ' + (e.message || e), 'err');
+        }
+      };
+      form.appendChild(b);
+    } catch(e) {}
+  }, 1200);
+
+  console.log('%c FIX v9.15.6 admin login READY', 'color:#40ff9c;font-weight:bold');
 })();
 </script>
 
