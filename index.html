@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Mướp Chat</title>
+<meta name="theme-color" content="#0084ff"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Mướp Chat"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -140,6 +141,7 @@ input:focus,textarea:focus{border-color:var(--g)}
 .ph2{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--ln)}.ph2 b{font-size:18px}
 #pbox{max-width:640px;margin:0 auto;padding:12px}
 #pbox .prof{background:var(--bg);border-radius:12px;padding:16px;margin-bottom:12px}
+.lk{color:inherit;text-decoration:underline;word-break:break-all}
 </style>
 </head>
 <body>
@@ -175,11 +177,11 @@ input:focus,textarea:focus{border-color:var(--g)}
    <div id="msgs"></div><div id="rpl" hidden></div>
    <div id="comp">
     <div id="emo" hidden></div><div id="sg" hidden></div>
-    <button id="att" title="Gửi ảnh/file">📎</button>
+    <button id="pic" title="Gửi ảnh từ điện thoại">🖼️</button><button id="att" title="Gửi tệp">📎</button>
     <button id="emb" title="Emoji">😊</button>
     <textarea id="inp" rows="1" placeholder="Nhập tin nhắn..." maxlength="2000"></textarea>
     <button id="send" title="Gửi">➤</button>
-    <input type="file" id="file" hidden>
+    <input type="file" id="file" accept=".pdf,.txt,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.mp3" hidden><input type="file" id="file2" accept="image/*" multiple hidden>
    </div>
   </section>
  </main>
@@ -226,13 +228,13 @@ const grp=(z,e="👥")=>`<div class="av grp" style="width:${z}px;height:${z}px;f
 const on=u=>!!u&&Date.now()-(u.lastSeen||0)<45000;
 const hm=d=>d.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});
 const fmt=t=>{const d=new Date(t);return d.toDateString()===new Date().toDateString()?hm(d):d.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"})+" "+hm(d)};
-const toast=m=>{const e=document.createElement("div");e.id="toast";e.textContent=m;document.body.append(e);setTimeout(()=>e.remove(),2800)};
+const toast=(m,f)=>{const e=document.createElement("div");e.id="toast";e.textContent=m;if(f){e.style.cursor="pointer";e.onclick=()=>{e.remove();f()}}document.body.append(e);setTimeout(()=>e.remove(),3500)};
 const modal=h=>{const m=$("#modal");m.innerHTML=`<div class="card"><button class="x" id="mx" title="Đóng">✕</button>${h}</div>`;m.hidden=false;m.onclick=e=>{if(e.target===m)closeModal()};$("#mx").onclick=closeModal;hpush("modal")};
 const closeModal=()=>{const m=$("#modal");if(m.hidden)return;m.hidden=true;hpop("modal")};
 const other=c=>U[c.members.find(x=>x!==me.uid)];
 let replyTo=null;
 const unm=()=>{const m={};Object.values(U).forEach(u=>m[u.username]=u.id);return m};
-const txt=t=>{const m=unm();return esc(t).replace(/@([a-z0-9_.]{3,20})/g,(a,n)=>m[n]?`<span class="mt" data-p="${m[n]}">@${n}</span>`:a)};
+const txt=t=>{const m=unm();return esc(t).replace(/@([a-z0-9_.]{3,20})/g,(a,n)=>m[n]?`<span class="mt" data-p="${m[n]}">@${n}</span>`:a).replace(/(https?:\/\/[^\s<]+)/g,u=>`<a class="lk" href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`)};
 const mentions=t=>{const m=unm();return[...new Set([...t.matchAll(/@([a-z0-9_.]{3,20})/g)].map(x=>m[x[1]]).filter(Boolean))]};
 const rcs=m=>{const r=m.reactions||{},k={};Object.values(r).forEach(e=>k[e]=(k[e]||0)+1);const ks=Object.keys(k);return ks.length&&!m.recalled?`<div class="rcs">${ks.map(e=>`<span data-r="${e}" class="${r[me.uid]===e?"on":""}">${e}${k[e]}</span>`).join("")}</div>`:""};
 const lightbox=u=>{const l=document.createElement("div");l.id="lb";l.innerHTML=`<img src="${esc(u)}" alt="">`;l.onclick=closeLb;document.body.append(l);hpush("lb")};
@@ -287,7 +289,7 @@ async function start(u){
       if(c.lastFrom&&c.lastFrom!==me.uid&&c.lastAt>t0&&!c.muted?.[me.uid]&&(ch.doc.id!==cur||document.hidden)&&!seenN[k]){
         seenN[k]=1;const who=c.isGroup?c.name:(U[c.lastFrom]?.name||"Tin nhắn mới");
         try{if(Notification.permission==="granted")new Notification(who,{body:c.lastMsg})}catch{}
-        toast(`💬 ${who}: ${c.lastMsg}`);
+        toast(`💬 ${who}: ${c.lastMsg}`,()=>openChat(ch.doc.id));
       }
     });
     C=s.docs.map(d=>({id:d.id,...d.data()}));
@@ -297,9 +299,9 @@ async function start(u){
     const d=s.docs[0]?.data();if(!d)return;
     Object.assign(COMM,{lastAt:d.at,lastFrom:d.from,lastMsg:d.recalled?"Tin nhắn đã bị thu hồi":d.type==="text"?d.text.slice(0,60):d.type==="image"?"📷 Hình ảnh":"📎 "+(d.name||"")});
     watchUser(d.from);
-    if(d.mentions?.includes(me.uid)&&d.from!==me.uid&&d.at>t0&&!seenN["m"+d.at]){seenN["m"+d.at]=1;toast("📣 "+(U[d.from]?.name||"Ai đó")+" đã nhắc đến bạn")}
+    if(d.mentions?.includes(me.uid)&&d.from!==me.uid&&d.at>t0&&!seenN["m"+d.at]){seenN["m"+d.at]=1;toast("📣 "+(U[d.from]?.name||"Ai đó")+" đã nhắc đến bạn",()=>openChat("community"))}
     if(cur==="community"&&!document.hidden)commSeen=d.at;
-    else if(d.from!==me.uid&&d.at>t0&&!seenN["c"+d.at]){seenN["c"+d.at]=1;const w="Cộng đồng Mướp";try{if(Notification.permission==="granted")new Notification(w,{body:COMM.lastMsg})}catch{}toast("🌍 "+(U[d.from]?.name||"")+": "+COMM.lastMsg)}
+    else if(d.from!==me.uid&&d.at>t0&&!seenN["c"+d.at]){seenN["c"+d.at]=1;const w="Cộng đồng Mướp";try{if(Notification.permission==="granted")new Notification(w,{body:COMM.lastMsg})}catch{}toast("🌍 "+(U[d.from]?.name||"")+": "+COMM.lastMsg,()=>openChat("community"))}
     draw();
   },e=>toast("Lỗi cộng đồng: "+e.code));
 }
@@ -420,6 +422,8 @@ $("#emo").innerHTML=EM.map(x=>`<button>${x}</button>`).join("");
 $("#emb").onclick=()=>$("#emo").hidden=!$("#emo").hidden;
 $("#emo").onclick=e=>{if(e.target.tagName==="BUTTON"){const i=$("#inp");i.value+=e.target.textContent;i.focus();$("#emo").hidden=true}};
 $("#att").onclick=()=>$("#file").click();
+$("#pic").onclick=()=>$("#file2").click();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 const OKEXT=/\.(pdf|txt|zip|docx?|xlsx?|pptx?|csv|mp3)$/i;
 async function fit(f,max){for(const[z,q]of[[1800,.88],[1600,.82],[1400,.76],[1200,.7],[1000,.64],[800,.55]]){const d=await shrink(f,z,q);if(d.length<=max)return d}throw "Ảnh quá lớn, hãy chọn ảnh nhỏ hơn"}
 function shrink(f,max,q){
@@ -430,8 +434,8 @@ function shrink(f,max,q){
   });
 }
 $("#file").onchange=async e=>{
-  const f=e.target.files[0];e.target.value="";if(!f||!cur)return;
-  try{
+  const fs=[...e.target.files].slice(0,10);e.target.value="";if(!cur)return;
+  for(const f of fs)try{
     if(f.type.startsWith("image/")){
       if(!/^image\/(jpeg|png|gif|webp)$/.test(f.type))throw "Chỉ hỗ trợ ảnh JPG, PNG, GIF, WEBP";
       if(f.size>10*1048576)throw "Ảnh tối đa 10MB";
@@ -445,6 +449,8 @@ $("#file").onchange=async e=>{
     }
   }catch(x){toast(typeof x==="string"?x:"Gửi tệp thất bại")}
 };
+$("#file2").onchange=$("#file").onchange;
+$("#inp").onpaste=e=>{const f=[...e.clipboardData.files].filter(x=>x.type.startsWith("image/"));if(f.length){e.preventDefault();$("#file").onchange({target:{files:f,value:""}})}};
 
 /* ---------- Tạo chat ---------- */
 const base={isGroup:false,lastMsg:"",lastAt:0,lastFrom:"",typing:{},readAt:{},pinned:{},muted:{}};
