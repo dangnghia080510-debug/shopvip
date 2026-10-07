@@ -121,6 +121,25 @@ input:focus,textarea:focus{border-color:var(--g)}
 #sg{position:absolute;bottom:62px;left:60px;background:var(--bg);box-shadow:var(--sh);border-radius:12px;min-width:230px;z-index:6}#sg .it{padding:6px 10px}
 .prof{text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+#app{flex-direction:column}
+#nav{flex:none;background:var(--bg);border-bottom:1px solid var(--ln);padding-top:env(safe-area-inset-top,0px)}
+.nbar{padding:8px 14px 2px;font-size:24px;font-weight:700;color:var(--g)}
+#tabs{display:flex}
+#tabs button{flex:1;width:auto;height:44px;border-radius:0;font-size:14px;font-weight:600;color:var(--s);border-bottom:3px solid transparent}
+#tabs button:not(.on) .ic{filter:grayscale(1);opacity:.7}
+#tabs button.on{color:var(--g);border-color:var(--g)}
+.nbd{display:inline-block;margin-left:5px;background:#e41e3f;color:#fff;border-radius:9px;font:700 11px/16px system-ui;min-width:16px;padding:0 4px;font-style:normal}
+#feedv,#vMenu{flex:1;min-height:0}
+#vChats{flex:1;min-height:0;display:flex}
+#chat{flex:1;min-height:0;height:auto}
+#vMenu{overflow:auto;background:var(--pn);padding:12px;display:flex;flex-direction:column;gap:10px;align-items:center}
+#vMenu>*{width:min(640px,100%);margin:0}
+.mrow{display:flex;gap:12px;align-items:center;cursor:pointer;font-size:16px;padding:14px}.mrow>b{flex:1;font-weight:600}
+.card{position:relative}.x{position:absolute;top:8px;right:10px;z-index:1}
+#prof{position:fixed;inset:0;z-index:25;background:var(--pn);overflow:auto}
+.ph2{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--ln)}.ph2 b{font-size:18px}
+#pbox{max-width:640px;margin:0 auto;padding:12px}
+#pbox .prof{background:var(--bg);border-radius:12px;padding:16px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -138,15 +157,18 @@ input:focus,textarea:focus{border-color:var(--g)}
 </div>
 
 <div id="app" hidden>
+ <nav id="nav"><div class="nbar">🌿 Mướp Chat</div><div id="tabs"><button data-t="home" class="on"><span class="ic">🏠</span> Bảng tin</button><button data-t="chats"><span class="ic">💬</span> Tin nhắn<i id="nb" class="nbd" hidden></i></button><button data-t="menu"><span class="ic">☰</span> Menu</button></div></nav>
+ <section id="feedv"></section>
+ <section id="vMenu" hidden></section>
+ <div id="vChats" hidden>
  <aside id="side">
-  <div class="top"><div id="meBtn" title="Cài đặt"></div><b>Đoạn chat</b><button id="thm" title="Sáng/Tối">🌓</button><button id="feedBtn" title="Bảng tin">📰</button><button id="newBtn" title="Cuộc trò chuyện mới">✏️</button></div>
+  <div class="top"><div id="meBtn" title="Cài đặt"></div><b>Đoạn chat</b><button id="thm" title="Sáng/Tối">🌓</button><button id="newBtn" title="Cuộc trò chuyện mới">✏️</button></div>
   <input id="q" placeholder="Tìm cuộc trò chuyện">
   <div id="onl"></div>
   <div id="list"></div>
  </aside>
  <main id="main">
   <div id="empty"><div>🌿</div><p>Chọn một cuộc trò chuyện hoặc nhấn ✏️ để bắt đầu</p></div>
-  <section id="feedv" hidden></section>
   <section id="chat" hidden>
    <div id="hd"></div>
    <div id="sbar" hidden><input id="ms" placeholder="Tìm tin nhắn trong cuộc trò chuyện"></div>
@@ -161,8 +183,10 @@ input:focus,textarea:focus{border-color:var(--g)}
    </div>
   </section>
  </main>
+ </div>
 </div>
 <div id="modal" hidden></div>
+<div id="prof" hidden><div class="ph2"><button id="pback" title="Quay lại">←</button><b>Trang cá nhân</b></div><div id="pbox"></div></div>
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -182,6 +206,15 @@ const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+/* Nút Back của điện thoại: mỗi lớp (tab, chat, hồ sơ, popup, ảnh) = 1 mục lịch sử */
+const ST=[],pend=[];let ign=0;
+const hpush=k=>{if(ST.includes(k))return;ST.push(k);ign?pend.push(k):history.pushState({k},"")};
+const hpop=k=>{const i=ST.lastIndexOf(k);if(i<0)return;const top=i===ST.length-1;ST.splice(i,1);const j=pend.lastIndexOf(k);if(j>=0)pend.splice(j,1);else if(top){ign++;history.back()}};
+addEventListener("popstate",()=>{
+  if(ign){if(--ign===0)pend.splice(0).forEach(k=>history.pushState({k},""));return}
+  const k=ST.pop();
+  if(k==="lb")$("#lb")?.remove();else if(k==="modal")closeModal();else if(k==="prof")closeProf();else if(k==="chat")closeChat();else if(k==="tab")go("home");
+});
 const COMM={id:"community",community:true,isGroup:true,name:"Cộng đồng Mướp",members:[],lastAt:0,lastFrom:"",lastMsg:"Chat công khai cho mọi người",readAt:{},typing:{},pinned:{},muted:{}};
 const isC=id=>id==="community",mcol=id=>isC(id)?collection(db,"community"):collection(db,"chats",id,"messages"),mref=(id,m)=>isC(id)?doc(db,"community",m):doc(db,"chats",id,"messages",m),getC=id=>isC(id)?COMM:C.find(x=>x.id===id);
 let commSeen=0,me=null,U={},C=[],M=[],cur=null,watch={},mq="",t0=0,seenN={},lt=0,stick=true,uC,uM,timers=[];
@@ -194,14 +227,16 @@ const on=u=>!!u&&Date.now()-(u.lastSeen||0)<45000;
 const hm=d=>d.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});
 const fmt=t=>{const d=new Date(t);return d.toDateString()===new Date().toDateString()?hm(d):d.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"})+" "+hm(d)};
 const toast=m=>{const e=document.createElement("div");e.id="toast";e.textContent=m;document.body.append(e);setTimeout(()=>e.remove(),2800)};
-const modal=h=>{const m=$("#modal");m.innerHTML=`<div class="card">${h}</div>`;m.hidden=false;m.onclick=e=>{if(e.target===m)m.hidden=true}};
+const modal=h=>{const m=$("#modal");m.innerHTML=`<div class="card"><button class="x" id="mx" title="Đóng">✕</button>${h}</div>`;m.hidden=false;m.onclick=e=>{if(e.target===m)closeModal()};$("#mx").onclick=closeModal;hpush("modal")};
+const closeModal=()=>{const m=$("#modal");if(m.hidden)return;m.hidden=true;hpop("modal")};
 const other=c=>U[c.members.find(x=>x!==me.uid)];
 let replyTo=null;
 const unm=()=>{const m={};Object.values(U).forEach(u=>m[u.username]=u.id);return m};
 const txt=t=>{const m=unm();return esc(t).replace(/@([a-z0-9_.]{3,20})/g,(a,n)=>m[n]?`<span class="mt" data-p="${m[n]}">@${n}</span>`:a)};
 const mentions=t=>{const m=unm();return[...new Set([...t.matchAll(/@([a-z0-9_.]{3,20})/g)].map(x=>m[x[1]]).filter(Boolean))]};
 const rcs=m=>{const r=m.reactions||{},k={};Object.values(r).forEach(e=>k[e]=(k[e]||0)+1);const ks=Object.keys(k);return ks.length&&!m.recalled?`<div class="rcs">${ks.map(e=>`<span data-r="${e}" class="${r[me.uid]===e?"on":""}">${e}${k[e]}</span>`).join("")}</div>`:""};
-const lightbox=u=>{const l=document.createElement("div");l.id="lb";l.innerHTML=`<img src="${esc(u)}" alt="">`;l.onclick=()=>l.remove();document.body.append(l)};
+const lightbox=u=>{const l=document.createElement("div");l.id="lb";l.innerHTML=`<img src="${esc(u)}" alt="">`;l.onclick=closeLb;document.body.append(l);hpush("lb")};
+const closeLb=()=>{$("#lb")?.remove();hpop("lb")};
 const cname=c=>c.isGroup?c.name:(other(c)?.name||"...");
 const cnameH=c=>esc(cname(c))+(c.isGroup?"":vb(other(c)?.verified));
 const theme=t=>{document.documentElement.dataset.theme=t;try{localStorage.setItem("th",t)}catch{}};
@@ -238,7 +273,7 @@ async function start(u){
   if(!s.exists())return err("Không tải được hồ sơ, hãy thử lại");
   me={uid:u.uid};t0=Date.now();
   watchUser(u.uid);
-  $("#auth").hidden=true;$("#app").hidden=false;
+  $("#auth").hidden=true;$("#app").hidden=false;go("home");
   if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
   const beat=()=>updateDoc(doc(db,"users",me.uid),{lastSeen:Date.now()}).catch(()=>{});
   beat();timers.push(setInterval(beat,20000),setInterval(draw,15000),setInterval(()=>cur&&drawHead(),2000));
@@ -276,7 +311,7 @@ function watchUser(id){
 /* ---------- Sidebar ---------- */
 function draw(){
   if(!me||!U[me.uid])return;
-  $("#meBtn").innerHTML=av(U[me.uid],40);
+  $("#meBtn").innerHTML=av(U[me.uid],40);$("#pav")&&($("#pav").innerHTML=av(U[me.uid],40));const nU=[COMM,...C].filter(c=>c.lastFrom&&c.lastFrom!==me.uid&&c.lastAt>(c.community?commSeen:(c.readAt?.[me.uid]||0))).length;$("#nb").hidden=!nU;$("#nb").textContent=nU>9?"9+":nU;
   const q=$("#q").value.toLowerCase();
   const L=[COMM,...C.slice().sort((a,b)=>(!!b.pinned?.[me.uid])-(!!a.pinned?.[me.uid])||b.lastAt-a.lastAt)].filter(c=>cname(c).toLowerCase().includes(q));
   $("#list").innerHTML=L.length?L.map(c=>{
@@ -293,12 +328,11 @@ $("#list").onclick=e=>{const i=e.target.closest(".it");if(i)openChat(i.dataset.i
 $("#onl").onclick=e=>{const i=e.target.closest("[data-u]");if(i)start11(i.dataset.u)};
 $("#meBtn").onclick=settings;
 $("#newBtn").onclick=newChat;
-$("#feedBtn").onclick=()=>showFeed(true);
 
 /* ---------- Chat ---------- */
 function openChat(id){
-  cur=id;M=[];mq="";stick=true;replyTo=null;showReply();$("#feedv").hidden=true;$("#ms").value="";$("#sbar").hidden=true;
-  $("#empty").hidden=true;$("#chat").hidden=false;$("#app").classList.add("open");
+  cur=id;M=[];mq="";stick=true;replyTo=null;showReply();closeProf();go("chats");$("#ms").value="";$("#sbar").hidden=true;
+  $("#empty").hidden=true;$("#chat").hidden=false;$("#app").classList.add("open");matchMedia("(max-width:760px)").matches&&hpush("chat");
   uM&&uM();
   if(isC(id))commSeen=Date.now();
   uM=onSnapshot(query(mcol(id),orderBy("at","desc"),limit(200)),s=>{
@@ -306,13 +340,14 @@ function openChat(id){
   },e=>toast("Không tải được tin nhắn: "+e.code));
   draw();drawHead();$("#inp").focus();
 }
+function closeChat(){$("#app").classList.remove("open");cur=null;uM&&uM();uM=null;$("#chat").hidden=true;$("#empty").hidden=false;draw();hpop("chat")}
 function drawHead(){
   const c=getC(cur);if(!c)return;
   const o=other(c),ty=Object.entries(c.typing||{}).some(([k,v])=>k!==me.uid&&Date.now()-v<4000);
   $("#hd").innerHTML=`<button id="back" title="Quay lại">←</button>${c.isGroup?grp(40,c.community?"🌍":"👥"):`<span data-p="${o?.id}">${av(o,40)}</span>`}<div class="mid"><b>${cnameH(c)}</b><small>${ty?"đang nhập...":c.community?Object.values(U).filter(on).length+" đang online · chat công khai":c.isGroup?c.members.length+" thành viên":on(o)?"Đang hoạt động":"Ngoại tuyến"}</small></div><button data-h="s" title="Tìm tin nhắn">🔍</button>${c.community?"":`<button data-h="p" title="Ghim">${c.pinned?.[me.uid]?"📌":"📍"}</button><button data-h="m" title="Tắt thông báo">${c.muted?.[me.uid]?"🔕":"🔔"}</button>`}`;
 }
 $("#hd").onclick=e=>{const pp=e.target.closest("[data-p]");if(pp&&U[pp.dataset.p]){openProfile(pp.dataset.p);return}
-  if(e.target.id==="back"){$("#app").classList.remove("open");cur=null;uM&&uM();$("#chat").hidden=true;$("#empty").hidden=false;draw();return}
+  if(e.target.id==="back"){closeChat();return}
   const h=e.target.dataset.h,c=getC(cur);if(!h||!c)return;
   if(h==="s"){$("#sbar").hidden=!$("#sbar").hidden;if(!$("#sbar").hidden)$("#ms").focus()}
   if(h==="p")updateDoc(doc(db,"chats",cur),{["pinned."+me.uid]:!c.pinned?.[me.uid]});
@@ -343,7 +378,7 @@ function renderMsgs(){
   if(stick||near){box.scrollTop=box.scrollHeight;stick=false}
 }
 $("#msgs").onclick=async e=>{
-  if(e.target.classList.contains("pic")){const l=document.createElement("div");l.id="lb";l.innerHTML=`<img src="${esc(e.target.src)}" alt="">`;l.onclick=()=>l.remove();document.body.append(l);return}
+  if(e.target.classList.contains("pic")){lightbox(e.target.src);return}
   const pp=e.target.closest("[data-p]");if(pp){openProfile(pp.dataset.p);return}
   const qq=e.target.closest("[data-q]");if(qq){document.querySelector(`.row[data-id="${qq.dataset.q}"]`)?.scrollIntoView({behavior:"smooth",block:"center"});return}
   const row=e.target.closest(".row");if(!row)return;
@@ -417,7 +452,7 @@ async function start11(uid){
   const id=[me.uid,uid].sort().join("_"),ref=doc(db,"chats",id);
   try{
     if(!(await getDoc(ref)).exists())await setDoc(ref,{...base,members:[me.uid,uid].sort(),createdBy:me.uid,lastAt:Date.now()});
-    $("#modal").hidden=true;openChat(id);
+    closeModal();openChat(id);
   }catch(e){toast("Không tạo được cuộc trò chuyện: "+(e.code||""))}
 }
 function newChat(){
@@ -440,7 +475,7 @@ function newChat(){
     if(!sel.size)return toast("Hãy chọn ít nhất một người");
     if(sel.size===1)return start11([...sel.keys()][0]);
     const n=$("#gn").value.trim()||"Nhóm "+[...sel.values()].map(u=>u.name).slice(0,2).join(", ");
-    try{const r=await addDoc(collection(db,"chats"),{...base,isGroup:true,name:n.slice(0,40),members:[me.uid,...sel.keys()],createdBy:me.uid,lastAt:Date.now()});$("#modal").hidden=true;openChat(r.id)}
+    try{const r=await addDoc(collection(db,"chats"),{...base,isGroup:true,name:n.slice(0,40),members:[me.uid,...sel.keys()],createdBy:me.uid,lastAt:Date.now()});closeModal();openChat(r.id)}
     catch(e){toast("Không tạo được nhóm: "+(e.code||""))}
   };
   $("#us").focus();
@@ -463,18 +498,29 @@ function suggest(i){
 $("#sg").onclick=e=>{const i=e.target.closest("[data-un]");if(!i)return;const t=$("#inp"),c=t.selectionStart;t.value=t.value.slice(0,c).replace(/@([a-z0-9_.]*)$/,"@"+i.dataset.un+" ")+t.value.slice(c);$("#sg").hidden=true;t.focus()};
 
 /* ---------- Bảng tin ---------- */
-let uF,pimg="",CM={},uCM={},openC=new Set(),drafts={},P=[],PP=[],uPP,profId=null;
+let tab="home",uF,pimg="",CM={},uCM={},openC=new Set(),drafts={},P=[],PP=[],uPP,profId=null;
 const imgH=u=>typeof u==="string"&&u.startsWith("data:image/")?`<img class="pimg" src="${esc(u)}" alt="">`:"";
-const redraw=()=>{drawPosts();drawProf()};
-function showFeed(on){
-  $("#feedv").hidden=!on;$("#chat").hidden=on||!cur;$("#empty").hidden=on||!!cur;
-  $("#app").classList.toggle("open",on||!!cur);
-  if(on&&!uF)initFeed();
+const redraw=()=>{drawPosts();drawProf();tab==="menu"&&drawMenu()};
+function go(t){
+  tab=t;
+  $("#feedv").hidden=t!=="home";$("#vMenu").hidden=t!=="menu";$("#vChats").hidden=t!=="chats";
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  t==="home"?hpop("tab"):hpush("tab");
+  if(t==="home"&&!uF)initFeed();
+  if(t==="menu")drawMenu();
+  if(t==="chats")draw();
+}
+$("#tabs").onclick=e=>{const b=e.target.closest("[data-t]");if(b)go(b.dataset.t)};
+$("#pback").onclick=()=>closeProf();
+function drawMenu(){
+  const u=U[me.uid];if(!u)return;
+  $("#vMenu").innerHTML=`<div class="card2 mrow" id="mP">${av(u,56)}<div class="mid"><b>${esc(u.name)}${vb(u.verified)}</b><small style="color:var(--s)">Xem trang cá nhân</small></div></div><div class="card2 mrow" id="mS"><span>⚙️</span><b>Cài đặt tài khoản</b></div><div class="card2 mrow" id="mT"><span>🌓</span><b>Giao diện sáng / tối</b></div><div class="card2 mrow" id="mO" style="color:#dc2626"><span>🚪</span><b>Đăng xuất</b></div>`;
+  $("#mP").onclick=()=>openProfile(me.uid);$("#mS").onclick=settings;
+  $("#mT").onclick=()=>theme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+  $("#mO").onclick=async()=>{try{await updateDoc(doc(db,"users",me.uid),{lastSeen:0})}catch{}timers.forEach(clearInterval);await signOut(auth);location.reload()};
 }
 function initFeed(){
-  $("#feedv").innerHTML=`<div class="ftop"><button id="toChat" title="Tin nhắn">💬</button><b>Bảng tin</b><button id="myProf" title="Trang cá nhân">👤</button></div><div class="card2"><div style="display:flex;gap:10px"><span>${av(U[me.uid],40)}</span><textarea id="ptx" rows="2" maxlength="3000" placeholder="Bạn đang nghĩ gì?" style="border-radius:14px"></textarea></div><div id="ppv"></div><div style="display:flex;gap:8px;margin-top:8px"><button id="pimgb" style="width:auto;padding:0 14px;border-radius:18px;font-size:14px;background:var(--pn)">📷 Ảnh</button><input type="file" id="pf" accept="image/*" hidden><button class="pri" id="ppost" style="width:auto;padding:0 22px;margin-left:auto">Đăng</button></div></div><div id="plist"></div>`;
-  $("#toChat").onclick=()=>showFeed(false);
-  $("#myProf").onclick=()=>openProfile(me.uid);
+  $("#feedv").innerHTML=`<div class="card2"><div style="display:flex;gap:10px"><span id="pav">${av(U[me.uid],40)}</span><textarea id="ptx" rows="2" maxlength="3000" placeholder="Bạn đang nghĩ gì?" style="border-radius:14px"></textarea></div><div id="ppv"></div><div style="display:flex;gap:8px;margin-top:8px"><button id="pimgb" style="width:auto;padding:0 14px;border-radius:18px;font-size:14px;background:var(--pn)">📷 Ảnh</button><input type="file" id="pf" accept="image/*" hidden><button class="pri" id="ppost" style="width:auto;padding:0 22px;margin-left:auto">Đăng</button></div></div><div id="plist"></div>`;
   $("#pimgb").onclick=()=>$("#pf").click();
   $("#pf").onchange=async e=>{
     const f=e.target.files[0];e.target.value="";if(!f)return;
@@ -532,16 +578,16 @@ document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset?.ci
 /* ---------- Trang cá nhân ---------- */
 function openProfile(id){
   if(!id||id==="undefined"||!me)return;
+  if(profId===id&&!$("#prof").hidden)return;
   profId=id;watchUser(id);uPP&&uPP();
-  modal('<div id="pbox"></div>');
-  const m=$("#modal");m.querySelector(".card").style.width="min(560px,94vw)";
-  m.onclick=e=>{if(e.target===m){m.hidden=true;uPP&&uPP();uPP=null;profId=null}};
+  $("#prof").hidden=false;$("#prof").scrollTop=0;hpush("prof");
   PP=[];
   uPP=onSnapshot(query(collection(db,"posts"),where("from","==",id),limit(30)),s=>{PP=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.at-a.at);PP.forEach(p=>p.shareOf&&watchUser(p.shareOf.from));drawProf()},()=>{});
   drawProf();
 }
+function closeProf(){if($("#prof").hidden)return;$("#prof").hidden=true;uPP&&uPP();uPP=null;profId=null;hpop("prof")}
 function drawProf(){
-  const b=$("#pbox");if(!b||$("#modal").hidden||!profId)return;
+  const b=$("#pbox");if(!b||$("#prof").hidden||!profId)return;
   const u=U[profId];if(!u){b.innerHTML='<p class="emp">Đang tải...</p>';return}
   keepFocus(b,()=>{
     b.innerHTML=`<div class="prof">${av(u,88)}<h3>${esc(u.name)}${vb(u.verified)}</h3><small style="color:var(--s)">@${esc(u.username)} · ${on(u)?"🟢 Đang hoạt động":"Ngoại tuyến"}</small><div>${esc(u.status||"")}</div>${profId===me.uid?'<button class="pri" id="ps" style="width:auto;padding:0 20px">Chỉnh sửa hồ sơ</button>':'<button class="pri" id="pm" style="width:auto;padding:0 20px">💬 Nhắn tin</button>'}</div><h4 style="margin:12px 0 8px">Bài viết</h4>${PP.length?PP.map(postHTML).join(""):'<p class="emp">Chưa có bài viết nào</p>'}`;
@@ -559,7 +605,7 @@ function settings(){
   $("#tt").onclick=()=>{theme(document.documentElement.dataset.theme==="dark"?"light":"dark");$("#tt").textContent=document.documentElement.dataset.theme==="dark"?"🌙 Tối":"☀️ Sáng"};
   $("#sv").onclick=async()=>{
     const n=$("#sn").value.trim();if(!n)return toast("Tên không được để trống");
-    try{await updateDoc(doc(db,"users",me.uid),{name:n.slice(0,40),status:$("#ss").value.trim().slice(0,80),avatar:nav});$("#modal").hidden=true;toast("Đã lưu")}catch{toast("Lưu thất bại")}
+    try{await updateDoc(doc(db,"users",me.uid),{name:n.slice(0,40),status:$("#ss").value.trim().slice(0,80),avatar:nav});closeModal();toast("Đã lưu")}catch{toast("Lưu thất bại")}
   };
   $("#lo").onclick=async()=>{
     try{await updateDoc(doc(db,"users",me.uid),{lastSeen:0})}catch{}
