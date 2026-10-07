@@ -21387,5 +21387,285 @@ console.log('%c FEATURE v9.4 VIP free/day + reopen 10min loaded', 'color:#ffe066
 })();
 </script>
 
+
+<script>
+// ============================================================
+// FIX v9.15.3 — Bỏ Link4M, dùng Sitetop.net API
+// GET https://sitetop.net/api?api=TOKEN&url=DEST
+// → { status:"success", shortenedUrl:"https://sitetop.net/xxx" }
+// ============================================================
+(function(){
+  'use strict';
+  console.log('%c FIX v9.15.3 Sitetop shortener', 'color:#3dfff5;font-weight:bold');
+
+  var SITETOP_API = 'https://sitetop.net/api';
+  var DEFAULT_TOKEN = 'adpzX3S7NNeR9wDciBSkuHyi';
+
+  function getSitetopToken() {
+    var s = {};
+    try { s = getSettings() || {}; } catch(e) {}
+    // Ưu tiên sitetopKey; fallback link4mKey (ô settings cũ)
+    var t = String(s.sitetopKey || s.link4mKey || DEFAULT_TOKEN || '').trim();
+    return t;
+  }
+
+  /** Gọi API Sitetop → trả shortenedUrl hoặc throw */
+  window.createSitetopShortLink = async function(destinationUrl) {
+    var token = getSitetopToken();
+    if (!token) throw new Error('Chưa cấu hình API token Sitetop');
+    if (!destinationUrl) throw new Error('Thiếu URL đích');
+    var apiUrl = SITETOP_API + '?api=' + encodeURIComponent(token) + '&url=' + encodeURIComponent(destinationUrl);
+    var res = await fetch(apiUrl, { method: 'GET', mode: 'cors', cache: 'no-store' });
+    if (!res.ok) {
+      var t = await res.text().catch(function(){ return ''; });
+      throw new Error('Sitetop HTTP ' + res.status + (t ? (': ' + String(t).slice(0, 80)) : ''));
+    }
+    var data = await res.json().catch(function(){ return null; });
+    if (!data) throw new Error('Sitetop trả về không phải JSON');
+    if (data.status && String(data.status).toLowerCase() !== 'success') {
+      throw new Error(data.message || data.error || ('Sitetop status: ' + data.status));
+    }
+    var short = data.shortenedUrl || data.shortUrl || data.url || data.link || '';
+    short = String(short || '').trim();
+    if (!short || !/^https?:\/\//i.test(short)) {
+      throw new Error('Sitetop không trả shortenedUrl hợp lệ');
+    }
+    return short;
+  };
+
+  // hasKey: còn token là đủ
+  function hasShortenerKey() {
+    return !!getSitetopToken();
+  }
+
+  // Ghi đè buildLink4mUrl — không dùng nữa, trả null
+  window.buildLink4mUrl = function() {
+    return null;
+  };
+
+  // openLink: tạo short bằng API Sitetop
+  var _openLink = typeof openLink === 'function' ? openLink : null;
+  if (_openLink) {
+    window.openLink = async function(idx) {
+      // Tái dùng phần lớn logic gốc nhưng thay đoạn tạo allLinks
+      var item = currentItem;
+      if (!item || !me) return;
+      if (typeof isUserBanned === 'function' && isUserBanned(me)) { toast('Tài khoản bị khóa', 'err'); return; }
+      if (typeof checkMaintenance === 'function' && checkMaintenance()) return;
+      if (typeof checkRate === 'function' && !checkRate('openLink', 12, 60000)) {
+        toast('⚠️ Thao tác quá nhanh', 'err'); return;
+      }
+      var cd = typeof getCooldownLeft === 'function' ? getCooldownLeft(item.id, idx) : 0;
+      if (cd > 0) { toast('⏳ Còn ' + cd + 's', 'err'); return; }
+
+      if (!hasShortenerKey()) {
+        toast('❌ Admin chưa cấu hình API Sitetop', 'err');
+        return;
+      }
+
+      var btn = document.getElementById('getLinkBtn_' + idx);
+      if (btn) { btn.disabled = true; btn.innerHTML = '⏳ ...'; }
+
+      // Tạo mã xác nhận (giống gốc)
+      var code = null;
+      var fromServer = false;
+      try {
+        if (typeof createServerKey === 'function') {
+          code = await createServerKey('vlp|' + me.username + '|' + item.id + '|r' + idx);
+          fromServer = !!code;
+        }
+      } catch(e) {}
+      if (!code) {
+        code = (typeof genVerifyCode === 'function') ? genVerifyCode(8) : ('VL' + Math.random().toString(36).slice(2, 10).toUpperCase());
+      }
+
+      var sid = 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      try {
+        if (typeof getDeviceId === 'function') sid += getDeviceId().slice(-4);
+      } catch(e) {}
+      var startedAt = Date.now();
+      var deviceId = '';
+      try { deviceId = typeof getDeviceId === 'function' ? getDeviceId() : ''; } catch(e) {}
+
+      var pKey = (typeof pendingCodeKey === 'function')
+        ? pendingCodeKey(item.id, idx)
+        : ('vlp_pending_v2_' + item.id + '_' + idx);
+
+      localStorage.setItem(pKey, JSON.stringify({
+        code: code, user: me.username, itemId: item.id, round: idx,
+        exp: startedAt + 30 * 60 * 1000,
+        fromServer: fromServer, startedAt: startedAt, sid: sid, deviceId: deviceId
+      }));
+      try {
+        localStorage.setItem('vlp_sid_' + item.id + '_' + idx, sid);
+        var stKey = 'vlp_start_' + item.id + '_' + me.username;
+        if (!localStorage.getItem(stKey)) localStorage.setItem(stKey, String(startedAt));
+        db.collection(COL).doc('bypass_sess_' + sid).set({
+          ok: false, user: me.username, itemId: item.id, round: idx,
+          deviceId: deviceId, startedAt: startedAt, at: new Date().toISOString()
+        }).catch(function(){});
+      } catch(e) {}
+
+      if (typeof setCooldown === 'function') setCooldown(item.id, idx);
+
+      // Reveal URL
+      var basePath;
+      try {
+        basePath = getRevealBaseUrl();
+      } catch (eBase) {
+        try {
+          localStorage.removeItem(pKey);
+        } catch(e) {}
+        toast('❌ ' + (eBase.message || 'Chưa cấu hình URL web công khai'), 'err');
+        if (typeof renderSteps === 'function') renderSteps();
+        return;
+      }
+
+      // Build reveal URL with params
+      var sep = basePath.indexOf('?') >= 0 ? '&' : '?';
+      var revealUrl = basePath + sep +
+        'vlpsid=' + encodeURIComponent(sid) +
+        '&vlpcode=' + encodeURIComponent(code) +
+        '&vlpitem=' + encodeURIComponent(item.id) +
+        '&vlpround=' + encodeURIComponent(String(idx)) +
+        (fromServer ? '&vlpserver=1' : '');
+
+      // Lưu Firebase reveal
+      try {
+        await db.collection(COL).doc('reveal_' + sid).set({
+          code: code,
+          fromServer: fromServer,
+          user: me.username,
+          itemId: item.id,
+          round: idx,
+          deviceId: deviceId,
+          startedAt: startedAt,
+          at: new Date().toISOString()
+        });
+      } catch(e) { console.warn('reveal set', e); }
+
+      // Gọi Sitetop API
+      try {
+        var shortUrl = await createSitetopShortLink(revealUrl);
+        if (typeof showRoundLinkUi === 'function') {
+          showRoundLinkUi(idx, [{ id: 'link1', name: 'Link · Sitetop', url: shortUrl }]);
+        }
+        var minSec = 60;
+        try { minSec = Math.max(60, Number((getSettings() || {}).minVerifySec) || 75); } catch(e) {}
+        toast('Lượt ' + (idx + 1) + ': sao chép link → mở trình duyệt → vượt ads (≥' + minSec + 's) → lấy mã', 'ok');
+        var btn2 = document.getElementById('getLinkBtn_' + idx);
+        if (btn2) {
+          var left = typeof getCooldownLeft === 'function' ? getCooldownLeft(item.id, idx) : 55;
+          btn2.disabled = true;
+          btn2.innerHTML = '⏳ ' + (left || 55) + 's';
+        }
+        if (typeof startCooldownTimer === 'function') startCooldownTimer(idx);
+      } catch (e) {
+        try { localStorage.removeItem(pKey); } catch(err) {}
+        console.error('sitetop', e);
+        toast('❌ Không tạo được link: ' + ((e && e.message) || e), 'err');
+        if (typeof renderSteps === 'function') renderSteps();
+      }
+    };
+  }
+
+  // Settings: đổi nhãn Link4M → Sitetop
+  function patchSettingsUI() {
+    try {
+      var label = document.querySelector('label[for="setKey"], .settings-label');
+      // Đổi text trong settings nếu đang mở
+      document.querySelectorAll('.settings-label, .inp-label, p, .sec-note').forEach(function(el) {
+        if (!el || !el.textContent) return;
+        if (/Link4M|link4m/i.test(el.textContent) && el.children.length === 0) {
+          el.textContent = el.textContent.replace(/Link4M/gi, 'Sitetop').replace(/link4m\.co/gi, 'sitetop.net');
+        }
+      });
+      var keyInp = document.getElementById('setKey');
+      if (keyInp && !(getSettings().sitetopKey || '').trim()) {
+        // giữ value hiện tại (có thể đã là token sitetop)
+      }
+      var hostSel = document.getElementById('setLink4mHost');
+      if (hostSel) {
+        hostSel.style.display = 'none';
+        var prev = hostSel.previousElementSibling;
+        if (prev && /Domain/i.test(prev.textContent || '')) prev.style.display = 'none';
+      }
+    } catch(e) {}
+  }
+
+  // saveLink4mSettings → lưu sitetopKey
+  window.saveLink4mSettings = function() {
+    var key = ((document.getElementById('setKey') || {}).value || '').trim();
+    if (!key) { toast('Nhập API token Sitetop', 'err'); return; }
+    var s = Object.assign({}, getSettings(), {
+      sitetopKey: key,
+      link4mKey: key, // tương thích code cũ check link4mKey
+      link1Enabled: true,
+      link2Enabled: false,
+      shortener: 'sitetop'
+    });
+    if (typeof saveSettings === 'function') {
+      saveSettings(s).then(function() {
+        toast('✅ Đã lưu API Sitetop', 'ok');
+        try { if (typeof addLog === 'function') addLog('update_setting', 'sitetop'); } catch(e) {}
+      });
+    } else {
+      toast('Không lưu được settings', 'err');
+    }
+  };
+
+  // Default token nếu settings trống
+  try {
+    if (typeof getSettings === 'function') {
+      var _gs = getSettings;
+      window.getSettings = function() {
+        var s = _gs.apply(this, arguments) || {};
+        if (!(s.sitetopKey || '').trim() && !(s.link4mKey || '').trim()) {
+          s.sitetopKey = DEFAULT_TOKEN;
+          s.link4mKey = DEFAULT_TOKEN;
+        }
+        // nếu vẫn còn key link4m cũ dạng khác — admin tự đổi
+        s.shortener = s.shortener || 'sitetop';
+        return s;
+      };
+    }
+  } catch(e) {}
+
+  // renderSteps: hasKey dùng sitetop
+  if (typeof renderSteps === 'function') {
+    var _rs = renderSteps;
+    // không override nặng — hasKey trong renderSteps đọc link4mKey; getSettings đã fallback token
+  }
+
+  // Khi mở settings admin
+  if (typeof aTab === 'function') {
+    var _at = aTab;
+    aTab = function(t) {
+      var r = _at.apply(this, arguments);
+      if (t === 'settings') setTimeout(patchSettingsUI, 200);
+      return r;
+    };
+  }
+  setTimeout(patchSettingsUI, 1500);
+
+  // Auto-save token mặc định 1 lần nếu settings chưa có
+  setTimeout(function() {
+    try {
+      if (typeof getSettings !== 'function' || typeof saveSettings !== 'function') return;
+      var s = getSettings();
+      if (!(s.sitetopKey || '').trim()) {
+        s.sitetopKey = DEFAULT_TOKEN;
+        s.link4mKey = DEFAULT_TOKEN;
+        s.shortener = 'sitetop';
+        s.link2Enabled = false;
+        saveSettings(s).catch(function(){});
+      }
+    } catch(e) {}
+  }, 2500);
+
+  console.log('%c FIX v9.15.3 READY — Sitetop API', 'color:#40ff9c;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>
