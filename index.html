@@ -7,8 +7,8 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#fbfcf8;--pn:#f1f4ea;--t:#1b2218;--s:#6b7566;--g:#15803d;--gl:#dcfce7;--in:#e8ece0;--ln:#e1e6d8;--sh:0 8px 30px rgba(20,40,10,.12)}
-[data-theme=dark]{--bg:#121512;--pn:#1b201a;--t:#e8efe4;--s:#9aa595;--g:#22a352;--gl:#1d3a26;--in:#2a3128;--ln:#2a3128;--sh:0 8px 30px rgba(0,0,0,.5)}
+:root{--bg:#fff;--pn:#f0f2f5;--t:#050505;--s:#65676b;--g:#0084ff;--gl:#e7f3ff;--in:#f0f0f0;--ln:#e4e6eb;--sh:0 8px 30px rgba(0,0,0,.15)}
+[data-theme=dark]{--bg:#18191a;--pn:#3a3b3c;--t:#e4e6eb;--s:#b0b3b8;--g:#2d88ff;--gl:#263951;--in:#303030;--ln:#3e4042;--sh:0 8px 30px rgba(0,0,0,.6)}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
 body{font:15px/1.4 "Be Vietnam Pro",system-ui,sans-serif;background:var(--bg);color:var(--t);transition:background .25s,color .25s}
@@ -31,8 +31,9 @@ input:focus,textarea:focus{border-color:var(--g)}
 #app{display:flex;height:100dvh;overflow:hidden}
 #side{width:360px;border-right:1px solid var(--ln);display:flex;flex-direction:column;gap:10px;padding:12px 0 0;flex:none}
 #side>*{margin-inline:12px}
+#side>input{width:calc(100% - 24px)}
 .top{display:flex;align-items:center;gap:8px}
-.top b{flex:1;font-size:20px}
+.top b{flex:1;font-size:24px;font-weight:700}
 #meBtn{cursor:pointer}
 #onl{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px}
 #onl div{text-align:center;font-size:11px;width:54px;flex:none;cursor:pointer;position:relative}
@@ -67,19 +68,21 @@ input:focus,textarea:focus{border-color:var(--g)}
 .row.me .col{align-items:flex-end}
 .nm{color:var(--s);font-size:12px;margin:6px 0 2px 10px}
 .b{background:var(--in);padding:8px 14px;border-radius:20px;white-space:pre-wrap;word-break:break-word;cursor:pointer}
-.row.me .b{background:var(--g);color:#fff}
+.row.me .b{background:linear-gradient(135deg,#00a2ff,#0066ff);color:#fff}
+.row .b{border-radius:4px 18px 18px 4px}.row.g1 .b{border-top-left-radius:18px}.row.gl .b{border-bottom-left-radius:18px}
+.row.me .b{border-radius:18px 4px 4px 18px}.row.me.g1 .b{border-top-right-radius:18px}.row.me.gl .b{border-bottom-right-radius:18px}
 .b.img{padding:3px;background:none!important}
 .b.rc{background:none!important;border:1px dashed var(--ln);color:var(--s)!important;font-style:italic}
 .pic{max-width:260px;max-height:300px;border-radius:16px;display:block;cursor:zoom-in}
 .fl{color:inherit;text-decoration:none;display:flex;flex-direction:column}
 .fl small{opacity:.75}
-.tm{color:var(--s);font-size:11px;margin:2px 8px 6px}
+.tm{color:var(--s);font-size:11px;margin:2px 8px 6px;display:none}.row.gl .tm,.row.sel .tm{display:block}
 .ac{display:none;gap:10px;font-size:12px;margin:0 8px 6px}
 .ac a{color:var(--g);cursor:pointer;font-weight:500}
 .row.sel .ac{display:flex}
 #comp{display:flex;align-items:flex-end;gap:6px;padding:10px 12px;border-top:1px solid var(--ln);position:relative}
 #inp{resize:none;max-height:120px;height:40px;border-radius:20px}
-#send{background:var(--g);color:#fff}#send:hover{background:var(--g);filter:brightness(1.1)}
+#send{color:var(--g)}
 #emo{position:absolute;bottom:62px;left:12px;background:var(--bg);box-shadow:var(--sh);border-radius:16px;padding:8px;display:grid;grid-template-columns:repeat(8,1fr);width:min(320px,90vw)}
 #emo button{width:100%;font-size:20px;border-radius:8px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -115,7 +118,7 @@ input:focus,textarea:focus{border-color:var(--g)}
 
 <div id="app" hidden>
  <aside id="side">
-  <div class="top"><div id="meBtn" title="Cài đặt"></div><b>Mướp Chat</b><button id="thm" title="Sáng/Tối">🌓</button><button id="newBtn" title="Cuộc trò chuyện mới">✏️</button></div>
+  <div class="top"><div id="meBtn" title="Cài đặt"></div><b>Đoạn chat</b><button id="thm" title="Sáng/Tối">🌓</button><button id="newBtn" title="Cuộc trò chuyện mới">✏️</button></div>
   <input id="q" placeholder="Tìm cuộc trò chuyện">
   <div id="onl"></div>
   <div id="list"></div>
@@ -142,7 +145,7 @@ input:focus,textarea:focus{border-color:var(--g)}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,doc,getDoc,setDoc,updateDoc,addDoc,getDocs,collection,query,where,orderBy,limit,onSnapshot,arrayUnion} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,doc,getDoc,setDoc,updateDoc,addDoc,getDocs,collection,query,where,orderBy,limit,onSnapshot,arrayUnion,deleteDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig={
   apiKey:"AIzaSyDfsUpCSADUVAZLbC8cGZOahyKbdj0WYqA",
@@ -157,12 +160,14 @@ const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-let me=null,U={},C=[],M=[],cur=null,watch={},mq="",t0=0,seenN={},lt=0,stick=true,uC,uM,timers=[];
+const COMM={id:"community",community:true,isGroup:true,name:"Cộng đồng Mướp",members:[],lastAt:0,lastFrom:"",lastMsg:"Chat công khai cho mọi người",readAt:{},typing:{},pinned:{},muted:{}};
+const isC=id=>id==="community",mcol=id=>isC(id)?collection(db,"community"):collection(db,"chats",id,"messages"),mref=(id,m)=>isC(id)?doc(db,"community",m):doc(db,"chats",id,"messages",m),getC=id=>isC(id)?COMM:C.find(x=>x.id===id);
+let commSeen=0,me=null,U={},C=[],M=[],cur=null,watch={},mq="",t0=0,seenN={},lt=0,stick=true,uC,uM,timers=[];
 
 const vb=v=>v?'<svg class="vb" viewBox="0 0 24 24" aria-label="Đã xác minh"><circle cx="12" cy="12" r="11" fill="#1d9bf0"/><path d="M7 12.5l3.2 3.2L17 9" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':"";
 const hue=s=>[...s].reduce((a,c)=>a+c.charCodeAt(0)*7,0)%360;
 const av=(u,z=40)=>u&&u.avatar&&u.avatar.startsWith("data:image/")?`<img class="av" style="width:${z}px;height:${z}px" src="${esc(u.avatar)}" alt="">`:`<div class="av" style="width:${z}px;height:${z}px;font-size:${z*.45}px;background:hsl(${hue(u?.username||"?")} 55% 40%)">${esc((u?.name||"?")[0].toUpperCase())}</div>`;
-const grp=z=>`<div class="av grp" style="width:${z}px;height:${z}px;font-size:${z*.45}px">👥</div>`;
+const grp=(z,e="👥")=>`<div class="av grp" style="width:${z}px;height:${z}px;font-size:${z*.45}px">${e}</div>`;
 const on=u=>!!u&&Date.now()-(u.lastSeen||0)<45000;
 const hm=d=>d.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});
 const fmt=t=>{const d=new Date(t);return d.toDateString()===new Date().toDateString()?hm(d):d.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"})+" "+hm(d)};
@@ -225,6 +230,14 @@ async function start(u){
     C=s.docs.map(d=>({id:d.id,...d.data()}));
     draw();if(cur){drawHead();renderMsgs();markRead()}
   },e=>toast("Lỗi tải cuộc trò chuyện: "+e.code));
+  onSnapshot(query(collection(db,"community"),orderBy("at","desc"),limit(1)),s=>{
+    const d=s.docs[0]?.data();if(!d)return;
+    Object.assign(COMM,{lastAt:d.at,lastFrom:d.from,lastMsg:d.recalled?"Tin nhắn đã bị thu hồi":d.type==="text"?d.text.slice(0,60):d.type==="image"?"📷 Hình ảnh":"📎 "+(d.name||"")});
+    watchUser(d.from);
+    if(cur==="community"&&!document.hidden)commSeen=d.at;
+    else if(d.from!==me.uid&&d.at>t0&&!seenN["c"+d.at]){seenN["c"+d.at]=1;const w="Cộng đồng Mướp";try{if(Notification.permission==="granted")new Notification(w,{body:COMM.lastMsg})}catch{}toast("🌍 "+(U[d.from]?.name||"")+": "+COMM.lastMsg)}
+    draw();
+  },e=>toast("Lỗi cộng đồng: "+e.code));
 }
 function watchUser(id){
   if(watch[id])return;
@@ -236,10 +249,10 @@ function draw(){
   if(!me||!U[me.uid])return;
   $("#meBtn").innerHTML=av(U[me.uid],40);
   const q=$("#q").value.toLowerCase();
-  const L=C.filter(c=>cname(c).toLowerCase().includes(q)).sort((a,b)=>(!!b.pinned?.[me.uid])-(!!a.pinned?.[me.uid])||b.lastAt-a.lastAt);
+  const L=[COMM,...C.slice().sort((a,b)=>(!!b.pinned?.[me.uid])-(!!a.pinned?.[me.uid])||b.lastAt-a.lastAt)].filter(c=>cname(c).toLowerCase().includes(q));
   $("#list").innerHTML=L.length?L.map(c=>{
-    const o=other(c),un=c.lastFrom&&c.lastFrom!==me.uid&&c.lastAt>(c.readAt?.[me.uid]||0);
-    return `<div class="it ${c.id===cur?"act":""}" data-id="${c.id}"><div class="avw">${c.isGroup?grp(52):av(o,52)}${!c.isGroup&&on(o)?'<i class="dot"></i>':""}</div><div class="mid"><b>${cnameH(c)}</b><small class="${un?"un":""}">${c.lastFrom===me.uid?"Bạn: ":""}${esc(c.lastMsg||"Bắt đầu trò chuyện")}</small></div><div class="rt">${c.pinned?.[me.uid]?"📌":""}${c.muted?.[me.uid]?"🔕":""}${un?'<i class="ub"></i>':""}</div></div>`}).join("")
+    const o=other(c),un=c.lastFrom&&c.lastFrom!==me.uid&&c.lastAt>(c.community?commSeen:(c.readAt?.[me.uid]||0));
+    return `<div class="it ${c.id===cur?"act":""}" data-id="${c.id}"><div class="avw">${c.isGroup?grp(52,c.community?"🌍":"👥"):av(o,52)}${!c.isGroup&&on(o)?'<i class="dot"></i>':""}</div><div class="mid"><b>${cnameH(c)}</b><small class="${un?"un":""}">${c.lastFrom===me.uid?"Bạn: ":c.community&&c.lastFrom?esc(U[c.lastFrom]?.name||"")+": ":""}${esc(c.lastMsg||"Bắt đầu trò chuyện")}</small></div><div class="rt">${c.pinned?.[me.uid]?"📌":""}${c.muted?.[me.uid]?"🔕":""}${un?'<i class="ub"></i>':""}</div></div>`}).join("")
     :`<p class="emp">${q?"Không tìm thấy cuộc trò chuyện":"Chưa có cuộc trò chuyện nào.<br>Nhấn ✏️ để tìm bạn và bắt đầu."}</p>`;
   const ol=Object.values(U).filter(u=>u.id!==me.uid&&on(u));
   $("#onl").hidden=!ol.length;
@@ -257,19 +270,20 @@ function openChat(id){
   cur=id;M=[];mq="";stick=true;$("#ms").value="";$("#sbar").hidden=true;
   $("#empty").hidden=true;$("#chat").hidden=false;$("#app").classList.add("open");
   uM&&uM();
-  uM=onSnapshot(query(collection(db,"chats",id,"messages"),orderBy("at","desc"),limit(200)),s=>{
-    M=s.docs.map(d=>({id:d.id,...d.data()})).reverse();renderMsgs();markRead();
+  if(isC(id))commSeen=Date.now();
+  uM=onSnapshot(query(mcol(id),orderBy("at","desc"),limit(200)),s=>{
+    M=s.docs.map(d=>({id:d.id,...d.data()})).reverse();M.forEach(m=>watchUser(m.from));if(isC(id))commSeen=Date.now();renderMsgs();markRead();
   },e=>toast("Không tải được tin nhắn: "+e.code));
   draw();drawHead();$("#inp").focus();
 }
 function drawHead(){
-  const c=C.find(x=>x.id===cur);if(!c)return;
+  const c=getC(cur);if(!c)return;
   const o=other(c),ty=Object.entries(c.typing||{}).some(([k,v])=>k!==me.uid&&Date.now()-v<4000);
-  $("#hd").innerHTML=`<button id="back" title="Quay lại">←</button>${c.isGroup?grp(40):av(o,40)}<div class="mid"><b>${cnameH(c)}</b><small>${ty?"đang nhập...":c.isGroup?c.members.length+" thành viên":on(o)?"Đang hoạt động":"Ngoại tuyến"}</small></div><button data-h="s" title="Tìm tin nhắn">🔍</button><button data-h="p" title="Ghim">${c.pinned?.[me.uid]?"📌":"📍"}</button><button data-h="m" title="Tắt thông báo">${c.muted?.[me.uid]?"🔕":"🔔"}</button>`;
+  $("#hd").innerHTML=`<button id="back" title="Quay lại">←</button>${c.isGroup?grp(40,c.community?"🌍":"👥"):av(o,40)}<div class="mid"><b>${cnameH(c)}</b><small>${ty?"đang nhập...":c.community?Object.values(U).filter(on).length+" đang online · chat công khai":c.isGroup?c.members.length+" thành viên":on(o)?"Đang hoạt động":"Ngoại tuyến"}</small></div><button data-h="s" title="Tìm tin nhắn">🔍</button>${c.community?"":`<button data-h="p" title="Ghim">${c.pinned?.[me.uid]?"📌":"📍"}</button><button data-h="m" title="Tắt thông báo">${c.muted?.[me.uid]?"🔕":"🔔"}</button>`}`;
 }
 $("#hd").onclick=e=>{
   if(e.target.id==="back"){$("#app").classList.remove("open");cur=null;uM&&uM();$("#chat").hidden=true;$("#empty").hidden=false;draw();return}
-  const h=e.target.dataset.h,c=C.find(x=>x.id===cur);if(!h||!c)return;
+  const h=e.target.dataset.h,c=getC(cur);if(!h||!c)return;
   if(h==="s"){$("#sbar").hidden=!$("#sbar").hidden;if(!$("#sbar").hidden)$("#ms").focus()}
   if(h==="p")updateDoc(doc(db,"chats",cur),{["pinned."+me.uid]:!c.pinned?.[me.uid]});
   if(h==="m")updateDoc(doc(db,"chats",cur),{["muted."+me.uid]:!c.muted?.[me.uid]});
@@ -277,7 +291,7 @@ $("#hd").onclick=e=>{
 $("#ms").oninput=e=>{mq=e.target.value.trim().toLowerCase();renderMsgs()};
 
 function renderMsgs(){
-  const c=C.find(x=>x.id===cur),box=$("#msgs");if(!c)return;
+  const c=getC(cur),box=$("#msgs");if(!c)return;
   const V=M.filter(m=>!(m.hiddenFor||[]).includes(me.uid)&&(!mq||(!m.recalled&&m.type==="text"&&m.text.toLowerCase().includes(mq))));
   const lastOwn=[...V].reverse().find(m=>m.from===me.uid);
   const near=box.scrollHeight-box.scrollTop-box.clientHeight<160;
@@ -290,32 +304,34 @@ function renderMsgs(){
     else if(m.type==="file"&&String(m.data).startsWith("data:")){body=`<a class="fl" href="${esc(m.data)}" download="${esc(m.name)}">📎 ${esc(m.name)}<small>${Math.max(1,Math.round((m.size||0)/1024))} KB · nhấn để tải</small></a>`}
     else body=esc(m.text);
     let st="";
-    if(m===lastOwn&&!m.recalled){
+    if(m===lastOwn&&!m.recalled&&!c.community){
       const seen=Object.entries(c.readAt||{}).some(([k,v])=>k!==me.uid&&v>=m.at);
       st=" · "+(seen?'<b style="color:var(--g)">Đã xem</b>':(!c.isGroup&&(other(c)?.lastSeen||0)>=m.at)?"Đã nhận":"Đã gửi");
     }
-    return `<div class="row ${mine?"me":""}" data-id="${m.id}">${mine?"":`<div class="aw">${last?av(u,28):""}</div>`}<div class="col">${c.isGroup&&!mine&&first?`<small class="nm">${esc(u?.name||"...")}${vb(u?.verified)}</small>`:""}<div class="b ${ic} ${m.recalled?"rc":""}">${body}</div><small class="tm">${fmt(m.at)}${st}</small><div class="ac">${mine&&!m.recalled?'<a data-a="rc">Thu hồi</a>':""}<a data-a="del">Xóa với tôi</a></div></div></div>`;
+    return `<div class="row ${mine?"me":""} ${first?"g1":""} ${last?"gl":""}" data-id="${m.id}">${mine?"":`<div class="aw">${last?av(u,28):""}</div>`}<div class="col">${c.isGroup&&!mine&&first?`<small class="nm">${esc(u?.name||"...")}${vb(u?.verified)}</small>`:""}<div class="b ${ic} ${m.recalled?"rc":""}">${body}</div><small class="tm">${fmt(m.at)}${st}</small><div class="ac">${mine&&!m.recalled?'<a data-a="rc">Thu hồi</a>':""}${U[me.uid]?.verified&&c.community?'<a data-a="rm">Gỡ tin (admin)</a>':""}<a data-a="del">Xóa với tôi</a></div></div></div>`;
   }).join("");
   if(stick||near){box.scrollTop=box.scrollHeight;stick=false}
 }
 $("#msgs").onclick=async e=>{
   if(e.target.classList.contains("pic")){const l=document.createElement("div");l.id="lb";l.innerHTML=`<img src="${esc(e.target.src)}" alt="">`;l.onclick=()=>l.remove();document.body.append(l);return}
   const row=e.target.closest(".row");if(!row)return;
-  const a=e.target.dataset.a,ref=doc(db,"chats",cur,"messages",row.dataset.id);
+  const a=e.target.dataset.a,ref=mref(cur,row.dataset.id);
   if(a==="rc"){if(confirm("Thu hồi tin nhắn này?"))updateDoc(ref,{recalled:true,text:"",data:""}).catch(()=>toast("Không thể thu hồi"))}
+  else if(a==="rm"){if(confirm("Gỡ tin nhắn này khỏi cộng đồng?"))deleteDoc(ref).catch(()=>toast("Không thể gỡ"))}
   else if(a==="del"){updateDoc(ref,{hiddenFor:arrayUnion(me.uid)}).catch(()=>toast("Không thể xóa"))}
   else if(e.target.closest(".b")&&!e.target.closest("a")){row.classList.toggle("sel")}
 };
 function markRead(){
-  const c=C.find(x=>x.id===cur);
-  if(!c||document.hidden||!c.lastAt||(c.readAt?.[me.uid]||0)>=c.lastAt)return;
+  const c=getC(cur);
+  if(!c||c.community||document.hidden||!c.lastAt||(c.readAt?.[me.uid]||0)>=c.lastAt)return;
   updateDoc(doc(db,"chats",cur),{["readAt."+me.uid]:Date.now()}).catch(()=>{});
 }
 
 /* ---------- Composer ---------- */
 async function send(o){
   const t=Date.now();
-  await addDoc(collection(db,"chats",cur,"messages"),{from:me.uid,at:t,recalled:false,hiddenFor:[],...o});
+  await addDoc(mcol(cur),{from:me.uid,at:t,recalled:false,hiddenFor:[],...o});
+  if(isC(cur)){stick=true;return}
   await updateDoc(doc(db,"chats",cur),{lastMsg:o.type==="text"?o.text.slice(0,60):o.type==="image"?"📷 Hình ảnh":"📎 "+o.name,lastAt:t,lastFrom:me.uid,["typing."+me.uid]:0,["readAt."+me.uid]:t});
   stick=true;
 }
@@ -328,7 +344,7 @@ $("#send").onclick=sendText;
 $("#inp").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendText()}};
 $("#inp").oninput=e=>{
   e.target.style.height="40px";e.target.style.height=Math.min(120,e.target.scrollHeight)+"px";
-  if(cur&&Date.now()-lt>2000){lt=Date.now();updateDoc(doc(db,"chats",cur),{["typing."+me.uid]:Date.now()}).catch(()=>{})}
+  if(cur&&!isC(cur)&&Date.now()-lt>2000){lt=Date.now();updateDoc(doc(db,"chats",cur),{["typing."+me.uid]:Date.now()}).catch(()=>{})}
 };
 const EM=Array.from("😀😂😍🥰😎🤔😢😡👍👎🙏👏🎉🔥❤️💚🌿🍀😴🤗😅🙌💪👀✨💯🍕☕🎶🌞🌙⭐🐱🐶");
 $("#emo").innerHTML=EM.map(x=>`<button>${x}</button>`).join("");
@@ -412,5 +428,76 @@ function settings(){
   };
 }
 </script>
+<!--
+=== FIRESTORE RULES (dan vao Firebase Console > Firestore > Regles > Publier) ===
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function me() { return request.auth.uid; }
+    function isMember(c) {
+      return me() in get(/databases/$(db)/documents/chats/$(c)).data.members;
+    }
+
+    // Hồ sơ người dùng: chỉ tài khoản admin@muopchat.app mới có verified = true (tích xanh)
+    // App cu: giu nguyen hanh vi cu, chi ap cho vlp_data
+    match /vlp_data/{document=**} {
+      allow read, write: if request.time < timestamp.date(2026, 11, 5);
+    }
+
+    match /users/{u} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && me() == u
+        && request.resource.data.verified == (request.auth.token.email == 'admin@muopchat.app')
+        && request.resource.data.username is string
+        && request.resource.data.username.size() >= 3
+        && request.resource.data.username.size() <= 20
+        && request.resource.data.name.size() <= 40;
+      allow update: if request.auth != null && me() == u
+        && request.resource.data.verified == resource.data.verified
+        && request.resource.data.username == resource.data.username
+        && request.resource.data.name.size() <= 40;
+    }
+
+    // Chat cộng đồng: ai đăng nhập cũng đọc/gửi được; admin được gỡ tin
+    match /community/{m} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.from == me()
+        && (!('text' in request.resource.data) || request.resource.data.text.size() <= 2000)
+        && (!('data' in request.resource.data) || request.resource.data.data.size() < 950000);
+      allow update: if request.auth != null
+        && request.resource.data.from == resource.data.from
+        && (resource.data.from == me()
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenFor']));
+      allow delete: if request.auth != null && request.auth.token.email == 'admin@muopchat.app';
+    }
+
+    match /chats/{c} {
+      allow read: if request.auth != null && (resource == null || me() in resource.data.members);
+      allow create: if request.auth != null
+        && me() in request.resource.data.members
+        && request.resource.data.members.size() <= 50;
+      allow update: if request.auth != null
+        && me() in resource.data.members
+        && request.resource.data.members == resource.data.members;
+
+      match /messages/{m} {
+        allow read: if request.auth != null && isMember(c);
+        allow create: if request.auth != null && isMember(c)
+          && request.resource.data.from == me()
+          && (!('text' in request.resource.data) || request.resource.data.text.size() <= 2000)
+          && (!('data' in request.resource.data) || request.resource.data.data.size() < 950000);
+        // Người gửi được thu hồi; thành viên khác chỉ được ẩn tin (hiddenFor)
+        allow update: if request.auth != null && isMember(c)
+          && request.resource.data.from == resource.data.from
+          && (resource.data.from == me()
+              || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenFor']));
+      }
+    }
+  }
+}
+
+-->
 </body>
 </html>
